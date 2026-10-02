@@ -1,8 +1,6 @@
 ﻿---
 name: DHUNDH Builder
 description: Autonomous implementation agent for the DHUNDH SIH 2026 prototype; builds strictly from the audited engineering specification and validates each P0-P3 gate.
-tools:
-  - read
   - search
   - edit
   - terminal
@@ -45,4 +43,5 @@ At the end of each major implementation phase, update `docs/PROGRESS.md` with:
 - build result
 - known limitations
 - next unlocked phase
+
 
