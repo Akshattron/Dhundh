@@ -10,6 +10,7 @@ import type {
   ReportRuntime,
   RoleId,
   ScenarioDef,
+  ScoreWeights,
   SimSeconds,
   SimState,
 } from "./types";
@@ -59,9 +60,15 @@ export interface TraineeView {
     primary: boolean;
   }>;
   referenceModel: {
+    hypotheses: Array<{
+      id: string;
+      label: string;
+      prior: number;
+      priorLogOdds: number;
+    }>;
     tauSec: Partial<Record<ChannelId, number>>;
-    llrClamp: number;
-    scoreWeights: ScenarioDef["scoreWeights"];
+    parameters: ScenarioDef["model"];
+    scoreWeights: ScoreWeights;
     limitations: string[];
   };
   channels: Array<{
@@ -156,8 +163,31 @@ export interface ProjectedBelief {
 const limitations = [
   "Hypotheses are binary and evidence groups are treated as conditionally independent.",
   "Reliabilities and utilities are synthetic scenario-authoring assumptions, not empirical measurements or doctrine.",
+  "The flagship is a single-decision exercise; this reference model has no learning-transfer validation.",
   "A single-event calibration metric is noisy; no training-transfer validation is claimed.",
+  "The normative reference baseline is transparent but not universally correct.",
 ];
+
+export type ReferenceModelView = TraineeView["referenceModel"];
+
+export function projectReferenceModel(
+  scenario: ScenarioDef,
+): ReferenceModelView {
+  return {
+    hypotheses: scenario.hypotheses.map(({ id, label, prior }) => ({
+      id,
+      label,
+      prior,
+      priorLogOdds: Math.log(prior / (1 - prior)),
+    })),
+    tauSec: Object.fromEntries(
+      scenario.channels.map((channel) => [channel.id, channel.tauSec]),
+    ),
+    parameters: { ...scenario.model },
+    scoreWeights: { ...scenario.scoreWeights },
+    limitations: [...limitations],
+  };
+}
 
 function grade(rho: number): ProjectedReport["gradeLabel"] {
   return rho >= 0.85 ? "A" : rho >= 0.75 ? "B" : rho >= 0.65 ? "C" : "D";
@@ -486,14 +516,7 @@ export function projectTraineeView(
       prior: hypothesis.prior,
       primary: hypothesis.primary,
     })),
-    referenceModel: {
-      tauSec: Object.fromEntries(
-        scenario.channels.map((channel) => [channel.id, channel.tauSec]),
-      ),
-      llrClamp: scenario.model.llrClamp,
-      scoreWeights: { ...scenario.scoreWeights },
-      limitations,
-    },
+    referenceModel: projectReferenceModel(scenario),
     channels: scenario.channels.map((channel) => ({
       id: channel.id,
       label: channel.label,

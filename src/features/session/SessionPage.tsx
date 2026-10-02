@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
   Activity,
   ArrowRight,
@@ -12,11 +12,16 @@ import {
   ShieldCheck,
   Signal,
 } from "lucide-react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import type { RationaleTag } from "@/engine";
-import type { TraineeView } from "@/engine/view";
-import type { SessionClient } from "@/session/SessionClient";
+import { ContradictionMeter } from "@/features/trainee/ContradictionMeter";
+import { EvidenceWaterfall } from "@/features/trainee/EvidenceWaterfall";
+import { FogMeter } from "@/features/trainee/FogMeter";
+import { ReferenceModelDrawer } from "@/features/trainee/ReferenceModelDrawer";
+import { InstructorControls } from "./InstructorControls";
+import type { ProjectedReport, TraineeView } from "@/engine/view";
+import type { SessionClient, SessionCommand } from "@/session/SessionClient";
 import { useSessionStore } from "@/state/useSessionStore";
 import { formatAge, formatClock, formatPercent } from "@/utils/format";
 import styles from "./SessionPage.module.css";
@@ -44,9 +49,122 @@ function useLiveSession(
   return view;
 }
 
+interface ReportCardProps {
+  report: ProjectedReport;
+  phase: TraineeView["phase"];
+  selected: boolean;
+  expanded: boolean;
+  onOpen: (reportId: string) => void;
+  onToggleDetails: (reportId: string) => void;
+}
+
+const ReportCard = memo(
+  function ReportCard({
+    report,
+    phase,
+    selected,
+    expanded,
+    onOpen,
+    onToggleDetails,
+  }: ReportCardProps) {
+    const ageAtDisplayedMinute = Math.floor(report.ageSec / 60) * 60;
+    return (
+      <article
+        className={`${styles.report} ${report.opened ? styles.opened : ""}`}
+        data-report-id={report.id}
+        data-selected={selected}
+        tabIndex={0}
+        style={{
+          opacity:
+            report.weight === null
+              ? 1
+              : 0.72 + (0.28 * Math.round(report.weight * 100)) / 100,
+        }}
+      >
+        <div className={styles.reportMeta}>
+          <span>{report.channel}</span>
+          <span>{formatAge(ageAtDisplayedMinute)}</span>
+          <span className={styles.grade}>Grade {report.gradeLabel}</span>
+          {report.badges.map((badge) => (
+            <span className={styles.badge} key={badge}>
+              {badge}
+            </span>
+          ))}
+        </div>
+        <p className={styles.claim}>{report.claim}</p>
+        {report.opened && expanded && report.detail && (
+          <p className={styles.detail}>{report.detail}</p>
+        )}
+        {report.opened && expanded && report.effectiveAccuracy !== null && (
+          <div className={styles.reportMath}>
+            Reliability now {formatPercent(report.effectiveAccuracy)} · evidence
+            contribution {report.contributionNats?.toFixed(2) ?? "—"} nats
+            {report.contradicts.length > 0 && (
+              <span> · conflicts with {report.contradicts.join(", ")}</span>
+            )}
+          </div>
+        )}
+        {!report.opened && phase === "RUNNING" && (
+          <Button
+            size="sm"
+            variant="quiet"
+            onClick={() => onOpen(report.id)}
+            data-testid={`open-report-${report.id}`}
+          >
+            <FileText size={14} /> Open report
+          </Button>
+        )}
+        {report.opened && (
+          <div className={styles.openLabel}>
+            <span>
+              <Check size={13} /> Opened
+            </span>
+            <Button
+              size="sm"
+              variant="quiet"
+              onClick={() => onToggleDetails(report.id)}
+            >
+              {expanded ? "Hide details" : "Show details"}
+            </Button>
+          </div>
+        )}
+      </article>
+    );
+  },
+  (previous, next) => {
+    const left = previous.report;
+    const right = next.report;
+    return (
+      left.id === right.id &&
+      left.channel === right.channel &&
+      left.claim === right.claim &&
+      left.detail === right.detail &&
+      left.gradeLabel === right.gradeLabel &&
+      Math.floor(left.ageSec / 60) === Math.floor(right.ageSec / 60) &&
+      left.delaySec === right.delaySec &&
+      left.origin === right.origin &&
+      left.badges.join("|") === right.badges.join("|") &&
+      left.effectiveAccuracy?.toFixed(2) ===
+        right.effectiveAccuracy?.toFixed(2) &&
+      left.contributionNats?.toFixed(2) ===
+        right.contributionNats?.toFixed(2) &&
+      (left.weight === null ? null : left.weight.toFixed(2)) ===
+        (right.weight === null ? null : right.weight.toFixed(2)) &&
+      left.contradicts.join("|") === right.contradicts.join("|") &&
+      left.opened === right.opened &&
+      previous.phase === next.phase &&
+      previous.selected === next.selected &&
+      previous.expanded === next.expanded &&
+      previous.onOpen === next.onOpen &&
+      previous.onToggleDetails === next.onToggleDetails
+    );
+  },
+);
+
 export default function SessionPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const client = useSessionStore((store) => store.client);
   const initial = useSessionStore((store) => store.view);
   const setClientView = useSessionStore((store) => store.setView);
@@ -62,10 +180,224 @@ export default function SessionPage() {
   const [mobileSection, setMobileSection] = useState<
     "evidence" | "situation" | "decision"
   >("evidence");
+  const [instructorOpen, setInstructorOpen] = useState(false);
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+  const [instructorTruthVisible, setInstructorTruthVisible] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [selectedReportIndex, setSelectedReportIndex] = useState(0);
+  const [expandedReportIds, setExpandedReportIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [presetCooldowns, setPresetCooldowns] = useState<
+    Record<string, number>
+  >({});
+  const presetCooldownsRef = useRef<Record<string, number>>({});
+  const controlsAvailable =
+    new URLSearchParams(location.search).get("controls") === "1";
 
   useEffect(() => {
     if (view) setClientView(view);
   }, [setClientView, view]);
+
+  const dispatch = useCallback(
+    (command: SessionCommand) => {
+      if (!client) return;
+      client.dispatch(command);
+      setClientView(client.getSnapshot());
+    },
+    [client, setClientView],
+  );
+  const openReport = useCallback(
+    (reportId: string) => {
+      dispatch({ type: "OPEN_REPORT", reportId });
+      setExpandedReportIds((previous) => new Set(previous).add(reportId));
+    },
+    [dispatch],
+  );
+  const toggleReportDetails = useCallback((reportId: string) => {
+    setExpandedReportIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(reportId)) next.delete(reportId);
+      else next.add(reportId);
+      return next;
+    });
+  }, []);
+  const injectPreset = useCallback(
+    (presetId: string) => {
+      const now = Date.now();
+      if ((presetCooldownsRef.current[presetId] ?? 0) > now) return;
+      const until = now + 3000;
+      presetCooldownsRef.current[presetId] = until;
+      setPresetCooldowns((previous) => ({ ...previous, [presetId]: until }));
+      window.setTimeout(() => {
+        if (presetCooldownsRef.current[presetId] !== until) return;
+        const next = { ...presetCooldownsRef.current };
+        delete next[presetId];
+        presetCooldownsRef.current = next;
+        setPresetCooldowns(next);
+      }, 3000);
+      dispatch({ type: "INJECT", presetId });
+      setInstructorOpen(true);
+    },
+    [dispatch],
+  );
+  const resetExercise = useCallback(() => {
+    if (
+      window.confirm("Reset this exercise and clear the accepted-intent log?")
+    ) {
+      dispatch({ type: "RESET" });
+      setShowDecision(false);
+      setEstimateDrafts({});
+      setRationale("");
+      setCitations([]);
+      setTags([]);
+      setExpandedReportIds(new Set());
+      presetCooldownsRef.current = {};
+      setPresetCooldowns({});
+    }
+  }, [dispatch]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      const typing =
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+      const interactive =
+        target instanceof HTMLElement &&
+        target.closest("button, a, summary, [role='button'], [role='tab']");
+      if (event.key === "Escape") {
+        if (showShortcuts) setShowShortcuts(false);
+        else if (showDecision) setShowDecision(false);
+        else if (instructorOpen) setInstructorOpen(false);
+        return;
+      }
+      if (
+        typing ||
+        (interactive && event.key !== "?") ||
+        showDecision ||
+        showShortcuts ||
+        !view
+      ) {
+        return;
+      }
+      const key = event.key.toLowerCase();
+      if (key === "?") {
+        event.preventDefault();
+        setShowShortcuts(true);
+      } else if (key === "i" && controlsAvailable) {
+        event.preventDefault();
+        setInstructorOpen((open) => !open);
+      } else if (key === "m" && controlsAvailable) {
+        event.preventDefault();
+        setDiagnosticsOpen((open) => !open);
+        setInstructorOpen(true);
+      } else if (key === "t" && controlsAvailable) {
+        event.preventDefault();
+        setInstructorTruthVisible((visible) => !visible);
+        setDiagnosticsOpen(true);
+        setInstructorOpen(true);
+      } else if (key === "r") {
+        event.preventDefault();
+        resetExercise();
+      } else if (key === " " && view.phase === "RUNNING") {
+        event.preventDefault();
+        dispatch({ type: "PAUSE" });
+      } else if (key === " " && view.phase === "PAUSED") {
+        event.preventDefault();
+        dispatch({ type: "RESUME" });
+      } else if (controlsAvailable && /^[1-5]$/.test(event.key)) {
+        const preset =
+          client?.getInstructorDiagnostics().presets[Number(event.key) - 1];
+        if (preset) {
+          event.preventDefault();
+          injectPreset(preset.id);
+        }
+      } else if (key === "j" || key === "k") {
+        const direction = key === "j" ? 1 : -1;
+        setReportChannel("ALL");
+        setSelectedReportIndex((index) => {
+          const count = view.reports.length;
+          if (count === 0) return 0;
+          return (index + direction + count) % count;
+        });
+      } else if (key === "enter" && view.reports.length > 0) {
+        const report =
+          view.reports[Math.min(selectedReportIndex, view.reports.length - 1)];
+        if (report && !report.opened && view.phase === "RUNNING") {
+          event.preventDefault();
+          openReport(report.id);
+        } else if (report?.opened) {
+          event.preventDefault();
+          toggleReportDetails(report.id);
+        }
+      } else if (key === "e") {
+        event.preventDefault();
+        document
+          .querySelector<HTMLInputElement>(
+            'input[aria-label$="estimate percentage"]',
+          )
+          ?.focus();
+      } else if (key === "l") {
+        const hypothesisId = view.decisionPoint?.requiredEstimates[0];
+        const raw = hypothesisId ? estimateDrafts[hypothesisId] : undefined;
+        const value = raw === undefined ? NaN : Number(raw);
+        if (
+          hypothesisId &&
+          Number.isFinite(value) &&
+          value >= 0 &&
+          value <= 100
+        ) {
+          event.preventDefault();
+          dispatch({
+            type: "SET_ESTIMATE",
+            hypothesisId,
+            p: value / 100,
+          });
+        }
+      } else if (key === "v") {
+        const asset = view.decisionPoint?.assets.find(
+          (candidate) => candidate.feasible,
+        );
+        if (asset) {
+          event.preventDefault();
+          dispatch({ type: "VERIFY", assetId: asset.id });
+        }
+      } else if (
+        key === "d" &&
+        view.phase === "RUNNING" &&
+        view.decisionPoint?.status === "OPEN"
+      ) {
+        event.preventDefault();
+        setShowDecision(true);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [
+    client,
+    controlsAvailable,
+    dispatch,
+    estimateDrafts,
+    injectPreset,
+    openReport,
+    instructorOpen,
+    resetExercise,
+    selectedReportIndex,
+    showDecision,
+    showShortcuts,
+    toggleReportDetails,
+    view,
+  ]);
+  const selectedReportId = view?.reports[selectedReportIndex]?.id;
+  useEffect(() => {
+    if (!selectedReportId) return;
+    const report = [
+      ...document.querySelectorAll<HTMLElement>("[data-report-id]"),
+    ].find((element) => element.dataset.reportId === selectedReportId);
+    report?.scrollIntoView?.({ block: "nearest" });
+  }, [selectedReportId]);
 
   if (!client || !view || view.scenario.id !== id) {
     return (
@@ -83,10 +415,6 @@ export default function SessionPage() {
     );
   }
 
-  const dispatch = (command: Parameters<SessionClient["dispatch"]>[0]) => {
-    client.dispatch(command);
-    setClientView(client.getSnapshot());
-  };
   const dp = view.decisionPoint;
   const filteredReports =
     reportChannel === "ALL"
@@ -129,6 +457,41 @@ export default function SessionPage() {
     citedReportIds: citations,
     tags,
   });
+  const reportById = new Map(view.reports.map((report) => [report.id, report]));
+  const waterfallHypotheses = view.belief
+    ? view.hypotheses.flatMap((hypothesis) => {
+        const belief = view.belief?.perHypothesis[hypothesis.id];
+        const modelHypothesis = view.referenceModel.hypotheses.find(
+          (item) => item.id === hypothesis.id,
+        );
+        if (!belief || !modelHypothesis) return [];
+        return [
+          {
+            id: hypothesis.id,
+            label: hypothesis.label,
+            priorLogOdds: modelHypothesis.priorLogOdds,
+            currentLogOdds: belief.logOdds,
+            contributions: belief.contributions.flatMap((contribution) => {
+              const report = reportById.get(contribution.reportId);
+              if (!report) return [];
+              return [
+                {
+                  reportId: contribution.reportId,
+                  group: contribution.group,
+                  channel: contribution.channel,
+                  claim: report.claim,
+                  gradeLabel: report.gradeLabel,
+                  ageSec: contribution.ageSec,
+                  effectiveAccuracy: contribution.effectiveAccuracy,
+                  llr: contribution.llr,
+                  inspected: view.inspections.includes(contribution.reportId),
+                },
+              ];
+            }),
+          },
+        ];
+      })
+    : [];
 
   return (
     <div className={styles.console} data-mobile-section={mobileSection}>
@@ -138,6 +501,21 @@ export default function SessionPage() {
           <h1>{view.scenario.title}</h1>
         </div>
         <div className={styles.status}>
+          <ReferenceModelDrawer model={view.referenceModel} />
+          {controlsAvailable && (
+            <InstructorControls
+              client={client}
+              open={instructorOpen}
+              onOpenChange={setInstructorOpen}
+              dispatch={dispatch}
+              diagnosticsOpen={diagnosticsOpen}
+              onDiagnosticsOpenChange={setDiagnosticsOpen}
+              truthVisible={instructorTruthVisible}
+              onTruthVisibleChange={setInstructorTruthVisible}
+              cooldowns={presetCooldowns}
+              onInject={injectPreset}
+            />
+          )}
           <span
             className={`${styles.phase} ${styles[view.phase.toLowerCase()]}`}
           >
@@ -294,57 +672,15 @@ export default function SessionPage() {
               </div>
             ) : (
               filteredReports.map((report) => (
-                <article
-                  className={`${styles.report} ${report.opened ? styles.opened : ""}`}
+                <ReportCard
                   key={report.id}
-                >
-                  <div className={styles.reportMeta}>
-                    <span>{report.channel}</span>
-                    <span>{formatAge(report.ageSec)}</span>
-                    <span className={styles.grade}>
-                      Grade {report.gradeLabel}
-                    </span>
-                    {report.badges.map((badge) => (
-                      <span className={styles.badge} key={badge}>
-                        {badge}
-                      </span>
-                    ))}
-                  </div>
-                  <p className={styles.claim}>{report.claim}</p>
-                  {report.detail && (
-                    <p className={styles.detail}>{report.detail}</p>
-                  )}
-                  {report.opened && report.effectiveAccuracy !== null && (
-                    <div className={styles.reportMath}>
-                      Reliability now {formatPercent(report.effectiveAccuracy)}{" "}
-                      · evidence contribution{" "}
-                      {report.contributionNats?.toFixed(2) ?? "—"} nats
-                      {report.contradicts.length > 0 && (
-                        <span>
-                          {" "}
-                          · conflicts with {report.contradicts.join(", ")}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  {!report.opened && view.phase === "RUNNING" && (
-                    <Button
-                      size="sm"
-                      variant="quiet"
-                      onClick={() =>
-                        dispatch({ type: "OPEN_REPORT", reportId: report.id })
-                      }
-                      data-testid={`open-report-${report.id}`}
-                    >
-                      <FileText size={14} /> Open report
-                    </Button>
-                  )}
-                  {report.opened && (
-                    <span className={styles.openLabel}>
-                      <Check size={13} /> Opened
-                    </span>
-                  )}
-                </article>
+                  report={report}
+                  phase={view.phase}
+                  selected={view.reports[selectedReportIndex]?.id === report.id}
+                  expanded={expandedReportIds.has(report.id)}
+                  onOpen={openReport}
+                  onToggleDetails={toggleReportDetails}
+                />
               ))
             )}
           </div>
@@ -361,11 +697,7 @@ export default function SessionPage() {
                 <p className={styles.kicker}>Current belief</p>
                 <h2>Assessment</h2>
               </div>
-              {view.belief && (
-                <span className={styles.fog}>
-                  Fog {view.belief.fogIndex.toFixed(2)}
-                </span>
-              )}
+              {view.belief && <FogMeter value={view.belief.fogIndex} />}
             </div>
             {view.beliefHidden ? (
               <div className={styles.hiddenBelief}>
@@ -407,6 +739,29 @@ export default function SessionPage() {
                 Belief model is unavailable.
               </div>
             )}
+            {!view.beliefHidden &&
+              view.belief &&
+              view.hypotheses.length > 1 &&
+              view.hypotheses.slice(0, 2).map((hypothesis) => {
+                const assessment = view.belief?.perHypothesis[hypothesis.id];
+                if (!assessment) return null;
+                return (
+                  <ContradictionMeter
+                    key={`contradiction-${hypothesis.id}`}
+                    hypothesis={hypothesis.label}
+                    positiveNats={assessment.positiveNats}
+                    negativeNats={assessment.negativeNats}
+                    index={assessment.contradictionIndex}
+                    threshold={
+                      view.referenceModel.parameters.contradictionThreshold
+                    }
+                    minimumNats={
+                      view.referenceModel.parameters.contradictionMinNats
+                    }
+                    contradicted={assessment.contradicted}
+                  />
+                );
+              })}
             {dp?.status === "OPEN" && dp.requiredEstimates.length > 0 && (
               <div className={styles.estimateBox}>
                 <h3>Record your estimate</h3>
@@ -474,8 +829,9 @@ export default function SessionPage() {
             <details className={styles.method}>
               <summary>Reference model and limitations</summary>
               <p>
-                Evidence ages by its authored channel decay rate; independent
-                evidence groups are combined deterministically.
+                Evidence ages from its issue time using the channel decay
+                constant. The complete formula and assumptions are available in
+                the Reference model drawer.
               </p>
               <ul>
                 {view.referenceModel.limitations.map((limitation) => (
@@ -507,48 +863,12 @@ export default function SessionPage() {
                 available.
               </p>
             ) : (
-              <div className={styles.waterfall}>
-                {view.hypotheses.map((hypothesis) => {
-                  const item = view.belief?.perHypothesis[hypothesis.id];
-                  if (!item) return null;
-                  return (
-                    <div
-                      className={styles.waterfallHypothesis}
-                      key={hypothesis.id}
-                    >
-                      <strong>{hypothesis.label}</strong>
-                      {item.contributions.map((contribution) => (
-                        <div
-                          className={styles.contribution}
-                          key={contribution.reportId}
-                        >
-                          <span>
-                            {contribution.channel} · {contribution.reportId}
-                          </span>
-                          <span className={styles.contributionTrack}>
-                            <span
-                              className={
-                                contribution.llr !== null &&
-                                contribution.llr < 0
-                                  ? styles.negative
-                                  : ""
-                              }
-                              style={{
-                                width: `${Math.min(100, Math.abs(contribution.llr ?? 0) * 24)}%`,
-                              }}
-                            />
-                          </span>
-                          <span>
-                            {contribution.llr === null
-                              ? "Aid hidden"
-                              : `${contribution.llr >= 0 ? "+" : ""}${contribution.llr.toFixed(2)} nats`}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })}
-              </div>
+              <EvidenceWaterfall
+                hypotheses={waterfallHypotheses}
+                onOpen={(reportId) =>
+                  dispatch({ type: "OPEN_REPORT", reportId })
+                }
+              />
             )}
           </section>
 
@@ -603,7 +923,8 @@ export default function SessionPage() {
                         <strong>{asset.label}</strong>
                         <span>
                           {formatClock(asset.delaySec)} delay ·{" "}
-                          {asset.costUnits} cost · {asset.usesLeft} uses
+                          {asset.costUnits} cost · Grade {asset.gradeLabel}{" "}
+                          source · {asset.usesLeft} uses
                         </span>
                       </div>
                       <Button
@@ -728,6 +1049,53 @@ export default function SessionPage() {
               {view.reports.every((report) => !report.opened) && (
                 <p className={styles.muted}>Open reports first to cite them.</p>
               )}
+              {showShortcuts && (
+                <div
+                  className={styles.modalBackdrop}
+                  role="presentation"
+                  onMouseDown={(event) => {
+                    if (event.target === event.currentTarget)
+                      setShowShortcuts(false);
+                  }}
+                >
+                  <section
+                    className={styles.dialog}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="shortcuts-title"
+                  >
+                    <div className={styles.panelHeader}>
+                      <div>
+                        <p className={styles.kicker}>Keyboard help</p>
+                        <h2 id="shortcuts-title">Shortcuts</h2>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="quiet"
+                        onClick={() => setShowShortcuts(false)}
+                      >
+                        Close
+                      </Button>
+                    </div>
+                    <ul className={styles.shortcuts}>
+                      <li>J / K — next / previous report</li>
+                      <li>Enter — open the selected report</li>
+                      <li>E — focus estimate; L — log estimate</li>
+                      <li>V — request the first feasible verification</li>
+                      <li>D — open decision; Space — pause / resume</li>
+                      <li>R — reset with confirmation; Esc — close dialog</li>
+                      {controlsAvailable && (
+                        <>
+                          <li>I — open / close instructor drawer</li>
+                          <li>1–5 — inject scenario preset by index</li>
+                          <li>M — toggle diagnostics; T — toggle truth</li>
+                        </>
+                      )}
+                      <li>? — show / hide this help</li>
+                    </ul>
+                  </section>
+                </div>
+              )}
             </fieldset>
             <fieldset className={styles.fieldset}>
               <legend>Reasoning tags</legend>
@@ -776,25 +1144,15 @@ export default function SessionPage() {
       )}
       <footer className={styles.consoleFooter}>
         <span>
-          Only information delivered by the decision timestamp is available to
-          the trainee.
+          SYNTHETIC SCENARIO — fictional entities. Reliabilities and payoffs are
+          authoring assumptions, not doctrine. Only delivered information is
+          available to the trainee.
         </span>
         <Button
           size="sm"
           variant="quiet"
           onClick={() => {
-            if (
-              window.confirm(
-                "Reset this exercise and clear the accepted-intent log?",
-              )
-            ) {
-              dispatch({ type: "RESET" });
-              setShowDecision(false);
-              setEstimateDrafts({});
-              setRationale("");
-              setCitations([]);
-              setTags([]);
-            }
+            resetExercise();
           }}
         >
           <RotateCcw size={13} /> Reset exercise

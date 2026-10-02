@@ -2,10 +2,14 @@ import { buildAar } from "../engine/aar";
 import {
   advanceTo,
   applyIntent,
+  computeBelief,
   createSession,
+  evaluateDecision,
+  netVoi,
   projectTraineeView,
   scenarioHash,
 } from "../engine";
+import { readEvent } from "../engine/events";
 import type {
   EngineErrorCode,
   Intent,
@@ -15,7 +19,11 @@ import type {
   SimState,
 } from "../engine";
 import type { TraineeView } from "../engine/view";
-import type { SessionClient, SessionCommand } from "./SessionClient";
+import type {
+  InstructorDiagnostics,
+  SessionClient,
+  SessionCommand,
+} from "./SessionClient";
 
 export interface LocalSessionOptions {
   seed: number;
@@ -37,6 +45,8 @@ function makeIntent(command: SessionCommand, t: number): Intent {
       return { ...command, t, role: "SOLO" };
     case "VERIFY":
       return { ...command, t, role: "SOLO" };
+    case "INJECT":
+      return { ...command, t, role: "INSTRUCTOR" };
     case "DECIDE":
       return { ...command, t, role: "SOLO" };
   }
@@ -131,6 +141,115 @@ export class LocalSessionClient implements SessionClient {
           header: { ...aar.header, completedAtIso: this.completedAtIso },
         }
       : aar;
+  }
+
+  getInstructorDiagnostics(showTruth = false): InstructorDiagnostics {
+    const dp =
+      this.scenario.decisionPoints[this.state.currentDecisionPointIndex];
+    const visibleChannels = this.scenario.channels
+      .filter((channel) => channel.visibleTo.includes("SOLO"))
+      .map((channel) => channel.id);
+    const belief = computeBelief(this.scenario, this.state, this.state.nowSec, {
+      visibleChannels,
+    });
+    const evaluation =
+      dp && dp.actions.length > 0
+        ? evaluateDecision(
+            dp,
+            belief,
+            this.state.nowSec,
+            this.scenario.hypotheses,
+            dp.timeoutActionId,
+            this.scenario.model,
+          )
+        : null;
+    const assets = dp
+      ? dp.assets.map((assetId) => {
+          const asset = this.scenario.assets.find(
+            (candidate) => candidate.id === assetId,
+          );
+          if (!asset) throw new Error(`Unknown verification asset ${assetId}`);
+          const used = this.state.verifications.filter(
+            (record) =>
+              record.assetId === assetId && record.decisionPointId === dp.id,
+          ).length;
+          const feasible =
+            this.state.phase === "RUNNING" &&
+            this.state.nowSec >= dp.openSec &&
+            this.state.nowSec < dp.closeSec &&
+            used < asset.capacity &&
+            this.state.nowSec + asset.delaySec < dp.closeSec;
+          const value = feasible
+            ? netVoi(
+                dp,
+                belief,
+                this.state.nowSec,
+                asset,
+                this.scenario.hypotheses,
+              )
+            : null;
+          return {
+            id: asset.id,
+            label: asset.label,
+            feasible,
+            evsi: value?.evsi ?? null,
+            net: value?.net ?? null,
+          };
+        })
+      : [];
+    const events: InstructorDiagnostics["events"] =
+      this.state.eventTimeline.map((internal) => {
+        const event = readEvent(internal);
+        let summary = event.kind.replaceAll("_", " ").toLowerCase();
+        if (event.kind === "REPORT_ISSUE" || event.kind === "REPORT_DELIVER") {
+          summary = `${event.kind === "REPORT_ISSUE" ? "Issued" : "Delivered"} report ${event.reportId}`;
+        } else if (
+          event.kind === "CHANNEL_DEGRADE" ||
+          event.kind === "CHANNEL_RESTORE" ||
+          event.kind === "CHANNEL_FORCE_RESTORE"
+        ) {
+          summary = `${event.channel} ${event.kind.replace("CHANNEL_", "").replaceAll("_", " ").toLowerCase()}`;
+        } else if (event.kind === "TRUTH_CHANGE") {
+          summary = `Truth changed for ${event.hypothesisId}`;
+        }
+        return { atSec: event.atSec, kind: event.kind, summary };
+      });
+    for (const intent of this.log.intents) {
+      if (intent.type !== "INJECT") continue;
+      const preset = this.scenario.injectPresets.find(
+        (candidate) => candidate.id === intent.presetId,
+      );
+      events.push({
+        atSec: intent.t,
+        kind: "INJECT",
+        summary: preset
+          ? `Instructor injected ${preset.label}`
+          : `Unknown preset ${intent.presetId}`,
+      });
+    }
+    return {
+      phase: this.state.phase,
+      nowSec: this.state.nowSec,
+      presets: this.scenario.injectPresets.map((preset) =>
+        structuredClone(preset),
+      ),
+      channels: this.scenario.channels.map((channel) => ({
+        id: channel.id,
+        health: this.state.channels[channel.id].health,
+        mode: this.state.channels[channel.id].mode,
+      })),
+      decision: evaluation
+        ? {
+            expectedUtilities: evaluation.eu,
+            bestActionId: evaluation.bestActionId,
+            isTie: evaluation.isTie,
+            evpi: evaluation.evpi,
+          }
+        : null,
+      assets,
+      events: events.sort((left, right) => left.atSec - right.atSec),
+      ...(showTruth ? { truth: { ...this.state.truth } } : {}),
+    };
   }
 
   dispose(): void {

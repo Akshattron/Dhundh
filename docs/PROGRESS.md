@@ -2,8 +2,8 @@
 
 ## Current Gate
 
-Gate 2 - P0 trainee experience: **GREEN**, implemented and verified in this
-worktree. Gate 1 and Gate 0 remain **GREEN**.
+Gate 3 - P1 signature intelligence: **GREEN**, implemented and verified in this
+worktree. Gate 2, Gate 1, and Gate 0 remain **GREEN**.
 
 Gate 1 - Engine foundation: **GREEN**, started and verified locally on 2026-10-02.
 Gate 0 remains **GREEN**.
@@ -264,6 +264,49 @@ lazy-loaded into separate chunks.
 ## Next Exact Action
 
 Proceed with Gate 3 P1 only; preserve Gate 2 acceptance and numerical anchors.
+
+## Gate 3 Completed — P1 Signature Intelligence
+
+- Added decision-time evidence-waterfall analysis with signed LLR contributions,
+  evidence-group selection, report inspection affordances, contradiction rails,
+  and entropy-based Fog Index presentation. The accessible reference-model
+  drawer documents the formulas, parameters, assumptions, and limitations.
+- Extended factual AAR/replay with a distinct pre-commit decision cut, ordered
+  capped frames, Knew/Truth/Never Saw tabs, report what-if beliefs for dropped
+  and late information, verification beliefs at evaluation, and deterministic
+  counterfactual branches. Counterfactual displays carry the required
+  “COUNTERFACTUAL — simulated, not what happened” disclosure.
+- Added deterministic counterfactual branches for alternative actions,
+  earliest worthwhile verification, earlier decision, and combined no-loss
+  information. Branches replay isolated intent copies and leave the recorded
+  session unchanged.
+- Added query-gated local instructor controls with authored inject presets,
+  cooldown enforcement, replayable instructor intents, pause/resume/reset,
+  keyboard shortcuts, isolated diagnostics and explicit truth visibility.
+  Networked inject actions remain unimplemented.
+- Preserved the authored scenario and Gate 2 numerical anchors. The flagship
+  remains hash **`1f7af0fb`**. Added memoized report cards, keyboard/ARIA support,
+  dialog focus trapping/restoration, and reduced-motion CSS handling. No
+  dependencies were added.
+
+### Gate 3 Validation
+
+| Command / check | Actual result |
+| --- | --- |
+| `npm run validate:scenarios` | Exit 0; flagship validated with hash `1f7af0fb` |
+| `npm test` | Exit 0; 22 files, 207 tests passed |
+| `npm run test:golden` | Exit 0; 18 flagship golden tests passed |
+| `npm run typecheck` | Exit 0; strict `tsc --noEmit` |
+| `npm run build` | Exit 0; production build transformed 2,055 modules |
+| `npm run e2e` | Exit 0; Chromium flagship journey, AAR, and reset passed |
+| Targeted Prettier check | Exit 0; changed source and test files |
+| Local performance sample | 50 iterations: `advanceTo` max 2.08 ms, full replay max 5.88 ms, AAR build max 56.63 ms |
+
+Performance figures are local Node `v24.21.0` observations, not cross-device
+guarantees. The remaining limitations are deliberately out of Gate 3 scope:
+networked sessions, team scoring, multiplayer, and P2/P3 features remain
+unimplemented. Counterfactual policy branches are simulations, not claims about
+what would certainly have happened.
 
 ## Gate 0 Evidence (Historical)
 

@@ -117,10 +117,50 @@ describe("P0 score dependencies", () => {
       verification("d", 1320, 1740),
     ];
     const assessments = new Map([
-      ["a", { assetId: "UAV_SORTIE", atSec: 1320, evsi: 1, net: 1, evpi: 2 }],
-      ["b", { assetId: "UAV_SORTIE", atSec: 1440, evsi: 1, net: 1, evpi: 2 }],
-      ["c", { assetId: "UAV_SORTIE", atSec: 1320, evsi: 1, net: 1, evpi: 2 }],
-      ["d", { assetId: "UAV_SORTIE", atSec: 1320, evsi: 1, net: -1, evpi: 2 }],
+      [
+        "a",
+        {
+          assetId: "UAV_SORTIE",
+          atSec: 1320,
+          evsi: 1,
+          net: 1,
+          evpi: 2,
+          belief: {},
+        },
+      ],
+      [
+        "b",
+        {
+          assetId: "UAV_SORTIE",
+          atSec: 1440,
+          evsi: 1,
+          net: 1,
+          evpi: 2,
+          belief: {},
+        },
+      ],
+      [
+        "c",
+        {
+          assetId: "UAV_SORTIE",
+          atSec: 1320,
+          evsi: 1,
+          net: 1,
+          evpi: 2,
+          belief: {},
+        },
+      ],
+      [
+        "d",
+        {
+          assetId: "UAV_SORTIE",
+          atSec: 1320,
+          evsi: 1,
+          net: -1,
+          evpi: 2,
+          belief: {},
+        },
+      ],
     ]);
 
     expect(effectiveLatencySeconds(decision, dp, records, assessments)).toBe(
@@ -169,6 +209,7 @@ describe("P0 score dependencies", () => {
           evsi: 3,
           net: 1,
           evpi: 2,
+          belief: {},
         },
       ],
       [
@@ -179,6 +220,7 @@ describe("P0 score dependencies", () => {
           evsi: 4,
           net: 1,
           evpi: 2,
+          belief: {},
         },
       ],
     ]);
@@ -198,7 +240,7 @@ describe("P0 score dependencies", () => {
       candidateAssessments: new Map(
         dp.assets.map((assetId) => [
           assetId,
-          { assetId, atSec: 1439, evsi: 0, net: 1, evpi: 0 },
+          { assetId, atSec: 1439, evsi: 0, net: 1, evpi: 0, belief: {} },
         ]),
       ),
     });
@@ -240,6 +282,7 @@ describe("P0 score dependencies", () => {
             evsi: 1,
             net: -1,
             evpi: 2,
+            belief: {},
           },
         ],
       ]),

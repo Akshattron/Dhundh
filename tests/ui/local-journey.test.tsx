@@ -122,7 +122,72 @@ describe("local trainee journey", () => {
     expect(
       screen.getByText("Truth at decision · revealed after completion"),
     ).toBeTruthy();
-    expect(screen.getByTestId("aar-scrubber")).toBeTruthy();
+    const scrubber = screen.getByTestId("aar-scrubber") as HTMLInputElement;
+    expect(scrubber).toBeTruthy();
     expect(screen.getByText("88.5")).toBeTruthy();
+    expect(
+      screen.getByRole("heading", {
+        name: "Was additional information worth its cost?",
+      }),
+    ).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Knew" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Play replay at 4x" }),
+    ).toBeTruthy();
+    expect(
+      screen.getAllByText("COUNTERFACTUAL — simulated, not what happened")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Coach notes" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "End" }));
+    expect(screen.getByText("1 decision")).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "Truth" }));
+    expect(screen.getByText(/Post-mortem truth at/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "Never saw" }));
+    expect(screen.getByText(/Information not available by/)).toBeTruthy();
+  }, 15000);
+
+  it("keeps local instructor injects segregated and reproduces their effect", () => {
+    const scenario = scenarios[0];
+    const client = createLocalSession(scenario, {
+      seed: 0,
+      difficultyLevel: scenario.meta.difficulty,
+      aidMode: "ALWAYS",
+      speedSecPerMin: 4,
+    });
+    client.dispatch({ type: "START" });
+    client.advanceToSeconds(600);
+    useSessionStore.getState().setClient(client, client.getSnapshot());
+
+    renderJourney(`/session/local/${scenario.meta.id}?controls=1`);
+    expect(
+      screen.queryByText("Diagnostics — not visible to trainees"),
+    ).toBeNull();
+    fireEvent.keyDown(window, { key: "1" });
+    fireEvent.keyDown(window, { key: "1" });
+    expect(client.getInstructorDiagnostics().channels).toContainEqual({
+      id: "LAND",
+      health: "DEGRADED",
+      mode: "DELAY",
+    });
+    expect(
+      screen.queryByText("Diagnostics — not visible to trainees"),
+    ).toBeNull();
+    expect(screen.getByText("Control drawer")).toBeTruthy();
+    fireEvent.keyDown(window, { key: "m" });
+    expect(
+      screen.getByText("Diagnostics — not visible to trainees"),
+    ).toBeTruthy();
+    fireEvent.keyDown(window, { key: "t" });
+    expect(screen.getByText(/north_pass: (false|true)/)).toBeTruthy();
+    expect(client.getLog().intents.at(-1)).toMatchObject({
+      type: "INJECT",
+      presetId: "JAM_LAND",
+      role: "INSTRUCTOR",
+      t: 600,
+    });
+    expect(
+      client.getLog().intents.filter((intent) => intent.type === "INJECT"),
+    ).toHaveLength(1);
   });
 });

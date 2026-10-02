@@ -1,0 +1,190 @@
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-button);
+  color: var(--text-default);
+  background: var(--surface-1);
+  cursor: pointer;
+  font-size: var(--font-small);
+}
+
+.drawer {
+  position: fixed;
+  z-index: 30;
+  inset: 0 0 0 auto;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  gap: 14px;
+  width: min(460px, 100%);
+  overflow: auto;
+  padding: 20px;
+  border-left: 1px solid var(--border-strong);
+  color: var(--text-default);
+  background: var(--surface-0);
+  box-shadow: var(--shadow-elevated);
+}
+
+.drawer header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.drawer header p {
+  margin: 0;
+  color: var(--accent-amber);
+  font-size: var(--font-label);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.drawer h2,
+.drawer h3,
+.drawer h4 {
+  margin: 4px 0 8px;
+}
+
+.drawer > header > button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-button);
+  color: var(--text-default);
+  background: var(--surface-1);
+  cursor: pointer;
+}
+
+.disclosure,
+.warning {
+  margin: 0;
+  padding: 10px;
+  border-left: 2px solid var(--accent-amber);
+  color: var(--text-default);
+  background: var(--surface-1);
+  font-size: var(--font-small);
+  line-height: 1.5;
+}
+
+.sessionActions,
+.presets {
+  display: grid;
+  gap: 7px;
+}
+
+.sessionActions {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.sessionActions button,
+.presets button,
+.diagnostics button {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-button);
+  color: var(--text-default);
+  background: var(--surface-1);
+  cursor: pointer;
+}
+
+.sessionActions button {
+  min-height: 36px;
+}
+
+.presets button {
+  display: grid;
+  gap: 4px;
+  padding: 9px;
+  text-align: left;
+}
+
+.presets button strong {
+  color: var(--text-strong);
+}
+
+.presets button span {
+  color: var(--text-muted);
+  font-size: var(--font-label);
+}
+
+.sessionActions button:hover,
+.presets button:hover:not(:disabled),
+.diagnostics button:hover {
+  border-color: var(--accent-cyan);
+}
+
+.presets button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.diagnostics {
+  padding: 11px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-1);
+}
+
+.diagnostics > header {
+  align-items: center;
+}
+
+.diagnostics button {
+  padding: 6px 9px;
+  font-size: var(--font-label);
+}
+
+.diagnostics ul,
+.eventLog {
+  padding-left: 20px;
+  color: var(--text-muted);
+  font-size: var(--font-small);
+  line-height: 1.5;
+}
+
+.diagnostics > div > p {
+  color: var(--text-muted);
+  font-size: var(--font-small);
+}
+
+.warning {
+  border-color: var(--accent-red, #e77b7b);
+  color: var(--accent-red, #e77b7b);
+  font-weight: 700;
+}
+
+.truthToggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-default);
+  font-size: var(--font-small);
+}
+
+.eventLog {
+  max-height: 190px;
+  overflow-y: auto;
+}
+
+.clock {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-small);
+}
+
+@media (max-width: 520px) {
+  .sessionActions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer {
+    animation: none;
+    transition: none;
+  }
+}

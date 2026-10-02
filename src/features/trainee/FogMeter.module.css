@@ -1,0 +1,41 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.root svg {
+  width: 38px;
+  height: 38px;
+  transform: rotate(-90deg);
+}
+
+.track,
+.value {
+  fill: none;
+  stroke-width: 4;
+}
+
+.track {
+  stroke: var(--bg-3);
+}
+
+.value {
+  stroke: var(--accent-amber);
+  stroke-linecap: round;
+}
+
+.root span {
+  display: grid;
+  gap: 2px;
+}
+
+.root strong {
+  color: var(--text-default);
+  font-size: var(--font-small);
+}
+
+.root small {
+  color: var(--text-muted);
+  font-size: var(--font-label);
+}

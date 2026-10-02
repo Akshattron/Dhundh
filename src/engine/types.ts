@@ -334,6 +334,7 @@ export interface InternalEvent {
     | "TRUTH_CHANGE"
     | "CHANNEL_DEGRADE"
     | "CHANNEL_RESTORE"
+    | "CHANNEL_FORCE_RESTORE"
     | "REPORT_ISSUE"
     | "REPORT_DELIVER"
     | "DECISION_OPEN"

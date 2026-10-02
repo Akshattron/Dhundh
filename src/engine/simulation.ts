@@ -353,6 +353,26 @@ function processEvent(
         ],
       };
     }
+    case "CHANNEL_FORCE_RESTORE": {
+      const channel = restoreChannel(
+        state.channels[event.channel],
+        event.atSec,
+        true,
+      );
+      return {
+        state: {
+          ...state,
+          channels: { ...state.channels, [event.channel]: channel },
+        },
+        effects: [
+          {
+            kind: "CHANNEL_CHANGED",
+            channel: event.channel,
+            atSec: event.atSec,
+          },
+        ],
+      };
+    }
     case "REPORT_ISSUE": {
       const report = Object.hasOwn(state.reports, event.reportId)
         ? state.reports[event.reportId]
@@ -586,6 +606,12 @@ export function applyIntent(
       forbidden,
       "Role is not permitted to perform this intent",
     );
+  if (
+    request.type === "INJECT" &&
+    !scenario.injectPresets.some((preset) => preset.id === request.presetId)
+  ) {
+    return failure(state, "UNKNOWN_PRESET", "Inject preset is not available");
+  }
   const timeError = invalidTime(state, request.t);
   if (timeError) return failure(state, "INVALID_TIME", timeError);
   if (state.phase === "PAUSED" && request.t !== state.nowSec) {
@@ -622,17 +648,116 @@ export function applyIntent(
       effects,
     );
   if (request.type === "INJECT") {
-    const known = scenario.injectPresets.some(
-      (preset) => preset.id === request.presetId,
+    if (current.mode !== "LOCAL") {
+      return failure(
+        current,
+        "INVALID_INTENT",
+        "Instructor injects are available only in local sessions",
+        effects,
+      );
+    }
+    const preset = scenario.injectPresets.find(
+      (item) => item.id === request.presetId,
     );
-    return failure(
-      current,
-      known ? "INVALID_INTENT" : "UNKNOWN_PRESET",
-      known
-        ? "Live instructor injects are deferred beyond Gate 1"
-        : "Inject preset is not available",
-      effects,
-    );
+    if (!preset)
+      return failure(
+        current,
+        "UNKNOWN_PRESET",
+        "Inject preset is not available",
+        effects,
+      );
+    if (
+      current.phase !== "RUNNING" &&
+      current.phase !== "CONSEQUENCE" &&
+      current.phase !== "PAUSED"
+    ) {
+      return failure(
+        current,
+        "NOT_RUNNING",
+        "Exercise is not running",
+        effects,
+      );
+    }
+    let injected = structuredClone(current);
+    if (preset.effect.kind === "DEGRADE") {
+      const untilSec = current.nowSec + preset.effect.durationSec;
+      const degrade: EngineEvent = {
+        kind: "CHANNEL_DEGRADE",
+        atSec: current.nowSec,
+        channel: preset.effect.channel,
+        mode: preset.effect.mode,
+        untilSec,
+        note: preset.description,
+        ...(preset.effect.extraDelaySec !== undefined
+          ? { extraDelaySec: preset.effect.extraDelaySec }
+          : {}),
+        ...(preset.effect.healthMultiplier !== undefined
+          ? { healthMultiplier: preset.effect.healthMultiplier }
+          : {}),
+      };
+      injected = scheduleEvent(injected, degrade);
+      injected = scheduleEvent(injected, {
+        kind: "CHANNEL_RESTORE",
+        atSec: untilSec,
+        channel: preset.effect.channel,
+      });
+    } else if (preset.effect.kind === "RESTORE_ALL") {
+      for (const channel of ["LAND", "AIR", "CYBER", "EW"] as const) {
+        injected = scheduleEvent(injected, {
+          kind: "CHANNEL_FORCE_RESTORE",
+          atSec: current.nowSec,
+          channel,
+        });
+      }
+    } else {
+      let ordinal = current.injectedCounter + 1;
+      let reportId = `INJ${ordinal}`;
+      while (Object.hasOwn(injected.reports, reportId)) {
+        ordinal += 1;
+        reportId = `INJ${ordinal}`;
+      }
+      const report: ReportRuntime = {
+        def: {
+          id: reportId,
+          channel: preset.effect.channel,
+          hypothesisId: preset.effect.hypothesisId,
+          stance: preset.effect.stance,
+          claim: preset.effect.claim,
+          detail: preset.effect.detail,
+          rho: preset.effect.rho,
+          evidenceGroup: `GINJ${ordinal}`,
+          issuedAtSec: current.nowSec,
+        },
+        status: "SCHEDULED",
+        deliveredAtSec: null,
+        droppedReason: null,
+        origin: "INJECT",
+        sequence: injected.nextSequence,
+        healthAtIssue: 1,
+      };
+      injected.reports[reportId] = report;
+      injected.nextSequence += 1;
+      injected.injectedCounter = ordinal;
+      injected = scheduleEvent(injected, {
+        kind: "REPORT_ISSUE",
+        atSec: current.nowSec,
+        reportId,
+      });
+    }
+    const runningForDrain =
+      injected.phase === "PAUSED"
+        ? { ...injected, phase: "RUNNING" as const }
+        : injected;
+    const drained = advanceTo(runningForDrain, scenario, current.nowSec);
+    const finalState =
+      current.phase === "PAUSED"
+        ? {
+            ...drained.state,
+            phase: "PAUSED" as const,
+            pausedAtSec: current.nowSec,
+          }
+        : drained.state;
+    return success(finalState, [...effects, ...drained.effects]);
   }
   if (request.type === "RELAY" || request.type === "ADVISE") {
     return failure(

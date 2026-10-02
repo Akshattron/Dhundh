@@ -63,8 +63,10 @@ describe("FLAGSHIP_DEMO Gate 1 chronology", () => {
           south_ford: true,
         });
         expect(aar.truth).toEqual(aar.decision.truthAtDecision);
-        expect(aar.counterfactuals).toEqual([]);
-        expect(aar.limitations).toContain(
+        expect(
+          aar.counterfactuals.some((item) => item.id === "CF_ACTIONS"),
+        ).toBe(true);
+        expect(aar.limitations).not.toContain(
           "P0: counterfactual and what-if delivery analysis not implemented.",
         );
       },
@@ -182,8 +184,10 @@ describe("FLAGSHIP_DEMO Gate 1 chronology", () => {
           (entry) => entry.kind === "COMPLETE" && entry.atSec === 2219,
         ),
       ).toBe(true);
-      expect(aar.counterfactuals).toEqual([]);
-      expect(aar.limitations).toContain(
+      expect(aar.counterfactuals.some((item) => item.id === "CF_ACTIONS")).toBe(
+        true,
+      );
+      expect(aar.limitations).not.toContain(
         "P0: counterfactual and what-if delivery analysis not implemented.",
       );
     });

@@ -1,11 +1,54 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { applyIntent, createSession, replayLog } from "../../src/engine";
+import { buildFrames } from "../../src/engine/replay";
 import type { Intent } from "../../src/engine";
 import { pathIntents } from "../golden/flagship.expected";
 import { config, flagship, freeze, logFor, started } from "./fixtures";
 
 describe("causal replay", () => {
+  it("builds an ordered capped replay with a separate decision-time cut", () => {
+    const log = logFor(pathIntents.B);
+    const frames = buildFrames(flagship, log);
+    expect(frames.length).toBeLessThanOrEqual(80);
+    expect(frames).toEqual(
+      [...frames].sort((left, right) => {
+        const timeOrder = left.atSec - right.atSec;
+        if (timeOrder !== 0) return timeOrder;
+        if (left.cut === right.cut) return 0;
+        return left.cut === "DECISION" ? -1 : 1;
+      }),
+    );
+    const decision = frames.find((frame) => frame.cut === "DECISION");
+    const committed = frames.find(
+      (frame) => frame.cut === "STATE" && frame.atSec === decision?.atSec,
+    );
+    expect(decision?.trainee.decided).toBe(false);
+    expect(committed?.trainee.decided).toBe(true);
+    expect(decision?.belief).not.toBeNull();
+    expect(JSON.stringify(log)).toBe(JSON.stringify(logFor(pathIntents.B)));
+  });
+
+  it("keeps the decision and terminal frame when sampling dense event times", () => {
+    const start = pathIntents.B[0];
+    if (!start || start.type !== "START") throw new Error("Path B must start");
+    const injects: Intent[] = Array.from({ length: 100 }, (_, index) => ({
+      type: "INJECT",
+      t: index + 1,
+      role: "INSTRUCTOR",
+      presetId: "RESTORE_ALL",
+    }));
+    const base = pathIntents.B.slice(1) as Intent[];
+    const frames = buildFrames(flagship, logFor([start, ...injects, ...base]));
+    expect(frames).toHaveLength(80);
+    expect(frames.some((frame) => frame.cut === "DECISION")).toBe(true);
+    expect(
+      frames.some(
+        (frame) => frame.cut === "STATE" && frame.phase === "COMPLETE",
+      ),
+    ).toBe(true);
+  });
+
   it("uses an explicit horizon beyond the last intent, not the last intent time", () => {
     const state = replayLog(flagship, logFor(pathIntents.E), { upToSec: 1320 });
     expect(state).toMatchObject({ nowSec: 1320, phase: "RUNNING" });

@@ -1,0 +1,87 @@
+.root {
+  display: grid;
+  gap: 16px;
+}
+
+.hypothesis {
+  min-width: 0;
+}
+
+.hypothesis h3 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--font-small);
+}
+
+.anchorText,
+.summary {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-label);
+  line-height: 1.45;
+}
+
+.chart {
+  display: block;
+  width: 100%;
+  min-height: 72px;
+  overflow: visible;
+}
+
+.anchor {
+  stroke: var(--border-strong);
+  stroke-dasharray: 3 3;
+  stroke-width: 1.5;
+}
+
+.anchorLabel {
+  fill: var(--text-faint);
+  font-size: 9px;
+}
+
+.row {
+  cursor: default;
+}
+
+.unopened {
+  cursor: pointer;
+}
+
+.row:focus {
+  outline: none;
+}
+
+.row:focus rect {
+  stroke: var(--accent-cyan);
+  stroke-width: 2;
+}
+
+.bar {
+  fill: var(--accent-green);
+}
+
+.negative .bar {
+  fill: var(--accent-violet);
+}
+
+.unknown {
+  fill: url("#unopened-pattern");
+  stroke: var(--border-strong);
+  stroke-dasharray: 2 2;
+}
+
+.reportId {
+  fill: var(--text-strong);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.group {
+  fill: var(--text-faint);
+  font-size: 9px;
+}
+
+.value {
+  fill: var(--text-default);
+  font-size: 10px;
+}

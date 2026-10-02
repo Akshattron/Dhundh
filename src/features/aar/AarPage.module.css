@@ -582,6 +582,113 @@
   accent-color: var(--accent-cyan);
 }
 
+.replayControls,
+.replayTabs {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin: 10px 0;
+}
+
+.replayTabs button {
+  padding: 7px 11px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-button);
+  color: var(--text-muted);
+  background: var(--surface-1);
+  cursor: pointer;
+}
+
+.replayTabs button[aria-selected="true"] {
+  border-color: var(--accent-cyan);
+  color: var(--text-strong);
+}
+
+.replayView {
+  padding: 13px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-1);
+}
+
+.replayView h3,
+.verificationBelief h3 {
+  margin: 0 0 8px;
+}
+
+.replayView p,
+.replayView li {
+  color: var(--text-muted);
+  font-size: var(--font-small);
+  line-height: 1.5;
+}
+
+.verificationBelief {
+  grid-column: 1 / -1;
+  padding-top: 9px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.verificationBelief > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.verificationBelief span {
+  color: var(--text-muted);
+}
+
+.counterfactual {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-1);
+}
+
+.counterfactualSection {
+  break-before: page;
+}
+
+.counterfactual h3 {
+  margin: 3px 0 9px;
+}
+
+.counterfactualDisclosure {
+  margin: 0;
+  color: var(--accent-amber);
+  font-size: var(--font-label);
+  font-weight: 700;
+  letter-spacing: 0.035em;
+}
+
+.counterfactualRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.counterfactualRow > span {
+  color: var(--text-muted);
+  font-size: var(--font-small);
+}
+
+.counterfactualRow p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--text-default);
+}
+
+.counterfactual > p:not(.counterfactualDisclosure) {
+  color: var(--text-default);
+  line-height: 1.5;
+}
+
 .frameSummary {
   display: flex;
   flex-wrap: wrap;
@@ -752,6 +859,10 @@
   .exports > strong {
     flex-basis: 100%;
   }
+
+  .counterfactualRow {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media print {
@@ -765,7 +876,18 @@
   }
 
   .timelineSection,
-  .preP1 {
+  .counterfactualSection {
     break-before: page;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page *,
+  .page *::before,
+  .page *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

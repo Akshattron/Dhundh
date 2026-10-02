@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowDownToLine,
   ArrowLeft,
@@ -6,16 +6,20 @@ import {
   Clock3,
   FileText,
   Info,
+  Pause,
+  Play,
   Printer,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import type { Aar } from "@/engine/aar";
+import { COUNTERFACTUAL_LABEL } from "@/engine/counterfactual";
 import {
   exportAarDecisionsCsv,
   exportAarJson,
   exportAarTimelineCsv,
 } from "@/engine/export";
+import { EvidenceWaterfall } from "@/features/trainee/EvidenceWaterfall";
 import type { SessionClient } from "@/session/SessionClient";
 import { useSessionStore } from "@/state/useSessionStore";
 import { formatClock, formatPercent } from "@/utils/format";
@@ -64,6 +68,25 @@ export default function AarPage() {
   const view = storedView ?? client?.getSnapshot() ?? null;
   const aar = client && view?.aarReady ? client.getAar() : null;
   const [frameIndex, setFrameIndex] = useState(0);
+  const [replayTab, setReplayTab] = useState<"KNEW" | "TRUTH" | "NEVER_SAW">(
+    "KNEW",
+  );
+  const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    if (!playing) return;
+    const timer = window.setInterval(() => {
+      setFrameIndex((index) => {
+        const last = Math.max(0, (aar?.frames.length ?? 1) - 1);
+        return Math.min(last, index + 1);
+      });
+    }, 250);
+    return () => window.clearInterval(timer);
+  }, [aar?.frames.length, playing]);
+  useEffect(() => {
+    if (aar && playing && frameIndex >= aar.frames.length - 1)
+      setPlaying(false);
+  }, [aar, frameIndex, playing]);
 
   if (!client || !view || view.scenario.id !== id || !aar) {
     return (
@@ -82,11 +105,62 @@ export default function AarPage() {
   }
 
   const frame = aar.frames[Math.min(frameIndex, aar.frames.length - 1)];
+  if (!frame) throw new Error("Completed AAR has no replay frames");
   const decisionFrame = aar.frames.find(
     (candidate) =>
-      candidate.atSec === aar.decision.atSec && candidate.belief !== null,
+      candidate.atSec === aar.decision.atSec && candidate.cut === "DECISION",
   );
   const selectedAction = aar.decision.actionLabel;
+  const allKnownReports = new Map<
+    string,
+    {
+      id: string;
+      claim: string;
+      issuedAtSec: number;
+      deliveredAtSec: number | null;
+    }
+  >();
+  for (const report of aar.information.delivered) {
+    allKnownReports.set(report.id, {
+      id: report.id,
+      claim: report.claim,
+      issuedAtSec: report.issuedAtSec,
+      deliveredAtSec: report.deliveredAtSec,
+    });
+  }
+  for (const report of aar.information.lateOrAfterDecision) {
+    allKnownReports.set(report.reportId, {
+      id: report.reportId,
+      claim: report.claim,
+      issuedAtSec: report.issuedAtSec,
+      deliveredAtSec: report.deliveredAtSec,
+    });
+  }
+  for (const report of aar.information.dropped) {
+    allKnownReports.set(report.reportId, {
+      id: report.reportId,
+      claim: report.claim,
+      issuedAtSec: report.issuedAtSec,
+      deliveredAtSec: null,
+    });
+  }
+  const neverSaw = [
+    ...[...allKnownReports.values()].filter(
+      (report) => !frame.deliveredIds.includes(report.id),
+    ),
+    ...aar.information.delivered
+      .filter(
+        (report) =>
+          frame.deliveredIds.includes(report.id) &&
+          !frame.openedIds.includes(report.id),
+      )
+      .map((report) => ({
+        id: report.id,
+        claim: report.claim,
+        issuedAtSec: report.issuedAtSec,
+        deliveredAtSec: report.deliveredAtSec,
+      })),
+  ];
 
   return (
     <article className={styles.page}>
@@ -243,6 +317,20 @@ export default function AarPage() {
               <strong>{aar.decision.regret.toFixed(2)}</strong>
             </div>
             <div>
+              <span>Maximum regret range</span>
+              <strong>{aar.decision.maxRegret.toFixed(2)}</strong>
+            </div>
+            <div>
+              <span>Reference posture</span>
+              <strong>{aar.decision.posture.replaceAll("_", " ")}</strong>
+            </div>
+            <div>
+              <span>Leading-action tie</span>
+              <strong>
+                {aar.decision.isTie ? "Within tie threshold" : "No tie"}
+              </strong>
+            </div>
+            <div>
               <span title="The most that perfect information would have been worth at that moment.">
                 EVPI ceiling
               </span>
@@ -365,8 +453,10 @@ export default function AarPage() {
                 <div key={report.reportId}>
                   <strong>{report.reportId}</strong>
                   <span>
-                    {report.claim} · delivered{" "}
-                    {formatClock(report.deliveredAtSec)}
+                    {report.claim} ·{" "}
+                    {report.deliveredAtSec === null
+                      ? "not delivered during this run"
+                      : `delivered ${formatClock(report.deliveredAtSec)}`}
                   </span>
                 </div>
               ))
@@ -396,6 +486,64 @@ export default function AarPage() {
         </div>
         {frame && (
           <>
+            <div className={styles.replayControls}>
+              <Button
+                size="sm"
+                variant="quiet"
+                aria-label="Previous replay frame"
+                onClick={() => {
+                  setPlaying(false);
+                  setFrameIndex((index) => Math.max(0, index - 1));
+                }}
+              >
+                ←
+              </Button>
+              <Button
+                size="sm"
+                variant="quiet"
+                aria-label={playing ? "Pause replay" : "Play replay at 4x"}
+                onClick={() => {
+                  if (frameIndex >= aar.frames.length - 1) setFrameIndex(0);
+                  setPlaying((current) => !current);
+                }}
+              >
+                {playing ? <Pause size={14} /> : <Play size={14} />}
+                {playing ? "Pause" : "Play 4×"}
+              </Button>
+              <Button
+                size="sm"
+                variant="quiet"
+                aria-label="Next replay frame"
+                onClick={() => {
+                  setPlaying(false);
+                  setFrameIndex((index) =>
+                    Math.min(aar.frames.length - 1, index + 1),
+                  );
+                }}
+              >
+                →
+              </Button>
+              <Button
+                size="sm"
+                variant="quiet"
+                onClick={() => {
+                  setPlaying(false);
+                  setFrameIndex(0);
+                }}
+              >
+                Home
+              </Button>
+              <Button
+                size="sm"
+                variant="quiet"
+                onClick={() => {
+                  setPlaying(false);
+                  setFrameIndex(aar.frames.length - 1);
+                }}
+              >
+                End
+              </Button>
+            </div>
             <div className={styles.scrubber}>
               <label htmlFor="aar-scrubber">Simulation time</label>
               <input
@@ -404,12 +552,119 @@ export default function AarPage() {
                 min={0}
                 max={Math.max(0, aar.frames.length - 1)}
                 value={frameIndex}
-                onChange={(event) => setFrameIndex(Number(event.target.value))}
+                onChange={(event) => {
+                  setPlaying(false);
+                  setFrameIndex(Number(event.target.value));
+                }}
                 data-testid="aar-scrubber"
               />
               <strong>
-                {formatClock(frame.atSec)} · {frame.phase}
+                {formatClock(frame.atSec)} ·{" "}
+                {frame.cut === "DECISION"
+                  ? "At decision, before commitment"
+                  : frame.phase}
               </strong>
+            </div>
+            <div
+              className={styles.replayTabs}
+              role="tablist"
+              aria-label="Replay information view"
+            >
+              {(
+                [
+                  ["KNEW", "Knew"],
+                  ["TRUTH", "Truth"],
+                  ["NEVER_SAW", "Never saw"],
+                ] as const
+              ).map(([tab, label]) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={replayTab === tab}
+                  onClick={() => setReplayTab(tab)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className={styles.replayView} role="tabpanel">
+              {replayTab === "KNEW" && (
+                <>
+                  <h3>Available by {formatClock(frame.atSec)}</h3>
+                  <p>
+                    Knew uses only information delivered by this frame.{" "}
+                    {frame.deliveredIds.length} delivered ·{" "}
+                    {frame.openedIds.length} opened · {frame.droppedIds.length}{" "}
+                    dropped.
+                  </p>
+                  {frame.belief ? (
+                    <div className={styles.facts}>
+                      {Object.entries(frame.belief.perHypothesis).map(
+                        ([hypothesisId, belief]) => (
+                          <div key={hypothesisId}>
+                            <span>{hypothesisId.replaceAll("_", " ")}</span>
+                            <strong>{formatPercent(belief.p, 1)}</strong>
+                          </div>
+                        ),
+                      )}
+                    </div>
+                  ) : (
+                    <p className={styles.muted}>
+                      Reference aid not available at this frame.
+                    </p>
+                  )}
+                  {frame.deliveredIds.length > 0 && (
+                    <p>Delivered: {frame.deliveredIds.join(", ")}</p>
+                  )}
+                </>
+              )}
+              {replayTab === "TRUTH" && (
+                <>
+                  <h3>Post-mortem truth at {formatClock(frame.atSec)}</h3>
+                  <p>
+                    Truth is shown only in this authorized post-completion view.
+                  </p>
+                  <div className={styles.facts}>
+                    {Object.entries(frame.truth).map(
+                      ([hypothesisId, truth]) => (
+                        <div key={hypothesisId}>
+                          <span>{hypothesisId.replaceAll("_", " ")}</span>
+                          <strong>{truth ? "True" : "False"}</strong>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                </>
+              )}
+              {replayTab === "NEVER_SAW" && (
+                <>
+                  <h3>
+                    Information not available by {formatClock(frame.atSec)}
+                  </h3>
+                  <p>
+                    Dropped, delayed, or delivered-but-unopened information at
+                    this frame.
+                  </p>
+                  {neverSaw.length === 0 ? (
+                    <p className={styles.muted}>
+                      No unseen information identified at this frame.
+                    </p>
+                  ) : (
+                    <ul>
+                      {neverSaw.map((report) => (
+                        <li key={report.id}>
+                          <strong>{report.id}</strong> · {report.claim} · issued{" "}
+                          {formatClock(report.issuedAtSec)}
+                          {report.deliveredAtSec === null
+                            ? " · not delivered"
+                            : ` · arrived ${formatClock(report.deliveredAtSec)}`}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              )}
             </div>
             <div className={styles.frameSummary}>
               <span>{frame.deliveredIds.length} delivered reports</span>
@@ -452,7 +707,7 @@ export default function AarPage() {
             </div>
             <div>
               <span>Asset</span>
-              <strong>{aar.verification.assetId}</strong>
+              <strong>{aar.verification.assetId ?? "No feasible asset"}</strong>
             </div>
             <div>
               <span>Evaluated</span>
@@ -488,6 +743,19 @@ export default function AarPage() {
                   </strong>
                 </div>
               )}
+            {aar.verification.beliefAtEval && (
+              <div className={styles.verificationBelief}>
+                <h3>Belief at evaluation</h3>
+                {Object.entries(aar.verification.beliefAtEval).map(
+                  ([hypothesisId, probability]) => (
+                    <div key={hypothesisId}>
+                      <span>{hypothesisId.replaceAll("_", " ")}</span>
+                      <strong>{formatPercent(probability, 1)}</strong>
+                    </div>
+                  ),
+                )}
+              </div>
+            )}
           </div>
         ) : (
           <p className={styles.muted}>
@@ -502,36 +770,170 @@ export default function AarPage() {
         <p className={styles.muted}>
           Contributions below use only reports delivered by the decision cut.
         </p>
-        <div className={styles.waterfall}>
-          {aar.information.delivered.map((report) => (
-            <div key={report.id}>
-              <span className={styles.waterfallBar}>
-                <span
-                  className={
-                    report.contributionNats !== null &&
-                    report.contributionNats < 0
-                      ? styles.negative
-                      : ""
-                  }
-                  style={{
-                    width: `${Math.min(100, Math.abs(report.contributionNats ?? 0) * 24)}%`,
-                  }}
-                />
-              </span>
-              <strong>
-                {report.id} · {report.channel}
-              </strong>
-              <span>
-                {report.contributionNats === null
-                  ? "No belief contribution"
-                  : `${report.contributionNats >= 0 ? "+" : ""}${report.contributionNats.toFixed(2)} nats`}
-                {report.opened ? " · opened" : " · not opened"}
-              </span>
-            </div>
+        <EvidenceWaterfall hypotheses={aar.information.waterfall} />
+        <div className={styles.reportGroups}>
+          <h3>Dropped report what-if</h3>
+          {aar.information.dropped.length === 0 ? (
+            <p className={styles.muted}>No reports were dropped.</p>
+          ) : (
+            aar.information.dropped.map((report) => (
+              <p key={`whatif-${report.reportId}`}>
+                <strong>{report.reportId}</strong> · {report.claim} ·{" "}
+                {report.whatIfBeliefAtDecision
+                  ? `simulated belief at decision: ${Object.entries(
+                      report.whatIfBeliefAtDecision,
+                    )
+                      .map(
+                        ([hypothesis, probability]) =>
+                          `${hypothesis} ${formatPercent(probability, 1)}`,
+                      )
+                      .join(", ")}`
+                  : "issued after the decision cut"}
+              </p>
+            ))
+          )}
+          <h3>Late report what-if</h3>
+          {aar.information.lateOrAfterDecision.map((report) => (
+            <p key={`late-${report.reportId}`}>
+              <strong>{report.reportId}</strong> ·{" "}
+              {report.deliveredAtSec === null
+                ? "not delivered during this run"
+                : `delivered ${formatClock(report.deliveredAtSec)}`}
+              ; on-time simulated belief:{" "}
+              {report.whatIfBeliefAtDecision
+                ? Object.entries(report.whatIfBeliefAtDecision)
+                    .map(
+                      ([hypothesis, probability]) =>
+                        `${hypothesis} ${formatPercent(probability, 1)}`,
+                    )
+                    .join(", ")
+                : "not available at the decision cut"}
+            </p>
           ))}
+          <h3>Contradictions at commitment</h3>
+          {aar.information.contradictions.length === 0 ? (
+            <p className={styles.muted}>
+              No hypothesis met the contradiction threshold.
+            </p>
+          ) : (
+            aar.information.contradictions.map((item) => (
+              <p key={`${item.hypothesisId}-${item.atSec}`}>
+                <strong>{item.hypothesisId.replaceAll("_", " ")}</strong> ·
+                index {item.index.toFixed(2)} · supports true{" "}
+                {item.positiveReportIds.join(", ") || "none"} · supports false{" "}
+                {item.negativeReportIds.join(", ") || "none"}
+              </p>
+            ))
+          )}
+          <p className={styles.muted}>
+            What-if beliefs are independent simulations using reports at their
+            issue time; they do not alter the recorded session or establish what
+            would certainly have happened.
+          </p>
         </div>
       </section>
 
+      <section className={`${styles.panel} ${styles.counterfactualSection}`}>
+        <p className={styles.kicker}>Simulated alternatives</p>
+        <h2>Counterfactuals</h2>
+        {aar.counterfactuals.map((counterfactual) => (
+          <article className={styles.counterfactual} key={counterfactual.id}>
+            <p className={styles.counterfactualDisclosure}>
+              {COUNTERFACTUAL_LABEL}
+            </p>
+            <h3>
+              {counterfactual.id === "CF_ACTIONS"
+                ? "If you had chosen differently"
+                : counterfactual.id === "CF_VERIFY_EARLIER"
+                  ? "If you had verified earlier"
+                  : counterfactual.id === "CF_DECIDE_EARLIER"
+                    ? "If you had decided earlier"
+                    : "If nothing had been lost"}
+            </h3>
+            {counterfactual.id === "CF_ACTIONS" &&
+              counterfactual.alternatives.map((alternative) => (
+                <div
+                  className={styles.counterfactualRow}
+                  key={alternative.actionId}
+                >
+                  <strong>{alternative.actionId}</strong>
+                  <span>
+                    Expected utility {alternative.expectedUtility.toFixed(2)}
+                  </span>
+                  <span>
+                    Realized utility {alternative.realizedUtility.toFixed(2)}
+                  </span>
+                  <p>{alternative.consequenceHeadline}</p>
+                </div>
+              ))}
+            {counterfactual.id === "CF_VERIFY_EARLIER" && (
+              <>
+                <p>
+                  {counterfactual.assetId} requested{" "}
+                  {formatClock(counterfactual.requestedAtSec)}; result available{" "}
+                  {formatClock(counterfactual.resultAtSec)}. The simulated
+                  branch chose {counterfactual.result.decision.actionLabel} with
+                  realized utility{" "}
+                  {counterfactual.result.scores.realizedUtility.toFixed(2)} (
+                  {counterfactual.result.scores.quadrant.replaceAll("_", " ")}).
+                </p>
+                <p>
+                  This branch inserts a model-estimate policy assumption; it is
+                  not presented as a trainee statement.
+                </p>
+              </>
+            )}
+            {counterfactual.id === "CF_DECIDE_EARLIER" && (
+              <p>
+                At {formatClock(counterfactual.atSec)}, the simulated policy
+                selected {counterfactual.result.decision.actionLabel}; realized
+                utility{" "}
+                {counterfactual.result.scores.realizedUtility.toFixed(2)}.
+              </p>
+            )}
+            {counterfactual.id === "CF_NO_LOSS" && (
+              <>
+                <p>
+                  Best action under the combined no-loss belief:{" "}
+                  <strong>{counterfactual.bestActionId}</strong>
+                  {counterfactual.choiceChanged
+                    ? " — differs from the recorded choice."
+                    : " — the recorded choice remains best."}{" "}
+                  EVPI {counterfactual.evpi.toFixed(2)}.
+                </p>
+                <div className={styles.facts}>
+                  {Object.entries(counterfactual.belief).map(
+                    ([hypothesisId, probability]) => (
+                      <div key={hypothesisId}>
+                        <span>{hypothesisId.replaceAll("_", " ")}</span>
+                        <strong>{formatPercent(probability, 1)}</strong>
+                      </div>
+                    ),
+                  )}
+                </div>
+              </>
+            )}
+            {counterfactual.policyAssumptions.length > 0 && (
+              <p className={styles.muted}>
+                {counterfactual.policyAssumptions
+                  .map(
+                    (assumption) =>
+                      `${assumption.label}: ${assumption.hypothesisId} ${formatPercent(assumption.p, 1)}`,
+                  )
+                  .join("; ")}
+              </p>
+            )}
+          </article>
+        ))}
+        <p className={styles.muted}>
+          Team analysis remains a later-phase placeholder; no network or team
+          scoring is implemented here.
+        </p>
+      </section>
+      <p className={styles.limitations}>
+        SYNTHETIC SCENARIO — fictional entities. Reliabilities and payoffs are
+        authoring assumptions, not doctrine.
+      </p>
       <section className={styles.coach}>
         <p className={styles.kicker}>After-action observations</p>
         <h2>Coach notes</h2>
@@ -542,25 +944,11 @@ export default function AarPage() {
           >
             <strong>{note.severity}</strong>
             <p>{note.text}</p>
-            {note.evidence.length > 0 && (
-              <small>Evidence: {note.evidence.join(", ")}</small>
-            )}
+            <small>Evidence: {note.evidence.join(", ")}</small>
           </article>
         ))}
         <p className={styles.limitations}>
           {aar.dataProvenance}. {aar.limitations.join(" ")}
-        </p>
-      </section>
-      <section className={styles.preP1}>
-        <p className={styles.kicker}>Analysis boundary</p>
-        <h2>What-if analysis</h2>
-        <p>
-          Counterfactual delivery analysis is not implemented in P0. No claim is
-          made about how a dropped or late report would have changed the
-          decision.
-        </p>
-        <p className={styles.muted}>
-          Team analysis is not applicable to this single-trainee local exercise.
         </p>
       </section>
       <section className={styles.exports} aria-label="AAR export controls">
