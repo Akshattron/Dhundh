@@ -1,0 +1,418 @@
+{
+  "meta": {
+    "id": "kestrel-relief-corridor",
+    "version": 1,
+    "title": "Relief Corridor KESTREL",
+    "subtitle": "Choose a route while the picture dissolves",
+    "synthetic": true,
+    "difficulty": 3,
+    "durationMin": 36,
+    "summary": "A relief convoy must pick the north pass or the south ford while interference delays, drops, and contradicts the reports that describe both routes.",
+    "briefing": [
+      "Convoy KESTREL-1 is staged at Camp Alder with time-critical relief supplies for Distribution Point Marigold. A weather window closes at 30:00 scenario time.",
+      "Two routes exist. The north route through Veer Pass is short and pays off most, but a blocked pass would strand the convoy. The south route through Tamsa Ford is longer and pays off less, but is usually passable.",
+      "Four information sources feed you: land patrols, aerial survey, sensor telemetry, and spectrum monitoring. Expect delays, gaps, and contradictions.",
+      "You may task one verification asset per route. Verification takes time and costs resources. Waiting also costs: every minute after 12:00 reduces the value of moving at all.",
+      "This is a synthetic training scenario. Entities, reliabilities, and payoffs are authoring assumptions and do not represent any real operation or doctrine."
+    ],
+    "tags": ["land", "air", "cyber", "ew", "route-choice"]
+  },
+  "hypotheses": [
+    {
+      "id": "north_pass",
+      "label": "Veer Pass (north route) is passable",
+      "trueLabel": "Passable",
+      "falseLabel": "Blocked",
+      "prior": 0.7,
+      "primary": true,
+      "initialTruth": true
+    },
+    {
+      "id": "south_ford",
+      "label": "Tamsa Ford (south route) is passable",
+      "trueLabel": "Passable",
+      "falseLabel": "Blocked",
+      "prior": 0.8,
+      "primary": false,
+      "initialTruth": true
+    }
+  ],
+  "channels": [
+    {
+      "id": "LAND",
+      "label": "Land patrols",
+      "sourceLabel": "Ground patrol net",
+      "tauMin": 20,
+      "baseDelayMin": 0,
+      "visibleTo": ["SOLO", "COMMANDER", "INSTRUCTOR"]
+    },
+    {
+      "id": "AIR",
+      "label": "Aerial survey",
+      "sourceLabel": "Aerial survey relay",
+      "tauMin": 15,
+      "baseDelayMin": 0,
+      "visibleTo": ["SOLO", "COMMANDER", "INSTRUCTOR"]
+    },
+    {
+      "id": "CYBER",
+      "label": "Sensor telemetry",
+      "sourceLabel": "Pass sensor mesh",
+      "tauMin": 25,
+      "baseDelayMin": 0,
+      "visibleTo": ["SOLO", "ANALYST", "INSTRUCTOR"]
+    },
+    {
+      "id": "EW",
+      "label": "Spectrum monitor",
+      "sourceLabel": "Spectrum monitoring cell",
+      "tauMin": 30,
+      "baseDelayMin": 0,
+      "visibleTo": ["SOLO", "ANALYST", "INSTRUCTOR"]
+    }
+  ],
+  "reports": [
+    {
+      "id": "R01",
+      "channel": "LAND",
+      "hypothesisId": "north_pass",
+      "stance": 1,
+      "rho": 0.85,
+      "evidenceGroup": "G1",
+      "issuedAtMin": 3,
+      "claim": "Checkpoint Alder: Veer Pass road open, no obstruction",
+      "detail": "Ground patrol reports the road surface at the Veer Pass entrance is clear and traffic is moving normally."
+    },
+    {
+      "id": "R02",
+      "channel": "AIR",
+      "hypothesisId": "north_pass",
+      "stance": 1,
+      "rho": 0.8,
+      "evidenceGroup": "G2",
+      "issuedAtMin": 5,
+      "claim": "Aerial survey: Veer Pass visible and clear",
+      "detail": "Survey flight over the northern corridor shows no debris on the pass road. Imagery resolution is adequate."
+    },
+    {
+      "id": "R03",
+      "channel": "LAND",
+      "hypothesisId": "south_ford",
+      "stance": 1,
+      "rho": 0.85,
+      "evidenceGroup": "G3",
+      "issuedAtMin": 6,
+      "claim": "Tamsa Ford crossing passable, water level normal",
+      "detail": "Patrol crossed the ford this morning without difficulty. Water level is within the normal range."
+    },
+    {
+      "id": "R04",
+      "channel": "CYBER",
+      "hypothesisId": "north_pass",
+      "stance": 1,
+      "rho": 0.65,
+      "evidenceGroup": "G4",
+      "issuedAtMin": 8,
+      "claim": "Pass sensor mesh: all nodes nominal",
+      "detail": "Roadside vibration and tilt sensors report nominal readings. Sensors can fail silently, so this is weaker evidence than direct observation."
+    },
+    {
+      "id": "R08",
+      "channel": "EW",
+      "hypothesisId": null,
+      "stance": 0,
+      "rho": 0.7,
+      "evidenceGroup": "G8",
+      "issuedAtMin": 16,
+      "claim": "Wideband interference detected near Veer Pass",
+      "detail": "Spectrum monitoring detects wideband interference in the pass vicinity. Land and aerial links may be degraded or delayed."
+    },
+    {
+      "id": "R05",
+      "channel": "CYBER",
+      "hypothesisId": "north_pass",
+      "stance": -1,
+      "rho": 0.6,
+      "evidenceGroup": "G5",
+      "issuedAtMin": 17,
+      "claim": "Pass sensor mesh: telemetry frozen, integrity flag raised",
+      "detail": "Several sensor nodes report identical readings for four minutes. Frozen telemetry can indicate sensor failure, tampering, or physical damage to the node."
+    },
+    {
+      "id": "R06",
+      "channel": "LAND",
+      "hypothesisId": "north_pass",
+      "stance": -1,
+      "rho": 0.75,
+      "evidenceGroup": "G6",
+      "issuedAtMin": 16,
+      "claim": "Patrol: rockfall observed near Veer Pass entrance",
+      "detail": "A patrol vehicle saw fresh rockfall near the pass entrance and turned back before reaching it. The report was queued while the link was degraded."
+    },
+    {
+      "id": "R10",
+      "channel": "AIR",
+      "hypothesisId": "north_pass",
+      "stance": -1,
+      "rho": 0.85,
+      "evidenceGroup": "G10",
+      "issuedAtMin": 20,
+      "claim": "Aerial survey: debris field across Veer Pass road",
+      "detail": "Survey imagery shows a debris field blocking the road at the pass entrance."
+    },
+    {
+      "id": "R09",
+      "channel": "LAND",
+      "hypothesisId": "south_ford",
+      "stance": -1,
+      "rho": 0.6,
+      "evidenceGroup": "G9",
+      "issuedAtMin": 21,
+      "claim": "Patrol: Tamsa Ford water level rising",
+      "detail": "Upstream rain is raising the water level at the ford. Crossing remains possible but margins are shrinking."
+    },
+    {
+      "id": "R07",
+      "channel": "AIR",
+      "hypothesisId": "north_pass",
+      "stance": 1,
+      "rho": 0.62,
+      "evidenceGroup": "G7",
+      "issuedAtMin": 24,
+      "claim": "Aerial relay: pass appears clear (partial imagery, cloud cover)",
+      "detail": "Link restored. Imagery is partly obscured by cloud; the visible sections of the pass road look clear. Coverage of the pass entrance is incomplete."
+    },
+    {
+      "id": "R11",
+      "channel": "LAND",
+      "hypothesisId": "north_pass",
+      "stance": -1,
+      "rho": 0.9,
+      "evidenceGroup": "G11",
+      "issuedAtMin": 25,
+      "claim": "Checkpoint Alder: debris confirmed covering Veer Pass road",
+      "detail": "Direct confirmation from the patrol that reached the entrance. Delivered late because of link delay."
+    }
+  ],
+  "events": [
+    {
+      "kind": "TRUTH_CHANGE",
+      "atMin": 14,
+      "hypothesisId": "north_pass",
+      "value": false
+    },
+    {
+      "kind": "CHANNEL_DEGRADE",
+      "atMin": 16,
+      "channel": "LAND",
+      "mode": "DELAY",
+      "extraDelayMin": 6,
+      "untilMin": 26,
+      "note": "Wideband interference on the patrol net: messages delayed"
+    },
+    {
+      "kind": "CHANNEL_DEGRADE",
+      "atMin": 18,
+      "channel": "AIR",
+      "mode": "DROPOUT",
+      "untilMin": 24,
+      "note": "Aerial relay link lost: messages not delivered"
+    },
+    { "kind": "REPORT_ISSUE", "atMin": 3, "reportId": "R01" },
+    { "kind": "REPORT_ISSUE", "atMin": 5, "reportId": "R02" },
+    { "kind": "REPORT_ISSUE", "atMin": 6, "reportId": "R03" },
+    { "kind": "REPORT_ISSUE", "atMin": 8, "reportId": "R04" },
+    { "kind": "REPORT_ISSUE", "atMin": 16, "reportId": "R08" },
+    { "kind": "REPORT_ISSUE", "atMin": 17, "reportId": "R05" },
+    { "kind": "REPORT_ISSUE", "atMin": 16, "reportId": "R06" },
+    { "kind": "REPORT_ISSUE", "atMin": 20, "reportId": "R10" },
+    { "kind": "REPORT_ISSUE", "atMin": 21, "reportId": "R09" },
+    { "kind": "REPORT_ISSUE", "atMin": 24, "reportId": "R07" },
+    { "kind": "REPORT_ISSUE", "atMin": 25, "reportId": "R11" }
+  ],
+  "assets": [
+    {
+      "id": "UAV_SORTIE",
+      "label": "Aerial recon sortie (Veer Pass)",
+      "channel": "AIR",
+      "hypothesisId": "north_pass",
+      "delayMin": 6,
+      "costUnits": 5,
+      "rho": 0.95,
+      "capacity": 1,
+      "resultClaims": {
+        "supports": "Sortie confirms Veer Pass clear",
+        "contradicts": "Sortie confirms Veer Pass blocked by debris"
+      }
+    },
+    {
+      "id": "FORD_GAUGE",
+      "label": "Ford gauge check (Tamsa Ford)",
+      "channel": "LAND",
+      "hypothesisId": "south_ford",
+      "delayMin": 5,
+      "costUnits": 3,
+      "rho": 0.9,
+      "capacity": 1,
+      "resultClaims": {
+        "supports": "Gauge check confirms Tamsa Ford passable",
+        "contradicts": "Gauge check confirms Tamsa Ford impassable"
+      }
+    }
+  ],
+  "decisionPoints": [
+    {
+      "id": "DP1",
+      "title": "Select the convoy route",
+      "prompt": "Commit KESTREL-1 to a route, or stand down. The window closes at 30:00.",
+      "openMin": 12,
+      "closeMin": 30,
+      "departureMin": 12,
+      "delayCostPerMin": 1.5,
+      "timeoutActionId": "STAND_DOWN",
+      "assets": ["UAV_SORTIE", "FORD_GAUGE"],
+      "requiredEstimates": ["north_pass"],
+      "actions": [
+        {
+          "id": "GO_NORTH",
+          "label": "Take the north route (Veer Pass)",
+          "description": "Short route. High payoff if passable; convoy stranded if blocked.",
+          "terminal": true,
+          "delayCostApplies": true,
+          "utility": [
+            { "when": { "north_pass": true }, "value": 100 },
+            { "when": { "north_pass": false }, "value": -80 }
+          ],
+          "consequences": [
+            {
+              "when": { "north_pass": true },
+              "headline": "Convoy clears Veer Pass",
+              "narrative": "KESTREL-1 passes the pass without incident and reaches Marigold inside the window.",
+              "arrivalMin": 5
+            },
+            {
+              "when": { "north_pass": false },
+              "headline": "Convoy halted at the Veer Pass debris field",
+              "narrative": "KESTREL-1 stops at the debris field. Recovery and re-routing exhaust the weather window.",
+              "arrivalMin": 4
+            }
+          ]
+        },
+        {
+          "id": "GO_SOUTH",
+          "label": "Take the south route (Tamsa Ford)",
+          "description": "Long route. Moderate payoff if passable; convoy stranded if impassable.",
+          "terminal": true,
+          "delayCostApplies": true,
+          "utility": [
+            { "when": { "south_ford": true }, "value": 70 },
+            { "when": { "south_ford": false }, "value": -80 }
+          ],
+          "consequences": [
+            {
+              "when": { "south_ford": true },
+              "headline": "Convoy crosses Tamsa Ford",
+              "narrative": "KESTREL-1 crosses the ford with reduced margin and reaches Marigold inside the window.",
+              "arrivalMin": 7
+            },
+            {
+              "when": { "south_ford": false },
+              "headline": "Convoy halted at Tamsa Ford",
+              "narrative": "Rising water prevents the crossing and the weather window is lost.",
+              "arrivalMin": 6
+            }
+          ]
+        },
+        {
+          "id": "STAND_DOWN",
+          "label": "Stand down at Camp Alder",
+          "description": "Hold the convoy. Safe, but the mission is deferred.",
+          "terminal": true,
+          "delayCostApplies": false,
+          "utility": [{ "when": {}, "value": 10 }],
+          "consequences": [
+            {
+              "when": {},
+              "headline": "Convoy holds at Camp Alder",
+              "narrative": "KESTREL-1 stays in place and the relief delivery is deferred to the next window.",
+              "arrivalMin": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "outcomeScale": { "min": -100, "max": 100 },
+  "verifyOutcomeMode": "TRUTH_CONSISTENT",
+  "injectPresets": [
+    {
+      "id": "JAM_LAND",
+      "label": "Jam LAND link",
+      "description": "Delay land patrol reports by 6 minutes for 10 minutes",
+      "effect": {
+        "kind": "DEGRADE",
+        "channel": "LAND",
+        "mode": "DELAY",
+        "extraDelayMin": 6,
+        "durationMin": 10
+      }
+    },
+    {
+      "id": "DROP_AIR",
+      "label": "Drop AIR link",
+      "description": "Drop all aerial reports for 6 minutes",
+      "effect": {
+        "kind": "DEGRADE",
+        "channel": "AIR",
+        "mode": "DROPOUT",
+        "durationMin": 6
+      }
+    },
+    {
+      "id": "NOISE_CYBER",
+      "label": "Degrade CYBER telemetry",
+      "description": "Halve the effective reliability of sensor telemetry for 8 minutes",
+      "effect": {
+        "kind": "DEGRADE",
+        "channel": "CYBER",
+        "mode": "NOISE",
+        "healthMultiplier": 0.5,
+        "durationMin": 8
+      }
+    },
+    {
+      "id": "FALSE_NORTH_CLEAR",
+      "label": "Inject conflicting report",
+      "description": "Insert an unconfirmed relay claiming Veer Pass is clear",
+      "effect": {
+        "kind": "FALSE_REPORT",
+        "channel": "LAND",
+        "hypothesisId": "north_pass",
+        "stance": 1,
+        "rho": 0.7,
+        "claim": "Patrol relay: Veer Pass reported clear (unconfirmed)",
+        "detail": "Second-hand relay of an earlier observation; origin unclear."
+      }
+    },
+    {
+      "id": "RESTORE_ALL",
+      "label": "Restore all links",
+      "description": "Return every channel to healthy",
+      "effect": { "kind": "RESTORE_ALL" }
+    }
+  ],
+  "scoreWeights": {
+    "decisionQuality": 0.4,
+    "informationUtilization": 0.15,
+    "outcome": 0.15,
+    "timeliness": 0.1,
+    "verificationEfficiency": 0.15,
+    "calibration": 0.05
+  },
+  "model": {
+    "llrClamp": 5,
+    "contradictionMinNats": 0.5,
+    "contradictionThreshold": 0.5,
+    "tieEpsilon": 0.05
+  }
+}

@@ -2,6 +2,201 @@
 
 ## Current Gate
 
+Gate 1 - Engine foundation: **GREEN**, started and verified locally on 2026-10-02.
+Gate 0 remains **GREEN**. Gate 2 has **not** started.
+
+Gate 0 is GREEN and merged at `3381f01`. Gate 1 work is confined to
+`akshattron-gate-1-foundation`; the initial worktree was clean. The complete
+6,065-line audited master, repository instructions, path-specific engine,
+scenario and test instructions, Builder instructions, and existing gate/model/
+dependency records were read before editing.
+
+Preflight: Node `v24.21.0`, npm `11.19.0`. This new worktree initially lacked
+dependencies (`npm test` failed because `vitest` was unavailable). After that
+failure, `npm ci --no-fund` restored the unchanged lockfile: 221 packages added,
+222 audited, zero vulnerabilities reported. The existing smoke test then passed
+(1 file / 1 test). No dependency or version decision was changed.
+
+## Gate 1 Completed
+
+- Authoritative domain contracts, including creation mode, all reserved intent
+  and error variants, explicit scheduling state, and success/failure effects.
+- Separate strict Zod authoring and runtime shapes. The shared runtime validator
+  checks IDs, references, report/issue correspondence, channel parameters,
+  decision windows, verification opportunities, utility/consequence coverage,
+  finite values, weight caps, and the retained exercise-horizon invariant.
+- One-time minute-to-second normalization. Each generated restore is inserted
+  immediately after its source degradation in the normalized array; the engine
+  separately sorts pending events by time, priority, and allocation order.
+- Exact Section 18.2 flagship content and single-scenario registry. A test
+  extracts the JSON directly from the master and compares every authored value.
+  Version 1 and duration 36 minutes are unchanged. Canonical normalized-runtime
+  UTF-8 FNV-1a hash: **`1f7af0fb`**.
+- Pure event advancement and report lifecycle: HEALTHY, DELAY, DROPOUT, BURST,
+  NOISE, fixed issued-report schedules, stale automatic restore rejection, and
+  state-owned dynamic deliveries. No engine wall clock, browser/Node APIs, or
+  unseeded randomness.
+- START, PAUSE, RESUME, RESET, inspection, role-scoped estimates/aid state,
+  verification, decision, timeout, and consequence transitions. Invalid ingress
+  does not progress the engine; admitted guard failures retain due work but add
+  no action-specific records or charges.
+- Strict UAV 23:59 / Ford 24:59 request cutoffs, strict 29:59 voluntary decision
+  cutoff, and delivery-before-timeout ordering at 30:00.
+- Request-cut verification truth, independent tasking links, seeded stochastic
+  verification primitive, per-asset/per-DP capacity and one charge record per
+  accepted task. The unmutated flagship remains seed-independent in behavior.
+- Internal decision-cut consequence selection with action-wide, truth-independent
+  reveal timing. South at 29:00 completes at 36:00; South at 29:59 remains pending
+  at 36:00 and 36:58, then completes at 36:59 for either truth branch.
+- Deterministic reset in all five phases and validated accepted-intent replay,
+  inclusive causal-prefix indices, explicit partial horizons, clone/continue,
+  interleaved sessions, and completed replay through the actual terminal event.
+- Real scenario validation CLI, mandatory prebuild integration, optional explicit
+  fixture inputs, deterministic success/error output, and nonzero invalid-input
+  results.
+
+## Gate 1 Tests and Build
+
+Final checks were rerun after the admission-order review correction:
+
+| Command | Actual result |
+| --- | --- |
+| `npm test -- tests\engine tests\golden` | Exit 0; 10 files, 154 focused Gate 1 tests passed |
+| `npm test` | Exit 0; 11 files, 155 tests passed, including the unchanged Gate 0 smoke test |
+| `npm run typecheck` | Exit 0; strict `tsc --noEmit`, no ignored type errors |
+| `npm run validate:scenarios` | Exit 0; `OK kestrel-relief-corridor v1 hash=1f7af0fb` |
+| `npm run build` | Exit 0; real prebuild scenario validation, typecheck, and Vite build |
+| `npx --no-install prettier --check --log-level warn src\engine src\scenarios tests\engine tests\golden scripts\validate-scenarios.ts` | Exit 0 |
+
+The full count includes the focused count; these are not 309 distinct tests.
+Golden Paths A-F cover their Gate 1 chronology, intent, verification, timeout,
+consequence, and determinism obligations only. No numerical scoring/golden
+acceptance is claimed.
+
+The CLI tests launch the actual script using Node + the existing `tsx` runtime.
+They cover valid bundled/explicit fixtures, duplicate scenario IDs, malformed
+JSON (including literal `#`/`%` filenames), invalid references, and repeated
+deterministic output. Their temporary files and directory are removed.
+
+Additional bounded checks:
+
+- `npm run dev`: Vite ready in 816 ms; Express/ws listening on 8787.
+  Vite root and transformed entry returned HTTP 200. Direct and proxied health
+  returned `{"status":"ok","version":"0.1.0","uptimeSec":16,"sessions":0}`.
+  The verification process was stopped and both ports were confirmed released.
+- A 50-iteration Node/tsx benchmark using `performance.now()` outside the engine
+  measured a maximum **7.0351 ms** for full timeout-path `advanceTo` (budget 15 ms)
+  and **9.3757 ms** for completed Path A `replayLog` (budget 100 ms).
+  These are local observations, not cross-device performance guarantees.
+- Source inspection found no engine wall-clock/browser/Node access, unseeded
+  randomness, unsafe `any`/double casts, or type-error suppression.
+- The master, all agent instructions, dependency manifest/lockfile, existing UI,
+  and server remain unchanged.
+
+Final Vite build: 34 modules; JavaScript 313.49 kB / 99.23 kB gzip;
+CSS 4.74 kB / 1.54 kB gzip. The engine is not wired into the trainee UI in
+this gate, so the Gate 0 client bundle is unchanged.
+
+## Gate 1 Corrections, Deviations, and Blockers
+
+- **No specification, scenario-value, formula, dependency, or architecture
+  deviations.** No Windows script substitution was needed.
+- The abbreviated task excerpt omits audited amendments. The implementation
+  follows the authoritative contract: explicit immutable `mode`, failure
+  `effects`, `INVALID_TIME` for unchanged backdated calls, and required
+  `upToSec` whenever partial replay options are supplied.
+- One initial typecheck rejected a test fixture deleting a required field
+  (TS2790). It was replaced by a typed object reconstruction; no suppression or
+  dependency workaround was used.
+- Review corrected deferred-but-authorized intents to retain scheduled
+  progression before returning their explicit not-implemented error. This did
+  not enable any deferred feature.
+- **Blockers: none.**
+
+## Gate 1 Scope and Known Limitations
+
+- This is the engine foundation, not a playable P0 product. No home/library,
+  briefing, report-feed, belief, decision, verification, consequence, or AAR UI
+  was added.
+- Raw scenario/state/event payloads are internal, including hidden truth and
+  selected consequences. No trainee projection is implemented or connected to
+  the UI. Gate 2 must implement the authorized recursive projection boundary.
+- Grading/model fields are structural contracts only. No belief fusion,
+  scoring, EVPI/EVSI, AAR, counterfactuals, or placeholder numerical metrics.
+- INJECT, RELAY, and ADVISE retain their contracts and explicit rejection paths.
+  Live instructor injects, instructor controls, and multiplayer behavior remain
+  deferred. Unknown presets and forbidden actors retain their declared errors.
+- NETWORKED mode/role contracts and a test-only two-DP fixture exercise engine
+  invariants; there is no network session manager, WebSocket protocol, relay
+  implementation, second registered scenario, or multiplayer UI.
+- AFTER_ESTIMATE state guards are engine obligations only; no P2 aid-mode UI,
+  mutation, adaptive difficulty, analytics, or authoring is implemented.
+- RESET returns fresh state; the future adapter must replace the exercise log.
+  Replay rejects RESET in the previous accepted-intent stream. Transport
+  sequencing remains outside this gate.
+- No deployment, authentication, database, external API/LLM integration, real
+  data, maps, VR/AR, or operational military functionality.
+
+## Gate 1 Exact Files Changed
+
+Created:
+
+```text
+src/engine/types.ts
+src/engine/scenarioSchema.ts
+src/engine/scenarioLoader.ts
+src/engine/rng.ts
+src/engine/events.ts
+src/engine/channels.ts
+src/engine/degradation.ts
+src/engine/simulation.ts
+src/engine/index.ts
+src/scenarios/kestrel-relief-corridor.json
+src/scenarios/index.ts
+tests/engine/fixtures.ts
+tests/engine/scenarioSchema.test.ts
+tests/engine/rng.test.ts
+tests/engine/events.test.ts
+tests/engine/degradation.test.ts
+tests/engine/simulation.test.ts
+tests/engine/verification.test.ts
+tests/engine/replay.test.ts
+tests/engine/determinism.test.ts
+tests/engine/scenarioValidationScript.test.ts
+tests/golden/flagship.expected.ts
+tests/golden/flagship.test.ts
+```
+
+Modified:
+
+```text
+scripts/validate-scenarios.ts
+README.md
+docs/MODEL_CARD.md
+docs/PROGRESS.md
+```
+
+`docs/DEPENDENCY_LOG.md` is unchanged because no dependency decision changed.
+
+## Gate 1 Acceptance
+
+| Master Gate 1 criterion | Evidence | Result |
+| --- | --- | --- |
+| Flagship loads | Strict loader, single registry, exact master JSON equality, CLI hash | Pass |
+| Event timeline advances | All 11 report anchors, mode transitions, strict deadline and consequence tests | Pass |
+| Reset deterministic | All five phases, retained configuration, byte equality, replay and interleaving | Pass |
+| Validation passes | Schema/invariant negatives, real CLI failures, focused/full tests, typecheck/build | Pass |
+
+## Next Exact Action
+
+**STOP after Gate 1.** Gate 2 is the next unlocked phase, but no work on it was
+started. No P0 product UI or P1/P2/P3 feature work was prematurely implemented.
+
+## Gate 0 Evidence (Historical)
+
+<details>
+<summary>Retained Gate 0 acceptance record (not current Gate 1 status)</summary>
+
 Gate 0 - Repository boots: **GREEN**, verified locally on 2026-10-02.
 
 Only the bootable engineering foundation is implemented. Gate 1 and P0 domain
@@ -180,7 +375,7 @@ existing rules and added local/editor/build temporary-file exclusions).
 | Browser renders the DHUNDH shell    | Pass   |
 | No forbidden feature implementation | Pass   |
 
-## Next Exact Action
+## Gate 0 Handoff (Historical)
 
 Gate 1 - scenario schema, flagship scenario, event engine, deterministic reset.
 This is the next unlocked phase, not work started in this session.
@@ -195,3 +390,5 @@ P3 IMPLEMENTATION STARTED: NO
 DEPLOYMENT STARTED: NO
 SECRETS CREATED: NO
 ```
+
+</details>

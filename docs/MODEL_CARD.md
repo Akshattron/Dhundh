@@ -1,7 +1,8 @@
 # DHUNDH reference-model assumptions
 
-Gate 0 records the approved model assumptions only. No model, scenario, scoring,
-or simulation engine is implemented in this gate.
+Gate 1 preserves these approved model assumptions in the validated synthetic
+flagship and deterministic engine foundation. Belief fusion, scoring, AAR, and
+learning-outcome validation are not implemented at this gate.
 
 - Hypotheses are binary: true or false.
 - Scenario content, entities, reliabilities, utilities, and geography are

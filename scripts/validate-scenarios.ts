@@ -1,45 +1,46 @@
 import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadScenario, scenarioHash } from "../src/engine/scenarioLoader";
 
 const directory = fileURLToPath(new URL("../src/scenarios/", import.meta.url));
 
 async function scenarioFiles(): Promise<string[]> {
-  try {
-    const entries = await readdir(directory, { withFileTypes: true });
-    return entries
-      .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
-      .map((entry) => entry.name)
-      .sort();
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-      return [];
-    }
-    throw error;
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+    .map((entry) => entry.name)
+    .sort();
+  if (!files.includes("kestrel-relief-corridor.json")) {
+    throw new Error("Gate 1 requires kestrel-relief-corridor.json");
   }
+  return files.map((file) => join(directory, file));
 }
 
 async function validate() {
-  const files = await scenarioFiles();
-  console.info(
-    "Gate 0: JSON syntax validation only. Gate 1 will require the flagship scenario, schema, and loader invariants.",
-  );
-
-  if (files.length === 0) {
-    console.info("OK: zero scenario JSON files (expected during Gate 0).");
-    return;
-  }
+  const files = [
+    ...(await scenarioFiles()),
+    ...process.argv
+      .slice(2)
+      .map((file) => resolve(file))
+      .sort(),
+  ];
+  const ids = new Set<string>();
 
   for (const file of files) {
-    const text = await readFile(join(directory, file), "utf8");
     try {
-      JSON.parse(text);
-      console.info(`JSON syntax OK: ${file}`);
-    } catch (error) {
-      if (!(error instanceof SyntaxError)) {
-        throw error;
+      const scenario = loadScenario(JSON.parse(await readFile(file, "utf8")));
+      if (ids.has(scenario.meta.id)) {
+        throw new Error(`Duplicate scenario ID "${scenario.meta.id}"`);
       }
-      console.error(`INVALID JSON: ${file}: ${error.message}`);
+      ids.add(scenario.meta.id);
+      console.info(
+        `OK ${scenario.meta.id} v${scenario.meta.version} hash=${scenarioHash(scenario)}`,
+      );
+    } catch (error) {
+      console.error(
+        `INVALID ${basename(file)}: ${error instanceof Error ? error.message : String(error)}`,
+      );
       process.exitCode = 1;
     }
   }
