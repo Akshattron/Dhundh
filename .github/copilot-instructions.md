@@ -15,13 +15,14 @@ Follow the locked stack and file structure in the master specification. Do not s
 ## Engineering rules
 
 - Decisions, not options.
-- P0 → P1 → P2 → P3.
+- Default order: P0 → P1 → Demo → P2 → selected P3. Only dependency-independent P3 may start after Gate 4 under master Section 58.7; network-dependent P3 waits for Gate 5. P2 acceptance and multiplayer priority remain binding.
+- P0 implements its exact mathematical/scoring dependencies; this does not unlock higher-tier UI.
 - Keep P0/P1 independently reliable before unlocking advanced work.
-- Maintain deterministic simulation and golden regression values.
+- Maintain deterministic simulation and golden regression values, including only the explicitly approved corrections recorded in master Section 65.0; never rebaseline to fit code.
 - Keep domain logic out of UI components.
 - Keep engine code pure and independent of DOM/Node/wall clock/random globals.
 - Use Zod at external boundaries.
-- Do not expose hidden truth or instructor diagnostics to trainee clients.
+- Withhold hidden truth from trainees until COMPLETE; then use the authorized, temporally labelled post-mortem projection. Never copy raw instructor diagnostics into trainee views.
 - Do not introduce external dependencies without justification.
 - Synthetic scenario content must be visibly labelled.
 - No critical demo dependency on an LLM, external API, live dataset, or network.

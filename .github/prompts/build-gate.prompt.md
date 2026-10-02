@@ -15,4 +15,4 @@ For that gate:
 7. Update `docs/PROGRESS.md`.
 8. Report exact files changed and exact validation commands/results.
 
-Do not begin a lower-priority tier until the current gate passes.
+Default to P0 → P1 → Demo → P2 → selected P3. P0 includes exact mathematical dependencies without unlocking signature UI. Do not skip prerequisite gates; only dependency-independent P3 may begin after Gate 4 under master Section 58.7. Network-dependent P3 waits for Gate 5, and P2 acceptance/multiplayer priority remain binding.

@@ -22,8 +22,8 @@ Read:
 ## Operating contract
 
 - Execute the engineering specification; do not redesign the product from first principles.
-- Work in strict P0 → P1 → P2 → P3 order.
-- Before starting a tier, verify that its previous gate has passed.
+- Default to P0 → P1 → Demo → P2 → selected P3. P0 includes exact mathematical dependencies, not approximations or premature signature UI.
+- Before starting a tier, verify its prerequisite gates. The only independent-P3 exception is master Section 58.7 after Gate 4; network-dependent P3 waits for Gate 5. Do not waive P2 acceptance or multiplayer priority.
 - Prefer minimal, reversible changes when debugging.
 - Keep the application runnable after each meaningful milestone.
 - Use terminal commands to verify installs, typechecking, tests, build, scenario validation, and the demo path.
