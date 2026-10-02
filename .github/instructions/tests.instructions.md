@@ -8,7 +8,9 @@ applyTo: "tests/**/*.ts,tests/**/*.tsx,**/*.test.ts,**/*.test.tsx,**/*.spec.ts"
 - Test behavior, not implementation trivia.
 - Protect deterministic engine behavior with golden and replay tests.
 - Any formula change requires explicit numerical tests.
+- Test every exported engine function. P0 owns exact scoring dependencies and golden Paths A-F; P1 adds signature/counterfactual integration acceptance.
+- Cover integer-second deadline equality, causal same-second cuts, dynamic queue continuation, admitted rejection progression, per-role aid gating, recursive redaction, and truth-independent consequence timing. Use only approved golden corrections, never wider tolerances.
 - Test negative paths: invalid intent, missing report, unavailable asset, late verification, role-forbidden action, malformed scenario, reconnect failure, and truth-redaction boundaries.
 - UI tests should verify critical interactions and accessibility behavior rather than pixel snapshots alone.
-- E2E tests should exercise the flagship demo path.
+- E2E tests should exercise the flagship demo path using stable demo-control identifiers and the WOW/AAR/reset timing targets.
 - Run the smallest relevant test first, then the full test suite before a milestone gate.

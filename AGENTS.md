@@ -16,8 +16,11 @@ Do not invent major architecture or product decisions already made there.
 
 1. P0 safe core
 2. P1 signature intelligence
-3. P2 competitive edge
-4. P3 advanced features
+3. Demo gate
+4. P2 competitive edge
+5. Selected P3 advanced features
+
+P0 includes the exact mathematical dependencies of its scoring, belief, and AAR obligations, not approximations. This does not unlock higher-tier presentation. Only dependency-independent P3 work may start after Gate 4 as specified in master Section 58.7; network-dependent P3 waits for Gate 5. This exception does not waive P2 acceptance or multiplayer's last-P2-to-cut priority.
 
 Never implement lower-priority work in a way that destabilizes a completed higher-priority gate.
 

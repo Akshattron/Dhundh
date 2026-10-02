@@ -1,8 +1,9 @@
-# COPILOT_MASTER_ENGINEERING_SPEC.md
+# COPILOT_MASTER_ENGINEERING_SPEC_AUDITED_v1.2.md
 
 **Project:** DHUNDH (धुंध, "fog") — Decision Training Under Degraded Information
 **Selected PS:** SIH 2026 / PS 26248 / Ministry of Defence (MoD) / Defence Services Staff College / Software / Smart Automation
 **Spec version:** 1.2 — engineering-audited and consistency-patched 2 October 2026 for submission on 5 October 2026
+**Contract amendment:** Approved reconciliation pass and final Option B duration disposition against the v1.2 baseline are recorded in Section 65.0. The filename and baseline version are unchanged. These documentation amendments do not pass an application gate.
 **Audience:** GitHub Copilot Agent (autonomous). Every section is an instruction, not a discussion.
 
 ---
@@ -11,9 +12,9 @@
 
 0.1 You MUST read this entire document before creating any file.
 0.2 This document contains DECISIONS, NOT OPTIONS. Do not substitute libraries, frameworks, file names, schemas, or formulas. A substitution is allowed ONLY under Section 47.6 (compatibility blocker with evidence).
-0.3 Build in strict priority order: P0 → P1 → P2 → P3. A tier unlocks only when the previous tier's gate passes (Section 58, Engineering Gates), except for explicitly dependency-independent P3 features identified in Section 58.7.
+0.3 Default build order: P0 → P1 → Demo → P2 → selected P3. Exact mathematical dependencies of a P0 requirement belong in P0 (Section 46.5); that does not unlock higher-tier presentation. A tier unlocks only after its prerequisite gates pass (Section 58), with only the explicitly dependency-independent P3 exception after Gate 4 in Section 58.7. Network-dependent P3 waits for Gate 5. The exception neither waives P2 acceptance nor changes multiplayer's last-P2-to-cut priority.
 0.4 Keep the repository runnable (`npm run dev`, `npm run build`, `npm test`) at every commit.
-0.5 Every number in Section 18 (golden values) is a fixed regression anchor derived from the worked reference calculations in this specification. If your TypeScript output differs by more than the stated tolerance, YOUR CODE IS WRONG, not the golden contract. The runtime MUST NOT depend on Python.
+0.5 Section 18 contains the authoritative golden regression anchors, including individually approved semantic corrections recorded in Section 65.0. If implementation differs beyond the stated tolerance, repair the implementation; never rebaseline a fixture merely to fit code or widen tolerances. A golden change requires explicit approval of its governing semantic change, reference arithmetic, and synchronization of every dependent fixture and test requirement. Unapproved proposals are not anchors. The runtime MUST NOT depend on Python.
 0.6 Never present synthetic content as real. Every scenario screen MUST show the badge `SYNTHETIC SCENARIO — fictional entities` (Section 38.9).
 0.7 No external LLM or third-party API may be required for P0, P1, P2, or the demo path. P0/P1/Demo MUST work without network connectivity; P2 networked multiplayer uses only the project-owned WebSocket service when that mode is selected.
 0.8 Words used as commands: CREATE, MODIFY, IMPLEMENT, VERIFY, TEST, DO NOT, MUST, SHOULD, ONLY AFTER, FALLBACK.
@@ -36,7 +37,8 @@
 | EVPI | Expected value of perfect information — the "price of fog" at a moment |
 | EVSI / VOI | Expected value of sample (verification) information; net VOI subtracts time and asset cost |
 | AAR | After-action review |
-| Truth | Hidden ground-truth state; never sent to a trainee client before the AAR |
+| Truth | Hidden ground-truth state; withheld from trainees until COMPLETE, then disclosed with temporal labels in consequence/post-mortem/AAR views |
+| Scenario duration | Outer exercise/commitment horizon, not an absolute terminal completion ceiling; decision-point deadlines and deterministic consequence events remain authoritative (Section 13.2) |
 
 ---
 
@@ -46,7 +48,7 @@
 
 1.2 The product's single distinguishing idea is **information-conditioned evaluation**: the system scores a decision against what the trainee could have known at the instant of decision (belief state), separately from what turned out to be true (outcome). Decisions are explained with three numbers: regret under belief, price of fog (EVPI), and net value of verification.
 
-1.3 The system is a deterministic event-sourced simulation. State is a pure function of (scenario, seed, ordered intents). This gives: reproducible demos, deterministic replay, counterfactual re-simulation, and a golden regression test.
+1.3 The system is a deterministic event-sourced simulation. State is a pure function of (scenario/configuration, seed, ordered accepted intents, replay horizon). This gives: reproducible demos, deterministic replay, counterfactual re-simulation, and a golden regression test. Rejected requests are diagnostics, not accepted intents; elapsed scheduled progression is reconstructed through the explicit horizon.
 
 1.4 Architecture in one line: React + Vite + TypeScript client; a pure-TypeScript engine shared by client and server; an Express + `ws` server that is authoritative ONLY for networked sessions; local (serverless) mode runs the same engine in the browser; no database; no authentication; browser `localStorage` for history.
 
@@ -111,7 +113,7 @@ Traditional outcome-only evaluation asks "was the decision right?". DHUNDH asks 
 ### 3.3 Pedagogical design rules derived from V1–V5
 3.3.1 Do not reward caution blindly: `STAND_DOWN` has a fixed moderate utility (10) below the best GO action under any belief that favours that GO action; the engine reports `postureLabel = OVER_CAUTIOUS` when the trainee stood down while a GO action had higher expected value.
 3.3.2 Do not reward aggression blindly: GO actions carry large negative utility (−80) in the failing state; `postureLabel = OVER_COMMITTED` when a GO action was chosen while the reference belief favoured another action.
-3.3.3 Latency is measured but low-weighted (10%), and verification wait that was net-positive is excluded from the latency penalty.
+3.3.3 Latency is measured but low-weighted (10%); actual predecision waiting for verification with nonnegative net VOI is excluded without double-counting overlapping waits (Section 24.1).
 3.3.4 Information-seeking (verify) is a first-class action with explicit time and asset costs; the AAR states whether verification was worth it using EVSI minus costs.
 3.3.5 Decision quality is measured against the scenario's reference belief model, which is declared and inspectable in the UI ("Reference model" drawer). It is NOT measured against doctrine or ground truth. The UI MUST state this.
 3.3.6 The system never claims the reference belief is the "correct" belief in the real world; it is the transparent normative baseline for a synthetic scenario.
@@ -121,6 +123,7 @@ Traditional outcome-only evaluation asks "was the decision right?". DHUNDH asks 
 - Single-decision flagship; multi-decision scenarios supported by schema, only scenario 2 uses two decision points (P2).
 - No validation study of learning transfer.
 - Calibration metrics on a single decision are noisy; meaningful only aggregated over sessions (P2 analytics).
+- Canonical evaluation uses each deciding role's exact causal cut at commitment. Realized utility and the selected consequence use truth at that cut, not later truth changes; this is a synthetic-model assumption, not a forecast of subsequent events.
 
 ---
 
@@ -170,22 +173,24 @@ FR-P0-04 Report lifecycle: SCHEDULED → IN_TRANSIT → DELIVERED | DROPPED; sho
 FR-P0-05 Trainee Console: report feed, channel health strip, belief panel (probabilities + Fog Index), evidence ledger, timeline bar, decision panel.
 FR-P0-06 Actions: OPEN_REPORT, SET_ESTIMATE, VERIFY (two assets), DECIDE (GO_NORTH, GO_SOUTH, STAND_DOWN), with rationale capture.
 FR-P0-07 Decision window with deadline; timeout forces `STAND_DOWN` with `timedOut=true` and a latency penalty.
-FR-P0-08 Consequence phase revealing truth and scripted narrative.
+FR-P0-08 Consequence phase with truth-independent pending information; truth and the selected scripted narrative are revealed only at COMPLETE. A valid consequence continues beyond the exercise/commitment horizon when its deterministic reveal requires it.
 FR-P0-09 Scoring: DQ, Outcome, Information Utilization, Timeliness, Verification Efficiency, Calibration Alignment, composite Training Score.
 FR-P0-10 AAR page: header, score card, quadrant, timeline replay scrubber, "What you knew / What was true / What you never saw", deterministic coach notes.
 FR-P0-11 Demo Mode with reset in under 3 seconds.
 FR-P0-12 Golden test `FLAGSHIP_DEMO` passes.
 
+P0 implements the exact dependencies of these obligations: reliability/age/health fusion, evidence-group selection, clamp, entropy, contradiction, utility and delay cost, regret/DQ/posture, EVPI/EVSI/net VOI, all six metrics and the composite, causal reconstruction, basic replay, and factual AAR/coaching. No approximation, constant score, hardcoded golden path, or omitted component satisfies P0. P0 owns their numerical/edge-case tests and Paths A-F. Until P1 counterfactuals exist, `Aar.counterfactuals` is empty with an explicit P0 limitation in `Aar.limitations`, not a claim that analysis found no alternatives.
+
 ### 7.2 P1 — Signature intelligence
-FR-P1-01 Reliability-weighted belief fusion with age decay, evidence groups, contradiction index, entropy (Section 22).
+FR-P1-01 Signature presentation and integration of the exact P0 reliability/age/evidence-group/contradiction/entropy model (Section 22).
 FR-P1-02 Reference-model drawer exposing formulas and current parameter values.
 FR-P1-03 Evidence waterfall visualization (log-odds contributions) (Section 36.6).
-FR-P1-04 Regret under belief, EVPI ("price of fog"), EVSI and net VOI for verify options; AAR "Verification analysis".
-FR-P1-05 Information-conditioned scoring and quadrant labelling (SOUND_SUCCESS, SOUND_UNLUCKY, LUCKY, POOR).
+FR-P1-04 Dedicated regret, EVPI ("price of fog"), EVSI and net VOI explanations, instructor diagnostics, and AAR "Verification analysis", using the P0 calculations.
+FR-P1-05 Rich explanation of the P0 information-conditioned scores and quadrants (SOUND_SUCCESS, SOUND_UNLUCKY, LUCKY, POOR).
 FR-P1-06 Counterfactual replay (alternative action; earlier verification; earlier decision) clearly labelled `COUNTERFACTUAL — simulated`.
 FR-P1-07 Dropped/late-report reveal with "what-if delivered" belief recomputation.
 FR-P1-08 Instructor Console (embedded drawer in local mode; standalone route in networked mode) with live inject presets and speed control.
-FR-P1-09 Deterministic session replay with scrubber.
+FR-P1-09 Richer deterministic replay integration over the P0 causal reconstruction and basic scrubber.
 
 ### 7.3 P2 — Competitive edge (official-requirement items marked ★)
 FR-P2-01★ Networked sessions: create/join by code, roles INSTRUCTOR/COMMANDER/ANALYST, authoritative server, reconnect.
@@ -211,11 +216,11 @@ FR-P3-05 Replay speed controls and event annotations.
 | ID | Requirement | Target |
 |---|---|---|
 | NFR-01 | First load (production build, desktop, broadband) | ≤ 2.5 s interactive; JS bundle ≤ 450 KB gzip |
-| NFR-02 | Engine step processing (flagship, full 36-minute run) | ≤ 15 ms total per `advanceTo` call; full-session replay ≤ 100 ms |
+| NFR-02 | Engine step processing and full-session replay (flagship exercise/commitment horizon 36 minutes; actual terminal completion may be later, Section 13.2) | ≤ 15 ms total per `advanceTo` call; full-session replay ≤ 100 ms |
 | NFR-03 | UI frame budget during clock ticks | No dropped frames at 60 fps on a mid laptop; clock tick at 4 Hz |
 | NFR-04 | WebSocket round trip (same region) | ≤ 250 ms p95 |
 | NFR-05 | AAR generation | ≤ 150 ms |
-| NFR-06 | Determinism | Same (scenario, seed, intents) → byte-identical `SimState` JSON (excluding wall-clock fields) |
+| NFR-06 | Determinism | Same (scenario/configuration, seed, ordered accepted intents, horizon) → byte-identical `SimState` JSON (excluding wall-clock fields) |
 | NFR-07 | Accessibility | WCAG 2.1 AA contrast; full keyboard operation of Trainee Console |
 | NFR-08 | Browser support | Latest Chrome, Edge, Firefox, Safari (desktop); tablet graceful |
 | NFR-09 | Reliability | Local mode works with network disabled |
@@ -225,7 +230,9 @@ FR-P3-05 Replay speed controls and event annotations.
 
 ## 9. SCOPE EXCLUSIONS (DO NOT BUILD)
 
-DO NOT build: authentication, user accounts, a database, microservices, 3D/VR/AR views, map/GIS views, chat between users beyond the structured relay, payment, email, notifications, an admin CMS, i18n, dark theme, PWA/offline caching, real military doctrine content, weapon/targeting/tactical procedures, any ML training pipeline, any LLM dependency in P0–P2.
+DO NOT build: authentication, user accounts, a database, microservices, 3D/VR/AR views, map/GIS views, chat between users beyond the structured relay, payment, email, notifications, an admin CMS, i18n, additional themes or user theme switching, PWA/offline caching, real military doctrine content, weapon/targeting/tactical procedures, any ML training pipeline, any LLM dependency in P0–P2.
+
+The single canonical visual system is the dark-neutral system in Sections 36.2-36.3. Its tokens may change only for a measured contrast failure; it is not an optional theme.
 
 ---
 
@@ -249,7 +256,7 @@ DO NOT build: authentication, user accounts, a database, microservices, 3D/VR/AR
 ┌──────────────────────────────────────▼───────────────────────────────────────┐
 │ server/ (Node 24 LTS, Express + ws)                                           │
 │   SessionManager: Map<code, Session{ engineState, log, clients, seq }>       │
-│   Clock loop (500 ms): advances simTime for RUNNING sessions                 │
+│   Clock loop (500 ms): advances RUNNING and CONSEQUENCE sessions             │
 │   projectView(state, role) → per-client SessionView (truth redacted)         │
 │   REST: /health, /api/scenarios, /api/sessions (create), /api/sessions/:code │
 │   Static: serves dist/ in production; SPA fallback to index.html             │
@@ -257,25 +264,33 @@ DO NOT build: authentication, user accounts, a database, microservices, 3D/VR/AR
 ```
 
 ### 10.2 Modes
-- **Local mode (default; used for Demo Mode):** `LocalSessionClient` owns a closure containing the full `SimState` (including truth). It pushes only `projectView(state, 'SOLO')` into the store. Clock is a wall-clock timer in the browser. Works offline.
-- **Networked mode (P2):** `RemoteSessionClient` connects to `/ws`. The server owns state; clients send intents; the server broadcasts a role-specific `SessionView` after every applied change and on every clock tick that changes the view.
+- **Local mode (default; used for Demo Mode):** `LocalSessionClient` creates an immutable `mode: 'LOCAL'` session and owns a closure containing the full `SimState` (including truth). It pushes only the explicit SOLO projection into the trainee store. Clock is a wall-clock timer in the browser. Works offline after assets load; closure isolation is not protection against inspection of public bundles.
+- **Networked mode (P2):** `RemoteSessionClient` connects to `/ws`. The server creates an immutable `mode: 'NETWORKED'` session and owns state; clients send authority-free intents. Each changed role projection, including clock-only or error-only changes, receives a newer transport `seq`.
 
 ### 10.3 Core design decisions (final)
-D1 Event-sourced deterministic engine. State = f(scenario, seed, intents). Replay = re-apply intents.
+D1 Event-sourced deterministic engine. State = f(scenario/configuration, seed, ordered accepted intents, horizon). Replay folds accepted intents and scheduled events to that horizon.
 D2 Time unit: integer simulated **seconds** (`SimSeconds`). Scenario JSON is authored in minutes (`atMin`) and converted with `Math.round(min * 60)` at load.
 D3 One shared engine package inside `src/engine/` imported by both client and server (server imports via relative path `../src/engine/index`). No monorepo tooling.
 D4 Server sends full `SessionView` snapshots (not deltas). View size < 40 KB; tick rate 2 Hz max.
-D5 Truth never leaves the server (networked) or the engine closure (local) until the session phase is `COMPLETE`.
+D5 Trainee projections exclude truth until `COMPLETE`; the authorized instructor projection is the explicit exception. Local closure isolation protects the normal UI, not secrecy against someone inspecting public scenario bundles/specifications. A networked trainee must never receive raw live scenario/state truth.
 D6 No database. Server memory + client `localStorage`.
 D7 No authentication. Session code (6 chars) + per-client token for reconnect.
 D8 LLM is optional (P3) and cannot influence any score.
 
 ### 10.4 Truth redaction rules (`engine/view.ts: projectView`)
-1. `truth` is included only when `phase === 'COMPLETE'` or role is `INSTRUCTOR`.
-2. Reports with status `SCHEDULED`, `IN_TRANSIT` or `DROPPED` are included only for INSTRUCTOR (and for all roles after COMPLETE, under `postMortem`).
-3. Reports on channels not visible to the role are excluded unless relayed to that role.
-4. `belief` is computed server-side from delivered reports visible to the role. For ANALYST/COMMANDER the belief panel uses only the reports that role can see (team belief is shown in AAR only).
-5. Scenario `utility` tables are included in views (the trainee is allowed to see payoffs in the briefing); `truth` and `hiddenNotes` are not.
+Trainee inspection/aid gates below apply before COMPLETE and to historical Knew frames. Authorized instructor and completion-only post-mortem projections may read their permitted details without creating trainee inspection/estimate records or changing a trainee's aid state.
+
+1. Project explicit field allowlists at every nesting level. Never serialize raw `SimState`, `ScenarioDef`, engine `BeliefSnapshot`, effects, or instructor objects into a trainee view.
+2. Truth is available only at COMPLETE or to an authorized INSTRUCTOR. SOLO is a trainee, even though its engine runs locally.
+3. Before COMPLETE, trainee report arrays/links contain only delivered role-visible reports, including authorized delivered relays. No scheduled, in-transit, dropped, future, or role-hidden report IDs/content, counts, or existence probes.
+4. Preserve legitimate delivered claims, source grades, issue/delivery times, and provenance. Detail requires that role's inspection. Effective accuracy and signed per-report contribution require BOTH inspection and that role's aid reveal. Raw `rho` and `stance` remain absent before COMPLETE, including nested belief contributions.
+5. Aggregate belief/fog/contradiction uses ALL delivered role-visible evidence, not only inspected evidence. The entire aggregate aid payload is withheld until that role's aid gate opens. Projected weights may drive Fog Veil once aid is available; unopened waterfall rows offer inspection, not signed contribution details.
+6. AFTER_ESTIMATE is per-role: only the role's own primary estimate can reveal its aid; REVEAL_AID cannot bypass that requirement. Hiding numbers with CSS is not redaction.
+7. Public static reference-model data may include priors, decay constants, model limits, score weights, and payoff tables through the safe projection. A prior is not `initialTruth`. No live EU/best-action/EVPI/EVSI/net-VOI diagnostics reach trainees.
+8. Generic health for all four channels is permitted, but hidden channels expose no report metadata/last-contact history, future restoration time, or instructor reason. Contribution and contradiction links derive only from the recipient's delivered visible set.
+9. Pending consequence copy and timing are truth-independent (Section 17.6); no selected branch, headline/narrative, or branch-specific timing before COMPLETE.
+10. Completion uses a typed, temporally labelled `postMortem` projection (Section 33.2). Historical Knew frames retain their original role/time/aid/inspection gates; authorized post-mortem truth does not rewrite what was known.
+11. Normalize trainee errors for unknown/hidden/undelivered report probes; no differing errors may reveal hidden existence. Instructor diagnostics remain an explicit separately authorized projection.
 
 ---
 
@@ -309,31 +324,31 @@ CREATE `.node-version` containing exactly `24.21.0`. CREATE `.nvmrc` containing 
 
 ### 11.1 Dependency policy
 
-The audited baseline is Node 24.21.0 LTS, React 19.3.0, Vite 8.3.2, Zod 4.6.5, and Zustand 5.0.15. Exact versions of remaining packages are resolved once at project creation and captured in `package-lock.json`; do not perform unplanned major upgrades during the sprint.
-- Install the latest stable release of each package at project creation; commit the lockfile; DO NOT upgrade major versions mid-build.
+The audited baseline is Node 24.21.0 LTS, React/react-dom 19.3.0, Vite 8.3.2, Zod 4.6.5, and Zustand 5.0.15. These explicit frozen versions take precedence over generic "latest" wording and scaffold defaults. Exact versions of remaining packages are resolved once at project creation and captured in `package-lock.json`; do not perform unplanned major upgrades during the sprint.
+- Install the latest stable release only for packages without an explicit frozen version; retain the frozen versions above and commit the lockfile. A genuine incompatibility follows Section 47.6, not a silent upgrade.
 - DO NOT add a dependency that is not listed here without a written justification in `docs/DEPENDENCY_LOG.md` (package, reason, alternative rejected, bundle impact).
 - Avoid abandoned packages (no release in 24 months) — none are used here.
 
-### 11.2 Exact install bootstrap (run once)
+### 11.2 Exact install bootstrap (run once, only during authorized implementation)
 
-If the current working directory is the intended empty project root, use:
+The intended repository root may already contain the master and agent instructions. Preserve all existing authoritative files and unrelated user changes; do not initialize another repository, overwrite the documentation, or create a nested project. Use the scaffold below only when it can preserve the existing files; otherwise integrate only the new application scaffold files into this root. The scaffold runner's `@latest` does not override the frozen dependency versions.
 
 ```bash
 npm create vite@latest . -- --template react-ts
 ```
 
-If a parent directory should contain the project, create the `dhundh` directory once and run the scaffold there. NEVER create `dhundh/dhundh`.
+Never create `dhundh/dhundh` or treat the existing documentation repository as disposable.
 
 Then install runtime dependencies:
 
 ```bash
-npm install react-router-dom zustand zod lucide-react @fontsource/ibm-plex-sans @fontsource/ibm-plex-serif express ws tsx
+npm install --save-exact react@19.3.0 react-dom@19.3.0 react-router-dom zustand@5.0.15 zod@4.6.5 lucide-react @fontsource/ibm-plex-sans @fontsource/ibm-plex-serif express ws tsx
 ```
 
 Then install development dependencies:
 
 ```bash
-npm install -D concurrently vitest jsdom @testing-library/react @testing-library/jest-dom @testing-library/user-event @types/express @types/ws @types/node prettier @playwright/test
+npm install -D --save-exact vite@8.3.2 @vitejs/plugin-react typescript concurrently vitest jsdom @testing-library/react @testing-library/jest-dom @testing-library/user-event @types/express @types/ws @types/node prettier @playwright/test
 ```
 
 ### 11.3 `package.json` scripts (CREATE exactly)
@@ -341,6 +356,7 @@ npm install -D concurrently vitest jsdom @testing-library/react @testing-library
 {
   "scripts": {
     "dev": "concurrently -k -n web,srv -c blue,green \"vite\" \"tsx watch server/index.ts\"",
+    "prebuild": "npm run validate:scenarios",
     "build": "tsc --noEmit && vite build",
     "start": "tsx server/index.ts",
     "preview": "vite preview",
@@ -368,11 +384,13 @@ npm install -D concurrently vitest jsdom @testing-library/react @testing-library
 
 ---
 
-## 12. PROJECT STRUCTURE (CREATE exactly this tree)
+## 12. PROJECT STRUCTURE (target tree; create files at their unlocked phase)
+
+Preserve the existing repository root and authoritative documents. This final tree is not a requirement to create premature P2/P3 placeholders, fake scenario registrations, or an additional nested repository.
 
 ```text
 dhundh/
-├── COPILOT_MASTER_ENGINEERING_SPEC.md
+├── COPILOT_MASTER_ENGINEERING_SPEC_AUDITED_v1.2.md
 ├── README.md
 ├── package.json / package-lock.json
 ├── tsconfig.json
@@ -488,6 +506,7 @@ ALLOWED_ORIGINS=http://localhost:5173
 export type SimSeconds = number;                       // integer, >= 0
 export type ChannelId = 'LAND' | 'AIR' | 'CYBER' | 'EW';
 export type RoleId = 'SOLO' | 'COMMANDER' | 'ANALYST' | 'INSTRUCTOR';
+export type SessionMode = 'LOCAL' | 'NETWORKED';         // immutable creation configuration, never an intent field
 export type Stance = -1 | 0 | 1;                       // -1 = supports "false", +1 = supports "true", 0 = neutral
 export type HypothesisId = string;
 export type ReportId = string;
@@ -510,7 +529,7 @@ export interface ScenarioMeta {
   subtitle: string;
   synthetic: true;                // literal true — enforced by schema
   difficulty: 1 | 2 | 3 | 4 | 5;
-  durationSec: SimSeconds;
+  durationSec: SimSeconds;         // outer exercise/commitment horizon, not a completion ceiling
   summary: string;                // <= 280 chars
   briefing: string[];             // paragraphs
   tags: string[];
@@ -681,7 +700,7 @@ export interface EvidenceContribution {
 }
 
 export interface SimState {
-  scenarioId: string; scenarioVersion: number; seed: number; difficultyLevel: number;
+  scenarioId: string; scenarioVersion: number; seed: number; difficultyLevel: number; mode: SessionMode;
   phase: Phase; nowSec: SimSeconds;
   channels: Record<ChannelId, ChannelRuntime>;
   reports: Record<ReportId, ReportRuntime>;
@@ -692,48 +711,70 @@ export interface SimState {
   verifications: VerificationRecord[];
   decisions: DecisionRecord[];
   currentDecisionPointIndex: number;
-  consequenceRevealAtSec: SimSeconds | null;
-  aidRevealedAtSec: SimSeconds | null;
+  consequenceRevealAtSec: SimSeconds | null;            // truth-independent public reveal time (Section 17.6)
+  aidRevealedAtSecByRole: Partial<Record<RoleId, SimSeconds>>;
   pausedAtSec: SimSeconds | null;
   relays: { fromRole: RoleId; reportId: ReportId; atSec: SimSeconds; relayReportId: ReportId; note?: string }[];
   advice: { role: RoleId; atSec: SimSeconds; actionId: ActionId; note?: string }[];
   aidMode: 'ALWAYS' | 'AFTER_ESTIMATE';
-  processedEventCursor: number;                         // index into the sorted internal event list
+  eventTimeline: InternalEvent[];                       // processed prefix + sorted unprocessed suffix
+  nextEventOrder: number;                               // deterministic monotonic allocation
+  processedEventCursor: number;                         // first unprocessed event; never reorders the prefix
   injectedCounter: number;
 }
 
 // ---------- intents (the ONLY way state changes besides time) ----------
 export type Intent =
-  | { type: 'START'; t: SimSeconds }
-  | { type: 'PAUSE'; t: SimSeconds }
-  | { type: 'RESUME'; t: SimSeconds }
+  | { type: 'START'; t: SimSeconds; role: RoleId }
+  | { type: 'PAUSE'; t: SimSeconds; role: RoleId }
+  | { type: 'RESUME'; t: SimSeconds; role: RoleId }
   | { type: 'OPEN_REPORT'; t: SimSeconds; reportId: ReportId; role: RoleId }
   | { type: 'SET_ESTIMATE'; t: SimSeconds; hypothesisId: HypothesisId; p: number; role: RoleId }
   | { type: 'REVEAL_AID'; t: SimSeconds; role: RoleId }
   | { type: 'VERIFY'; t: SimSeconds; assetId: AssetId; role: RoleId }
-  | { type: 'RELAY'; t: SimSeconds; reportId: ReportId; fromRole: RoleId; note?: string }
+  | { type: 'RELAY'; t: SimSeconds; reportId: ReportId; role: RoleId; note?: string }
   | { type: 'ADVISE'; t: SimSeconds; role: RoleId; actionId: ActionId; note?: string }
   | { type: 'DECIDE'; t: SimSeconds; actionId: ActionId; role: RoleId; rationale: Rationale | null }
   | { type: 'INJECT'; t: SimSeconds; presetId: string; role: 'INSTRUCTOR' }
-  | { type: 'RESET'; t: SimSeconds };
+  | { type: 'RESET'; t: SimSeconds; role: RoleId };
+
+export type EngineErrorCode =
+  | 'NOT_RUNNING' | 'WINDOW_NOT_OPEN' | 'WINDOW_CLOSED' | 'ESTIMATE_REQUIRED'
+  | 'ROLE_FORBIDDEN' | 'UNKNOWN_REPORT' | 'REPORT_NOT_DELIVERED'
+  | 'UNKNOWN_ACTION' | 'UNKNOWN_ASSET' | 'ASSET_EXHAUSTED' | 'VERIFY_TOO_LATE'
+  | 'INVALID_ESTIMATE' | 'UNKNOWN_PRESET' | 'RELAY_LIMIT' | 'RELAY_FORBIDDEN'
+  | 'ADVICE_FORBIDDEN' | 'INVALID_TIME' | 'INVALID_INTENT';
 
 export interface SessionLog {
   logVersion: 1; scenarioId: string; scenarioVersion: number; scenarioHash: string;
-  seed: number; difficultyLevel: number; aidMode: 'ALWAYS' | 'AFTER_ESTIMATE'; intents: Intent[];
+  seed: number; difficultyLevel: number; mode: SessionMode; aidMode: 'ALWAYS' | 'AFTER_ESTIMATE';
+  intents: Intent[];                                    // accepted intents only, in causal nondecreasing order
 }
 ```
 
-13.1 Validation rules (enforced in `scenarioSchema.ts` + `scenarioLoader.ts` invariants):
+13.1 Validation rules (strict authoring schema, then shared normalized runtime invariants; Section 15):
 - IDs unique within their collection. Every `ReportDef.id` appears in exactly one `REPORT_ISSUE` event whose `atSec === issuedAtSec`.
-- Exactly one hypothesis has `primary: true`.
+- All referenced hypothesis, channel, report, asset, action, and decision-point IDs must exist in their applicable collection. There are 1-6 hypotheses, exactly one with `primary: true`, and exactly four unique channels: LAND, AIR, CYBER, EW.
 - `rho` strictly in (0.5, 1). `prior` strictly in (0, 1).
+- All numeric values are finite. Runtime times are nonnegative integer seconds; `tauSec > 0`. Degradation has `untilSec > atSec`, valid mode-specific delay/health parameters, and valid channel references.
 - `ReportDef.stance === 0` iff `hypothesisId === null`.
 - All `CHANNEL_DEGRADE` events have a matching `CHANNEL_RESTORE` at `untilSec` (the loader MUST auto-insert the restore event; authors do not write restores).
 - `closeSec > openSec`; `timeoutActionId` is one of the DP's actions; `departureSec >= 0`.
+- Asset capacity is a positive integer; costs and delay costs are nonnegative. Every listed asset must have a legal request opportunity in that DP: `openSec + delaySec < closeSec`. No-assets DPs remain valid.
 - Each action's `utility` rules cover every joint truth state (loader enumerates 2^k states and asserts a rule matches; k ≤ 6).
-- Weights sum to 1.0 ± 1e-9. `synthetic` is literal `true`.
+- `outcomeScale.min < outcomeScale.max`. Weights are nonnegative, sum to 1.0 ± 1e-9, and respect `outcome <= 0.15` and `calibration <= 0.05`. `synthetic` is literal `true`.
 - Every `consequences[].when` set covers every joint state for that action (loader asserts).
 - `durationSec >= max(closeSec, max consequence arrival) + 60`.
+
+The last duration invariant is retained unchanged from v1.2 as an authoring constraint on the exercise/commitment horizon. Consequence arrivals are relative delays; this inequality neither adds them to decision timestamps nor proves absolute terminal completion coverage. Its `+ 60` is not a post-completion buffer or runtime grace period. A valid consequence completing after `durationSec` is not a validation failure under approved Option B.
+
+### 13.2 Duration semantics (approved Option B)
+
+The 36-minute duration is the outer exercise/commitment horizon for the flagship scenario. It does not impose an absolute terminal completion ceiling. Decision-point deadlines remain authoritative and may close earlier. A valid decision may enter CONSEQUENCE before the duration horizon, and CONSEQUENCE may continue beyond the nominal exercise horizon until its deterministic completion time. The simulator MUST NOT truncate, timeout, or otherwise alter an already-authorized consequence merely because simulated time reaches durationSec.
+
+The flagship retains `durationMin: 36`, normalized `durationSec: 2160`, and version 1. Voluntary decisions still require `openSec <= t && t < closeSec`; DP1 closes at 30:00. A legal South commitment at 29:59 therefore completes at 36:59 under Section 17.6's seven-minute action-wide maximum delay. That completion is valid, not an exception. Earlier terminal events may complete earlier; duration is not a minimum session length either.
+
+Use the existing single simulated clock and terminal consequence event. Do not add a second runtime clock, grace period, hidden extension field, or hardcoded 36:59 exception. Apply the same distinction in local, networked, demo, replay, counterfactual, and P2 variant/multi-decision modes. Authored data, normalization, scenario version/hash, decision windows, and scoring are unchanged by this disposition.
 
 ---
 
@@ -751,7 +792,7 @@ interface Session {
   state: SimState; scenario: ScenarioDef; log: SessionLog;
   speedSecPerMin: number;             // wall seconds per simulated minute; default 4
   clients: Map<string, ClientConn>;   // key = clientId
-  seq: number;                        // monotonically increasing per applied change
+  seq: number;                        // monotonic for every changed view, including clock/error/reset
   finished: boolean;
 }
 interface ClientConn { clientId: string; token: string; role: RoleId; name: string; ws: WebSocket | null; connectedAtMs: number; lastSeenMs: number }
@@ -788,13 +829,14 @@ Every `ScenarioDef.meta.synthetic` is `true`. Exports MUST include `"dataProvena
 
 ## 15. SCENARIO SCHEMA (CREATE `src/engine/scenarioSchema.ts` using zod)
 
-15.1 Mirror Section 13 types exactly with zod objects. Use `z.strictObject` everywhere (unknown keys fail). Use these refinements:
+15.1 Define separate strict authoring and normalized runtime validation boundaries. Authoring uses minute fields and omits loader-generated restore events; runtime uses Section 13's second fields and inserted restores. Use `z.strictObject` everywhere (unknown keys fail). Use these refinements:
 ```ts
 const rho = z.number().gt(0.5).lt(1);
 const prob = z.number().gt(0).lt(1);
-const secFromMin = z.number().min(0);           // authors write minutes in JSON as *Min fields
+const authorMinutes = z.number().nonnegative().multipleOf(0.5);
+const runtimeSeconds = z.number().int().nonnegative();
 ```
-15.2 JSON authoring format differs from the runtime model ONLY by unit: JSON uses `...Min` fields (minutes, may be fractional to 0.5); `scenarioLoader.ts` converts to `...Sec` integers. Mapping:
+15.2 Validate authoring JSON first. It uses `...Min` fields (minutes, may be fractional to 0.5); `scenarioLoader.ts` converts exactly once using `Math.round(min * 60)`, deterministically inserts automatic restores, then validates normalized runtime invariants. A runtime mutation uses those same runtime invariants, never the minute-based authoring parser. Mapping:
 | JSON field | Runtime field |
 |---|---|
 | `tauMin`, `baseDelayMin` | `tauSec`, `baseDelaySec` |
@@ -805,10 +847,12 @@ const secFromMin = z.number().min(0);           // authors write minutes in JSON
 15.3 `scenarioLoader.ts` exports:
 ```ts
 export function loadScenario(raw: unknown): ScenarioDef          // throws ScenarioValidationError with path list
-export function scenarioHash(def: ScenarioDef): string           // FNV-1a 32-bit hex over canonical JSON
+export function scenarioHash(def: ScenarioDef): string           // canonical normalized-runtime JSON; rule below
 export function enumerateStates(hyps: HypothesisDef[]): Record<HypothesisId, boolean>[]
 ```
-15.4 `scripts/validate-scenarios.ts` MUST load every file in `src/scenarios/*.json`, print `OK <id> v<version> hash=<hash>` per scenario, and exit 1 on any failure. `npm run build` MUST NOT proceed if validation fails: add `"prebuild": "npm run validate:scenarios"`.
+Canonical JSON recursively sorts object keys by ordinal UTF-16 code-unit order (not locale sorting), preserves array order, and uses JSON string/number serialization without whitespace. Hash its UTF-8 bytes with FNV-1a 32-bit and format exactly eight lowercase hexadecimal characters. Restore insertion order must be deterministic before hashing. This defines the algorithm; this amendment does not generate or replace the flagship's scenario hash.
+
+15.4 `scripts/validate-scenarios.ts` MUST load every implemented file in `src/scenarios/*.json`, print `OK <id> v<version> hash=<hash>` per scenario, and exit 1 on any failure. `npm run build` MUST NOT proceed if validation fails: the required `"prebuild": "npm run validate:scenarios"` is included in Section 11.3's scripts.
 
 ---
 
@@ -816,10 +860,10 @@ export function enumerateStates(hyps: HypothesisDef[]): Record<HypothesisId, boo
 
 ### 16.1 Internal event record (built by `simulation.ts: buildEventTimeline`)
 ```ts
-interface InternalEvent { atSec: number; priority: number; order: number; kind: 'TRUTH_CHANGE'|'CHANNEL_DEGRADE'|'CHANNEL_RESTORE'|'REPORT_ISSUE'|'REPORT_DELIVER'|'DECISION_OPEN'|'DECISION_CLOSE'|'CONSEQUENCE_REVEAL'; payload: unknown }
+export interface InternalEvent { atSec: SimSeconds; priority: number; order: number; kind: 'TRUTH_CHANGE'|'CHANNEL_DEGRADE'|'CHANNEL_RESTORE'|'REPORT_ISSUE'|'REPORT_DELIVER'|'DECISION_OPEN'|'DECISION_CLOSE'|'CONSEQUENCE_REVEAL'; payload: unknown }
 ```
 ### 16.2 Ordering (total order, deterministic)
-Sort key: `(atSec ASC, priority ASC, order ASC)` where `order` is insertion index.
+Pending-event sort key: `(atSec ASC, priority ASC, order ASC)` where `order` is allocated from `SimState.nextEventOrder`. The processed prefix is immutable in ordering; new work never moves ahead of an event already processed.
 | priority | kind |
 |---|---|
 | 0 | TRUTH_CHANGE |
@@ -830,11 +874,13 @@ Sort key: `(atSec ASC, priority ASC, order ASC)` where `order` is insertion inde
 | 5 | DECISION_OPEN |
 | 6 | DECISION_CLOSE (timeout) |
 | 7 | CONSEQUENCE_REVEAL |
-Intents at time `t` are applied AFTER all internal events with `atSec <= t`. Therefore a report delivered at exactly `t` IS visible to a decision at `t`; a decision-window close at `t` fires BEFORE an intent at `t` (so a DECIDE at exactly `closeSec` is rejected as `WINDOW_CLOSED`; the last valid decision time is `closeSec - 1`).
+An admitted intent at time `t` is applied AFTER existing scheduled events with `atSec <= t` have drained. Therefore a report delivered at exactly `t` is visible at that cut; at `closeSec`, delivery precedes timeout but there is no remaining voluntary decision opportunity. DECIDE at exactly `closeSec` returns `WINDOW_CLOSED`; the last valid decision time is `closeSec - 1`. Accepted intents at the same second retain input order.
 ### 16.3 Dynamic events
-`REPORT_DELIVER`, `DECISION_CLOSE`, `CONSEQUENCE_REVEAL` and verification deliveries are inserted into the timeline at runtime by the engine (insertion keeps the sort invariant; use binary insertion). Injected presets (`INJECT` intent) insert `CHANNEL_DEGRADE`/`CHANNEL_RESTORE`/`REPORT_ISSUE` events at the intent time `t` (priority ordering applies; they are processed in the same `advanceTo(t)` call).
+`SimState.eventTimeline`, `processedEventCursor`, and `nextEventOrder` contain all scheduling state, including dynamic report/verification deliveries, decision closes, consequences, and injects. No mutable module-global or hidden session queue is permitted. Binary insertion operates only on the unprocessed suffix and allocates order deterministically.
+
+First drain existing due events, then apply the admitted intent. An accepted INJECT can create new work at `t`; drain that due work before the next intent. Priority orders pending events only: an inject cannot retroactively degrade a report already issued at the same second. While PAUSED, an authorized inject drains newly due work at the frozen `nowSec` without advancing time.
 ### 16.4 Event log
-Every processed event appends `{ atSec, kind, summary }` to an append-only `engineLog` held OUTSIDE `SimState` (returned by `advanceTo` as `effects`). The AAR timeline is built from `SessionLog` replay, not from `engineLog` persisted state, to avoid divergence.
+Every processed event produces deterministic effects; adapters may derive an append-only diagnostic `engineLog` outside `SimState`. This log is not scheduling state, not an authority for replay, and not forwarded raw to trainees. The AAR timeline is built from `SessionLog` replay. Rejected requests remain separate diagnostics, not accepted intents.
 
 ---
 
@@ -846,23 +892,48 @@ Every processed event appends `{ atSec, kind, summary }` to an append-only `engi
 | IDLE | `START` (t = 0) | RUNNING | Build timeline; set `nowSec=0`; initial truth from hypotheses |
 | RUNNING | `PAUSE` | PAUSED | `pausedAtSec = t` |
 | PAUSED | `RESUME` | RUNNING | `pausedAtSec = null` (sim time does not advance during pause) |
-| RUNNING | `DECIDE` valid for current DP (window open, required estimates present) and it is the LAST DP | CONSEQUENCE | Record decision; compute `consequenceRevealAtSec = t + action.arrivalSec(truth)` |
+| RUNNING | `DECIDE` valid for current DP (window open, own required estimates present) and it is the LAST DP | CONSEQUENCE | Record decision at its causal cut; `consequenceRevealAtSec = t + max(action.consequences[].arrivalSec)` |
 | RUNNING | `DECIDE` valid and NOT the last DP | RUNNING | Record decision; advance `currentDecisionPointIndex` |
-| RUNNING | DECISION_CLOSE with no decision | CONSEQUENCE (if last DP) / RUNNING | Auto-record timeout decision with `timeoutActionId`, `timedOut=true` |
+| RUNNING | DECISION_CLOSE with no decision | CONSEQUENCE (if last DP) / RUNNING | Auto-record timeout action at this event cut; `timedOut=true`; actor SOLO in LOCAL, COMMANDER in NETWORKED; use the same truth-independent reveal rule |
 | CONSEQUENCE | CONSEQUENCE_REVEAL event | COMPLETE | Truth becomes visible in views |
-| any | `RESET` | IDLE | Fresh state from scenario/seed |
-17.2 Guards for `DECIDE`: phase RUNNING; current DP `openSec <= t < closeSec`; `requiredEstimates` all present in `estimates` with `atSec <= t`; role permitted (SOLO or COMMANDER). Violations return `{ ok: false, error: ENGINE_ERROR_CODE }`; they never throw and never mutate state.
-17.3 Error codes (`engine/types.ts`): `NOT_RUNNING`, `WINDOW_NOT_OPEN`, `WINDOW_CLOSED`, `ESTIMATE_REQUIRED`, `ROLE_FORBIDDEN`, `UNKNOWN_REPORT`, `REPORT_NOT_DELIVERED`, `UNKNOWN_ACTION`, `UNKNOWN_ASSET`, `ASSET_EXHAUSTED`, `VERIFY_TOO_LATE`, `INVALID_ESTIMATE`, `UNKNOWN_PRESET`, `RELAY_LIMIT`, `RELAY_FORBIDDEN`, `ADVICE_FORBIDDEN`.
-17.3a Intent permission matrix (enforced in the engine and repeated on the server): `START`, `PAUSE`, `RESUME`, and `RESET` are allowed only to `SOLO` in local mode or `INSTRUCTOR` in instructor/networked mode; `OPEN_REPORT`, `SET_ESTIMATE`, `VERIFY`, and `DECIDE` are allowed to `SOLO` or `COMMANDER`; `RELAY` and `ADVISE` are allowed only to `ANALYST`; `INJECT` is allowed only to `INSTRUCTOR`. A network client MUST never be able to self-upgrade into `INSTRUCTOR` merely by declaring that role.
-17.4 Rollback/replay rule: there is no rollback. Undo is performed by replay: `replay(log, upToIntentIndex)` rebuilds state from scratch. The engine is pure; replay cost ≤ 100 ms.
-17.5 Pause semantics: while PAUSED the clock does not advance; intents other than `RESUME`, `RESET`, `INJECT` (instructor) are rejected with `NOT_RUNNING`. (INSTRUCTOR injects while paused are applied at the frozen `nowSec`.)
+| any | authorized `RESET` | IDLE | Fresh state and exercise log from the same scenario/configuration/seed; transport sequence remains monotonic |
+17.2 Guards for `DECIDE`: phase RUNNING; current DP `openSec <= t && t < closeSec`; each required estimate belongs to the deciding role and causally precedes commitment; role SOLO or COMMANDER. An Analyst estimate cannot satisfy a Commander requirement. Rejections return a typed error and effects (Section 19.1), never mutate the input, and make no action-specific change. Due scheduled progression of an admitted request is retained (Section 19.4). A timeout at the requested DP's close is not rolled back, and DECIDE returns `WINDOW_CLOSED`, not a generic phase error caused by that timeout.
+
+17.3 `EngineErrorCode` is the declared union in Section 13, including `INVALID_TIME` and `INVALID_INTENT`. Trainee errors for unknown, hidden, or undelivered report probes must use the same unavailable-report code/message (`UNKNOWN_REPORT`, "Report is not available"); do not reveal existence through diagnostics.
+
+17.3a Canonical intent permissions (engine AND session/server enforcement):
+
+| Intent | SOLO (LOCAL) | COMMANDER | ANALYST | INSTRUCTOR |
+|---|---|---|---|---|
+| OPEN_REPORT | Yes | Yes | Yes | No trainee inspection mutation; read via instructor projection |
+| SET_ESTIMATE | Yes | Yes | Yes | No |
+| REVEAL_AID | Own estimate-gated aid | Own estimate-gated aid | Own estimate-gated aid | No trainee-aid mutation |
+| VERIFY | Yes | Yes | No | No |
+| DECIDE | Yes | Yes | No | No |
+| RELAY / ADVISE | No | No | Yes | No |
+| START / PAUSE / RESUME / RESET | Yes | No | No | Yes |
+| INJECT | No | No | No | Yes |
+
+Grants do not waive phase, window, visibility, estimate, or resource guards. Role/time are trusted adapter inputs, not client authority claims. The local instructor drawer is an explicit instructor-capability surface (Section 27.4); it is not arbitrary role spoofing. SOLO is a trainee for redaction and is not a network role.
+
+17.4 Rollback/replay rule: there is no rollback. `replayLog(scenario, log, { upToSec, upToIntentIndex })` rebuilds a causal prefix through an explicit horizon. Without an index, partial replay includes accepted intents through `upToSec`; with an index, it includes that prefix only (zero-based, inclusive), and the horizon cannot precede an included intent. Any partial replay options require `upToSec`. Never repair backward timestamps by sorting logs. Default completed replay includes due timeout and consequence events through the actual terminal event, even beyond `durationSec`; it does not stop merely because the log has no more intents. A partial replay ending before that event preserves the phase at its cut and must not claim COMPLETE.
+
+17.5 Clock semantics: advance in RUNNING and CONSEQUENCE, freeze in PAUSED, stop at COMPLETE. While PAUSED, only RESUME, RESET, and authorized INJECT are admissible state actions; other actions return `NOT_RUNNING`. Paused injects use frozen `nowSec` and drain their newly due events.
+
+Reaching `durationSec` creates no phase transition, timeout, or clock stop. Timeout remains the existing DECISION_CLOSE event at the DP deadline when no decision has been recorded. Only the applicable terminal CONSEQUENCE_REVEAL event completes the exercise; Section 13.2 applies in every mode.
+
+17.6 Canonical causal evaluation and consequence disclosure:
+- The decision cut is immediately before recording the commitment, after preceding scheduled events and accepted intents. Later same-second intents/events are excluded. Timeout uses its scheduled event position as the cut.
+- Belief, inspections, estimates, verification assessments, and score inputs use the deciding role at that cut. Realized utility and consequence branch selection use the truth at that cut; later truth never rescores or reselects an earlier decision.
+- Keep the selected branch, headline/narrative, and authored branch arrival internal until COMPLETE (authorized instructor projection excepted). Public pending copy is generic; public reveal occurs at decision time plus the maximum authored arrival delay for that action, regardless of truth. COMPLETE must not occur earlier on one truth branch: hiding only the countdown would still leak truth through timing.
+- Authored consequence delays remain unchanged. The flagship keeps `durationMin: 36`, version 1, and its authored chronology/hash. Under approved Option B (Section 13.2), a South decision at 29:59 validly remains in CONSEQUENCE at 36:00 and reaches COMPLETE at 36:59. Public completion uses the seven-minute maximum even when the selected authored branch has a six-minute delay. Do not crop, reveal early, or change duration to match completion.
 
 ---
 
 ## 18. FLAGSHIP SCENARIO AND GOLDEN DEMO TEST (`FLAGSHIP_DEMO`)
 
 ### 18.1 Fiction (MUST remain fictional and non-operational)
-A relief convoy (call sign KESTREL-1) at Camp Alder must reach Distribution Point Marigold before a weather window closes. Two routes: **north via Veer Pass** (short, high payoff) or **south via Tamsa Ford** (long, lower payoff). A hidden landslide blocks Veer Pass at t = 14:00. From t = 16:00 wideband interference degrades the LAND link (delay) and from t = 18:00 the AIR link drops out. The commander must choose before t = 30:00 and may task one verification asset. There are no adversaries, weapons, targeting, or tactics: the decision is route selection under uncertain information, which is the training variable.
+A relief convoy (call sign KESTREL-1) at Camp Alder must reach Distribution Point Marigold before a weather window closes. Two routes: **north via Veer Pass** (short, high payoff) or **south via Tamsa Ford** (long, lower payoff). A hidden landslide blocks Veer Pass at t = 14:00. From t = 16:00 wideband interference degrades the LAND link (delay) and from t = 18:00 the AIR link drops out. The commander must choose before t = 30:00 and may task each route's verification asset once in DP1, subject to its strict deadline. There are no adversaries, weapons, targeting, or tactics: the decision is route selection under uncertain information, which is the training variable.
 
 ### 18.2 CREATE `src/scenarios/kestrel-relief-corridor.json` (exact content)
 
@@ -1056,16 +1127,19 @@ Contributions at t = 22 (north): R01 +0.5553, R02 +0.3913, R04 +0.3461, R05 −0
 | EVSI (UAV, ρ=0.95) at t=22 (decision utilities evaluated at t=22) | 31.38 |
 | Net VOI at t=22 = EVSI − 1.5×6 − 5 | 17.38 |
 | EVSI (FORD_GAUGE, ρ=0.90) at t=22 | 12.24 |
-| Expected utilities at t=24 | 49.04 / 33.67 / 10.00; EVPI 26.53; EVSI 20.93; net VOI 6.93 |
+| Strict-cutoff reference at 23:59 (UAV still feasible) | EU 33.8321 / 33.7016 / 10.00; EVPI 38.7863; UAV EVSI 31.7229; net VOI 17.7229 |
+| Expected utilities at t=24 (formula reference; UAV no longer feasible) | 49.04 / 33.67 / 10.00; EVPI 26.53; UAV EVSI 20.93; net VOI 6.93 |
 | Expected utilities at t=26 | 43.67 / 29.71 / 10.00; EVPI 28.46 |
 | Hidden-truth realized utilities | `north_pass=false`, `south_ford=true` |
 
+Flagship deadline anchors: DP1 opens at 720 seconds and closes at 1800. Last legal UAV request is 1439 (23:59); last legal Ford request is 1499 (24:59); last voluntary decision/result usable before timeout is 1799 (29:59). Do not round these to minutes. R07 arrives at 24:00 and changes the belief; it is not the UAV result. Path A's UAV is tasked at 22:00 and V01 arrives at 28:00. Formula values at 24:00 remain valid reference calculations, but `24:00 + 6:00 = closeSec` makes a UAV request infeasible.
+
 ### 18.6 Golden paths (each is a test in `tests/golden/flagship.test.ts`)
 
-All intents use minutes→seconds. Tolerance: ±0.005 on unit-interval metrics, ±0.05 on utilities, ±0.1 on composite.
+All scripts use `mode: 'LOCAL'`, `role: 'SOLO'` on every intent (including START), and nondecreasing integer-second timestamps. Times below are minutes unless written mm:ss; convert once to seconds. Same-time intents execute in the listed order. Replay through COMPLETE for completed fixtures. Tolerance remains ±0.005 on unit-interval metrics, ±0.05 on utilities, ±0.1 on composite.
 
 **Path A — "Verify then reroute" (the demo path)**
-Intents: START 0; OPEN_REPORT R01..R04 at t=9; SET_ESTIMATE north_pass p=0.80 at t=18; OPEN_REPORT R05 at 18, R06 at 22; VERIFY UAV_SORTIE at 22; OPEN_REPORT R07 at 24; SET_ESTIMATE north_pass p=0.25 at 29 (after V01 delivered at 28); OPEN_REPORT V01 at 28; DECIDE GO_SOUTH at 29 with rationale citing R06, V01.
+Intents: START 0; OPEN_REPORT R01, R02, R03, R04 in that order at 9; SET_ESTIMATE north_pass p=0.80 at 18; OPEN_REPORT R05 at 18; OPEN_REPORT R06 at 22; VERIFY UAV_SORTIE at 22; OPEN_REPORT R07 at 24; OPEN_REPORT V01 at 28; SET_ESTIMATE north_pass p=0.25 at 29; DECIDE GO_SOUTH at 29 with rationale citing R06, V01.
 
 | Metric | Expected |
 |---|---|
@@ -1083,7 +1157,7 @@ Intents: START 0; OPEN_REPORT R01..R04 at t=9; SET_ESTIMATE north_pass p=0.80 at
 | Posture | BALANCED |
 
 **Path B — "Committed into the fog" (sound but unlucky, missed verification)**
-Intents: START; OPEN R01,R02,R03,R04 at 9; OPEN R05 at 18; OPEN R07 at 24; SET_ESTIMATE north_pass 0.90 at 25; DECIDE GO_NORTH at 26 (no verification, R06 never opened).
+Intents: START 0; OPEN_REPORT R01, R02, R03, R04 in that order at 9; OPEN_REPORT R05 at 18; OPEN_REPORT R07 at 24; SET_ESTIMATE north_pass 0.90 at 25; DECIDE GO_NORTH at 26 (no verification, R06 never opened).
 
 | Metric | Expected |
 |---|---|
@@ -1093,23 +1167,23 @@ Intents: START; OPEN R01,R02,R03,R04 at 9; OPEN R05 at 18; OPEN R07 at 24; SET_E
 | Realized utility | −80 − 1.5×14 = −101.00 → Outcome **0.0000** (clipped) |
 | Information utilization | 0.7843 |
 | Timeliness | 1 − 14/18 = 0.2222 |
-| Verification efficiency | not verified; evaluated at t_eval = min(26, 30−6=24) = 24: net VOI 6.93, EVPI 26.53 → VE = 1 − 6.93/26.53 = **0.7388** |
+| Verification efficiency | not verified; UAV candidate at `min(1560, 1800-360-1) = 1439` (23:59): net VOI 17.722857386, EVPI 38.786287199 → VE = **0.5431**. Ford candidate at 24:59 has net VOI -9.060932228, so UAV is selected |
 | Calibration alignment | 1 − \|0.90−0.8037\|/0.5 = 0.8074 |
-| Training Score | **69.11** |
+| Training Score | **66.17** |
 | Quadrant | SOUND_UNLUCKY |
-| Required AAR statements | "R10 was dropped at 20:00; had it been delivered at 20:00 p(north) would have been 0.5488 instead of 0.8733." "R06 (rockfall) arrived at 22:00 and was not opened." "A verification sortie tasked at or before 24:00 was worth +6.93 net." |
+| Required AAR statements | "R10 was dropped at 20:00; had it been delivered at 20:00 p(north) would have been 0.5488 instead of 0.8733." "R06 (rockfall) arrived at 22:00 and was not opened." "UAV_SORTIE evaluated at 23:59 was worth +17.72 net; a request at 24:00 was too late." The what-if explanation is P1 integration; P0 must report its analysis limitation rather than imply a completed counterfactual search |
 
 **Path C — "Early commitment" (sound but unlucky, before the fog)**
-Intents: START; OPEN R01..R04 at 9; SET_ESTIMATE north_pass 0.95 at 15; DECIDE GO_NORTH at 16.
+Intents: START 0; OPEN_REPORT R01, R02, R03, R04 in that order at 9; SET_ESTIMATE north_pass 0.95 at 15; DECIDE GO_NORTH at 16.
 Belief 0.9340; DQ 1.0000; realized −80 − 1.5×4 = −86.00 → Outcome 0.0700; Timeliness 1 − 4/18 = 0.7778; IU 1.0000; VE 1.0000 (net VOI −7.50 < 0, no value left on the table); Calibration 0.9680; Training Score **83.67**; quadrant SOUND_UNLUCKY.
 
 **Path D — "Over-cautious"**
-Intents: START; OPEN R01..R07 (as delivered) by 28; SET_ESTIMATE north_pass 0.50 at 27; DECIDE STAND_DOWN at 28.
-Belief 0.7917; a* = GO_NORTH; regret 28.51 = R_max → DQ **0.0000**; realized utility 10 → Outcome 0.5500; IU 0.9018; Timeliness 1 − 16/18 = 0.1111; VE 0.7388 (evaluated at t_eval = 24); Calibration 0.4166; Training Score **36.05**; posture OVER_CAUTIOUS; quadrant POOR (DQ 0.00 < 0.8 and Outcome 0.55 < 0.6; see 24.7).
+Intents: START 0; OPEN_REPORT R01 at 3, R02 at 5, R03 at 6, R04 at 8, R05 at 17, R06 at 22, R07 at 24; SET_ESTIMATE north_pass 0.50 at 27; DECIDE STAND_DOWN at 28.
+Belief 0.7917; a* = GO_NORTH; regret 28.51 = R_max → DQ **0.0000**; realized utility 10 → Outcome 0.5500; IU 0.9018; Timeliness 1 − 16/18 = 0.1111; VE **0.5431** (UAV candidate at 23:59, as in Path B); Calibration 0.4166; Training Score **33.12**; posture OVER_CAUTIOUS; quadrant POOR (DQ 0.00 < 0.8 and Outcome 0.55 < 0.6; see 24.7).
 
-**Path E — "Timeout"**: START; no decision; at 30:00 the engine auto-records `STAND_DOWN` with `timedOut = true`; Outcome computed from utility 10; Timeliness = 0; AAR states "Decision window expired".
+**Path E — "Timeout"**: START 0; no decision; at 30:00 the engine auto-records `STAND_DOWN` as SOLO with `timedOut = true`; Outcome computed from utility 10; Timeliness = 0; completed replay proceeds to the consequence at 33:00 even though START is the only accepted intent. AAR states "Decision window expired".
 
-**Path F — determinism**: run Path A twice, JSON-serialize `SimState`, assert byte equality. Run Path A with a different seed: flagship has no stochastic elements; results MUST be identical.
+**Path F — determinism**: run Path A twice with the same configuration, seed, accepted-intent order, and completion horizon; JSON-serialize `SimState` and assert byte equality. Run Path A with a different seed against the same **unmutated** flagship: behavior and all metrics MUST be equal after excluding only the changed seed metadata. Do not compare complete JSON including unequal seed fields, and do not confuse this with P2 scenario mutation.
 
 ---
 
@@ -1117,7 +1191,9 @@ Belief 0.7917; a* = GO_NORTH; regret 28.51 = R_max → DQ **0.0000**; realized u
 
 ### 19.1 Public API (exact signatures)
 ```ts
-export interface EngineResult<T = void> { ok: true; value: T; effects: EngineEffect[] } | { ok: false; error: EngineErrorCode; message: string }
+export type EngineResult<T = void> =
+  | { ok: true; value: T; effects: EngineEffect[] }
+  | { ok: false; error: EngineErrorCode; message: string; effects: EngineEffect[] };
 export type EngineEffect =
   | { kind: 'REPORT_DELIVERED'; reportId: ReportId; atSec: SimSeconds }
   | { kind: 'REPORT_DROPPED'; reportId: ReportId; atSec: SimSeconds }
@@ -1126,48 +1202,62 @@ export type EngineEffect =
   | { kind: 'DECISION_WINDOW_OPENED' | 'DECISION_WINDOW_CLOSED'; decisionPointId: string; atSec: SimSeconds }
   | { kind: 'PHASE_CHANGED'; phase: Phase; atSec: SimSeconds };
 
-export function createSession(scenario: ScenarioDef, opts: { seed: number; difficultyLevel: number; aidMode: 'ALWAYS' | 'AFTER_ESTIMATE' }): SimState;
-export function advanceTo(state: SimState, scenario: ScenarioDef, tSec: SimSeconds): { state: SimState; effects: EngineEffect[] };
+export function createSession(scenario: ScenarioDef, opts: { seed: number; difficultyLevel: number; mode: SessionMode; aidMode: 'ALWAYS' | 'AFTER_ESTIMATE' }): SimState;
+export function advanceTo(state: SimState, scenario: ScenarioDef, tSec: SimSeconds): { state: SimState; effects: EngineEffect[]; error?: { code: 'INVALID_TIME'; message: string } };
 export function applyIntent(state: SimState, scenario: ScenarioDef, intent: Intent): { state: SimState; result: EngineResult };
-export function replayLog(scenario: ScenarioDef, log: SessionLog, opts?: { upToSec?: SimSeconds; upToIntentIndex?: number }): SimState;
+export function replayLog(scenario: ScenarioDef, log: SessionLog, opts?: { upToSec: SimSeconds; upToIntentIndex?: number }): SimState;
 ```
-19.2 `advanceTo` MUST be pure: it returns a NEW state object (structural sharing allowed; use `structuredClone` on write paths — the state is small) and never reads `Date`, `Math.random`, or globals.
-19.3 `advanceTo` rejects `tSec < state.nowSec` by returning the same state (monotonic time). In PAUSED phase it returns the same state unchanged.
-19.4 `applyIntent` ALWAYS first calls `advanceTo(state, scenario, intent.t)` (except `RESET`), then validates and applies the intent.
+19.2 `advanceTo` MUST be pure: changes return a NEW state object (structural sharing allowed; use `structuredClone` on write paths — the state is small); unchanged/no-op or rejected-time calls may return the input. Never mutate input or read `Date`, `Math.random`, or globals.
+19.3 `advanceTo` rejects nonfinite, negative, fractional, or backdated time (`tSec < state.nowSec`) with `error: { code: 'INVALID_TIME', message }`, unchanged state, and no effects; adapters must surface the error. A valid call does not advance the clock in IDLE, PAUSED, or COMPLETE. Internal draining of a paused inject's due work is separate from clock advancement (Section 16.3).
+
+19.4 Admitted progression versus rejected action (canonical order):
+1. Validate external schema and size; reject client authority fields (`t`, `role`, `fromRole`).
+2. Bind trusted actor/time in the session adapter; the engine independently checks mode/role and finite, nonnegative integer, nonbackdated time. A PAUSED intent must use frozen `nowSec`; a different intent timestamp is INVALID_TIME. Malformed, unauthorized, or invalid-time requests cause no intent-driven progression or mutation.
+3. For an admitted request, advance due scheduled work through the trusted timestamp (subject to phase clock rules).
+4. Check state-dependent phase/window/visibility/estimate/capacity guards.
+5. Apply exactly one successful action, or no action-specific change on rejection. Failed actions cannot append inspections, estimates, decisions, verification, relay, inject work, charges, or action counters.
+6. Return scheduled effects plus successful-action effects, retain progressed state, project the view, and surface any error. Failure `effects` are not discarded. Independent clock progression is not prevented by an ingress rejection.
+
+Never mutate input objects or roll back due timeout/delivery events. Authorized RESET is checked before replacing the exercise with fresh state/log; it is not appended to the previous exercise's accepted-intent stream. Existing transport sequencing does not reset. Only accepted intents enter replay; partial replay uses the caller's explicit observed horizon to reproduce clock progression, including progression accompanying a rejected action.
 
 ### 19.5 Report issue algorithm (`REPORT_ISSUE` event at time `t`)
 ```text
 ch = channels[def.channel]
 mode = ch.mode (as of t, after any RESTORE/DEGRADE events at t)
 base = channelDef.baseDelaySec
+store healthAtIssue = ch.healthMultiplier on the ReportRuntime
 switch mode:
   HEALTHY: deliveredAt = t + base
   NOISE:   deliveredAt = t + base            (reliability handled by healthMultiplier at belief time)
   DELAY:   deliveredAt = t + base + ch.extraDelaySec
-  DROPOUT: status = DROPPED; droppedReason = 'DROPOUT'; deliveredAt = null
-  BURST:   deliveredAt = ch.untilSec (restore time); if untilSec null → treat as DROPOUT
-status = (deliveredAt == t) ? DELIVERED (immediate) : IN_TRANSIT; schedule REPORT_DELIVER at deliveredAt
-store healthMultiplierAtIssue = ch.healthMultiplier on the ReportRuntime (field `healthAtIssue`)
+  DROPOUT: status = DROPPED; droppedReason = 'DROPOUT'; deliveredAt = null;
+           emit REPORT_DROPPED; STOP this issue (no delivery event)
+  BURST:   if untilSec is null → use the terminal DROPOUT branch;
+           otherwise deliveredAt = ch.untilSec as fixed at issue
+status = IN_TRANSIT; schedule REPORT_DELIVER at deliveredAt
+drain a same-time delivery by the pending-event order
 ```
-`ReportRuntime.healthAtIssue` (Section 13) stores the multiplier at issue time.
+Issued reports retain their scheduled delivery and `healthAtIssue`. Later restoration/degradation does not retime them, including BURST reports. Preserve flagship R06 at 22:00, R09 at 27:00, and R11 at 31:00.
 
 ### 19.6 Intent handling summary
 | Intent | Validation | Mutation |
 |---|---|---|
-| START | phase IDLE | RUNNING |
-| PAUSE/RESUME | phase RUNNING/PAUSED | toggle |
+| START | authorized SOLO/INSTRUCTOR; phase IDLE; t = 0 | RUNNING; initialize deterministic timeline |
+| PAUSE/RESUME | authorized SOLO/INSTRUCTOR; phase RUNNING/PAUSED | toggle at trusted/frozen time |
 | OPEN_REPORT | report exists, status DELIVERED (or IN_TRANSIT rejected), visible to role | append `InspectRecord` (idempotent per (reportId, role)) |
-| SET_ESTIMATE | `0 <= p <= 1`, phase RUNNING | append `EstimateRecord`; if aidMode AFTER_ESTIMATE and hypothesis primary → `aidRevealedAtSec = t` (first time only) |
-| REVEAL_AID | aidMode AFTER_ESTIMATE | `aidRevealedAtSec = t` |
-| VERIFY | asset in current DP's `assets`; capacity left; `t + delaySec <= closeSec` else `VERIFY_TOO_LATE` | create `VerificationRecord` + `ReportRuntime` (origin VERIFY, issuedAt = deliversAt, deliveredAt = deliversAt, status IN_TRANSIT) + schedule delivery |
+| SET_ESTIMATE | SOLO/COMMANDER/ANALYST; known hypothesis; finite `0 <= p <= 1`; phase RUNNING | append own `EstimateRecord`; in AFTER_ESTIMATE, primary estimate reveals only this role's aid (first time) |
+| REVEAL_AID | SOLO/COMMANDER/ANALYST; phase RUNNING; AFTER_ESTIMATE; own primary estimate already present | set only this role's `aidRevealedAtSecByRole` entry; never bypass estimate gate |
+| VERIFY | SOLO/COMMANDER; RUNNING; current undecided DP open; asset listed; capacity left; `t + delaySec < closeSec` else `VERIFY_TOO_LATE` | create `VerificationRecord` + result runtime (issuedAt = deliversAt, status IN_TRANSIT), charge once, schedule delivery |
 | RELAY | P2; Section 29 | create relayed report |
 | DECIDE | Section 17.2 | `DecisionRecord`, phase transition |
 | INJECT | role INSTRUCTOR; preset exists | Section 21.6 |
-| RESET | any | `createSession(...)` |
+| RESET | authorized SOLO/INSTRUCTOR; valid trusted time | fresh `createSession(...)` and exercise log; retain transport sequence |
 
 19.7 Verification result content (`TRUTH_CONSISTENT`): `stance = truth[hypothesisId] ? +1 : -1` evaluated at request time; claim from `resultClaims`; `rho = asset.rho`; `evidenceGroup = 'GV-' + verificationId`; `issuedAtSec = deliversAtSec`. In `STOCHASTIC` mode: `matches = rng.next() < asset.rho`; `stance = matches ? truthStance : -truthStance`; RNG stream is `rng(seed ^ hash(verificationId))`.
 
-19.8 Capacity rule: each asset can be used `capacity` times per decision point. A repeated VERIFY of the same asset returns `ASSET_EXHAUSTED`.
+19.8 Capacity rule: count uses by `(decisionPointId, assetId)`. Each asset can be used its `capacity` times per DP; a request beyond that capacity returns `ASSET_EXHAUSTED`. There is no global one-verification limit. Each accepted task incurs its cost exactly once, even if the decision precedes its result; rejected requests incur no cost.
+
+19.9 Replay validation: validate configuration, trusted roles, integer times, and nondecreasing accepted-intent order before replay. Never sort a malformed log into apparent validity. An explicit partial horizon must include all selected intents; default completed replay drains the remaining timeout/consequence schedule through the actual COMPLETE event, not merely to the last intent or exercise/commitment horizon. For a South commitment at 29:59, partial replay to 36:00 remains in CONSEQUENCE; completed replay reaches 36:59 naturally. Neither path changes `durationSec` or uses a separate clock.
 
 ---
 
@@ -1181,7 +1271,7 @@ store healthMultiplierAtIssue = ch.healthMultiplier on the ReportRuntime (field 
 | Channel health at issue | `healthAtIssue` (NOISE mode multiplier) | Further shrinks excess accuracy |
 | Independence | `evidenceGroup` | Duplicates within a group are not double-counted |
 20.2 Provenance fields shown on every report card: channel, source label, issuedAt, deliveredAt, delay (`deliveredAt − issuedAt`), age now, reliability grade, evidence group tag, status badges (`DELAYED`, `STALE`, `RELAYED`, `UNCONFIRMED` for injected false reports, `VERIFIED` for verification results).
-20.3 Reliability grade mapping (display only; never used in math): ρ ≥ 0.85 → "A", 0.75–0.849 → "B", 0.65–0.749 → "C", < 0.65 → "D". Label: "Source grade (scenario-assigned)".
+20.3 Reliability grade mapping (display only; never used in math): if ρ ≥ 0.85 use A; else if ρ ≥ 0.75 use B; else if ρ ≥ 0.65 use C; else D. These comparisons are exhaustive, including values such as 0.8499 and 0.7499. Apply to reports and assets. Label: "Source grade (scenario-assigned)".
 20.4 `STALE` badge rule: effective accuracy has decayed below 60% of the report's original excess accuracy: `exp(−age/τ) < 0.6`.
 20.5 Corroboration: independent evidence groups that agree reinforce each other automatically (their log-likelihood ratios add). Identical evidence repeated within one group adds nothing (Section 22.4).
 
@@ -1196,16 +1286,16 @@ store healthMultiplierAtIssue = ch.healthMultiplier on the ReportRuntime (field 
 | HEALTHY | delivered at `issuedAt + baseDelay` | HEALTHY |
 | DELAY | delivered `extraDelaySec` later | DEGRADED |
 | DROPOUT | never delivered (status DROPPED) | DOWN |
-| BURST | held and delivered together at restore time | DEGRADED |
+| BURST | delivered at the restoration time scheduled when that report was issued; later restores do not retime it | DEGRADED |
 | NOISE | delivered normally; `healthMultiplier m ∈ (0,1)` shrinks excess accuracy | DEGRADED |
-21.3 Overlapping degradation on the same channel: the later `CHANNEL_DEGRADE` replaces the earlier (single active mode per channel). `untilSec` of the replacement governs. A `CHANNEL_RESTORE` scheduled for the earlier degradation MUST be ignored if `ch.untilSec` no longer matches that restore's time (guard: restore applies only if `restore.atSec === ch.untilSec`).
-21.4 Health label `lastContact`: UI shows "last report received N min ago" from `lastDeliveredAtSec`; if the channel is DOWN or DEGRADED and N > 6 min, show a stale indicator (hatched bar).
-21.5 Helper: `computeEffectiveAccuracy(rho, ageSec, tauSec, healthMultiplier)` (Section 22.2) is the only place decay is computed.
+21.3 Overlapping degradation on the same channel: the later `CHANNEL_DEGRADE` replaces the earlier (single active mode per channel). `untilSec` of the replacement governs. An automatic `CHANNEL_RESTORE` applies only if `restore.atSec === ch.untilSec`; a stale automatic restore is ignored. Internal restore payloads distinguish automatic from authorized forced restoration. RESTORE_ALL bypasses the automatic guard and clears the active mode immediately. This changes subsequent issues only, not already-issued reports' delivery times or `healthAtIssue`.
+21.4 Health label `lastContact`: for a role-visible channel, show "last report received N min ago" from projected `lastDeliveredAtSec`; if DOWN or DEGRADED and N > 6 min, show a stale indicator. Hidden channels expose generic health only, not contact metadata.
+21.5 Helper: `effectiveAccuracy(rho, ageSec, tauSec, m)` (Section 22.5) is the only place decay is computed.
 21.6 Instructor injects (`INJECT` intent) compile presets into timeline events at the inject time `t`:
 - `DEGRADE` → `CHANNEL_DEGRADE` at `t` with `untilSec = t + durationSec`; auto `CHANNEL_RESTORE` at `untilSec`.
-- `RESTORE_ALL` → `CHANNEL_RESTORE` for all channels at `t` (priority ordering ensures it precedes new issues at `t`).
+- `RESTORE_ALL` → forced `CHANNEL_RESTORE` for all channels at `t`, bypassing stale automatic-restore guards. It precedes newly pending issues by priority but cannot change issues processed before the intent at the same second.
 - `FALSE_REPORT` → a new `ReportRuntime` (origin INJECT) with `id = 'INJ' + (injectedCounter + 1)`, `evidenceGroup = 'GINJ' + n`, `issuedAtSec = t`, delivered through the normal channel pipeline.
-All injects are logged as intents; replay reproduces them exactly.
+Only accepted injects are logged as intents; replay reproduces their events and counters exactly from runtime queue state.
 
 ---
 
@@ -1227,7 +1317,7 @@ Effective accuracy: $A_i = \tfrac12 + (\rho_i - \tfrac12)\, k_i\, m_i$ where $m_
 
 Signed log-likelihood ratio (nats): $\ell_i = s_i \ln\frac{A_i}{1-A_i}$ with $s_i \in \{-1,+1\}$ (stance); neutral reports have no term
 
-Evidence-group rule: among delivered reports of the same `evidenceGroup` and hypothesis, only ONE term counts: if all stances agree, the term with the largest $|\ell|$; if stances conflict, the most recently issued report (tie → higher sequence)
+Evidence-group rule: key by `(evidenceGroup, hypothesisId)` among delivered role-visible reports. Only ONE term counts: if all stances agree, choose the largest $|\ell|$ (tie → latest issued, then higher sequence); if stances conflict, choose the most recently issued report (tie → higher sequence), even if another has greater magnitude.
 
 Posterior log-odds: $L = \mathrm{clamp}\!\left(L_0 + \sum_{g}\ell_g,\; -C,\; +C\right)$ with $C$ = `model.llrClamp` (5)
 
@@ -1241,7 +1331,7 @@ Positive/negative evidence mass: $W^{+}=\sum_{\ell_g>0}\ell_g,\ W^{-}=\sum_{\ell
 
 Contradiction index: $C_{idx} = 1-\dfrac{|W^{+}-W^{-}|}{W^{+}+W^{-}}$ if $W^{+}+W^{-}\ge 0.2$, else 0. A hypothesis is `contradicted` iff $C_{idx}\ge$ `contradictionThreshold` AND $\min(W^{+},W^{-}) \ge$ `contradictionMinNats`.
 
-Contribution weight for visualization: $w_g = |\ell_g| / \max_g |\ell_g|$ (0 if no contributions).
+Contribution weight for visualization: $w_g = |\ell_g| / \max_g |\ell_g|$ (0 if there are no contributions or the maximum magnitude is zero).
 
 ### 22.3 Worked example (t = 22:00, hypothesis `north_pass`, prior 0.70)
 - $L_0 = \ln(0.7/0.3) = 0.8473$.
@@ -1257,12 +1347,12 @@ Contribution weight for visualization: $w_g = |\ell_g| / \max_g |\ell_g|$ (0 if 
 ### 22.4 Edge cases (each has a unit test)
 | Case | Behaviour |
 |---|---|
-| No delivered reports | $p=\pi$; entropy of the prior; $C_{idx}=0$ |
-| All evidence in one group | Strongest term only |
-| Report with `A` ≤ 0.5 due to decay | $\ell = 0$ (clamp `A` to ≥ 0.5 + 1e-9) |
+| No delivered reports | Apply the same log-odds clamp to the prior; $p=\pi$ only when its log-odds lie within the clamp; entropy uses that resulting probability; $C_{idx}=0$ |
+| All evidence in one group/hypothesis | Apply the agreeing/conflicting rule above, including deterministic ties; do not always choose the strongest term |
+| Effective accuracy reaches exactly 0.5 | $\ell = 0$ exactly; never add artificial epsilon evidence. Invalid inputs below 0.5 fail validation rather than manufacture evidence |
 | `healthAtIssue` = 0.5 | Excess accuracy halves |
 | Neutral report (stance 0) | No term; appears in feed and AAR only |
-| Clamp reached | $|L| = 5$ → $p ∈ \{0.0067, 0.9933\}$ |
+| Clamp reached | $\lvert L\rvert = 5$ → $p ∈ \{0.0067, 0.9933\}$ |
 | Evaluation time before a report's delivery | Report not included (use `deliveredAtSec <= t`, status DELIVERED) |
 
 ### 22.5 API (`belief.ts`)
@@ -1272,12 +1362,12 @@ export function effectiveAccuracy(rho: number, ageSec: number, tauSec: number, m
 export function llr(accuracy: number, stance: Stance): number;
 export function logistic(x: number): number;
 ```
-`extraReports` and `excludeReportIds` exist for what-if recomputation (dropped-report reveal, counterfactuals). Visibility filtering exists for multiplayer role beliefs.
+`state` must be reconstructed at the requested causal cut; a timestamp applied to final state is not reconstruction. Include all delivered role-visible evidence, whether inspected or not. Visibility includes direct channels and authorized delivered relays. `extraReports` and `excludeReportIds` support what-if replacement by report ID, not duplicate copies; no report issued after the evaluation cut is eligible. `BeliefSnapshot` is internal and must be explicitly projected before it reaches trainees (Section 33.2).
 
 ### 22.6 UI representation
-Belief gauge per hypothesis (probability bar + numeric), Fog Index meter, Evidence Waterfall (log-odds contributions as signed bars from the prior marker), Contradiction Meter (two opposed arcs sized by $W^{+}$ and $W^{-}$), Fog Veil on report cards (opacity from weight $w_g$ × freshness).
+P0's exact model supplies the belief gauge, Fog Index, and scores. P1 adds the full reference drawer, waterfall, and dedicated explanations. All aggregate aids are role/estimate-gated; per-report signed waterfall details additionally require inspection. Fog Veil uses the projected weight under Section 36.5, not raw internal contributions.
 ### 22.7 Failure case and fallback
-Failure case: a scenario author assigns unrealistic reliabilities leading to overconfident beliefs. Fallback: the clamp ($C=5$) and the Reference Model drawer which shows every parameter. No fallback to ML.
+Failure case: a scenario author assigns unrealistic reliabilities leading to overconfident beliefs. Fallback: the clamp ($C=5$) and the Reference Model drawer's permitted public assumptions/parameters; it must not expose raw live report reliability or hidden truth. No fallback to ML.
 ### 22.8 Why it belongs
 It is the minimal model that makes "information quality" (reliability, age, health, independence, contradiction) explicit and auditable. A simpler model (average of confidences) cannot express contradiction or decay; a more complex model (Dempster–Shafer, particle filters) is unnecessary for binary route hypotheses.
 
@@ -1295,8 +1385,8 @@ where $u(a,s)$ is the first matching `utility` rule and $c$ = `delayCostPerMin`.
 
 ### 23.3 Expected utility, best action, regret, tie
 $$EU_t(a)=\sum_s P(s)\,U_t(a,s)\qquad a^*=\arg\max_a EU_t(a)$$
-Tie-break: if the top two expected utilities differ by less than `tieEpsilon`, set `isTie = true` and choose by action order in the scenario for `a*` display only.
-Regret under belief: $R_t=EU_t(a^*)-EU_t(a_t)$ where $a_t$ is the chosen action. Maximum regret: $R_{max}=EU_t(a^*)-\min_a EU_t(a)$.
+Tie-break: if the top two expected utilities differ by less than `tieEpsilon`, set `isTie = true` and choose among the tied actions by scenario action order for `a*` display only.
+Regret under belief uses the numerical maximum, not the display tie winner: $R_t=\max_a EU_t(a)-EU_t(a_t)$. Maximum regret: $R_{max}=\max_a EU_t(a)-\min_a EU_t(a)$. DQ and EVPI likewise use the numerical maximum.
 
 ### 23.4 Posture
 - `OVER_CAUTIOUS`: the chosen action's id is the scenario's designated cautious action (the DP's `timeoutActionId`) and $a^*\neq a_t$ and $R_t>$ `tieEpsilon`.
@@ -1312,28 +1402,29 @@ For an asset with accuracy $\rho_v$ about hypothesis $h$ with current belief $p=
 - $P(y{=}\text{supports})=p\rho_v+(1-p)(1-\rho_v)$, posterior $p'_+=\dfrac{p\rho_v}{P(y{=}\text{supports})}$
 - $P(y{=}\text{contradicts})=p(1-\rho_v)+(1-p)\rho_v$, posterior $p'_-=\dfrac{p(1-\rho_v)}{P(y{=}\text{contradicts})}$
 $$EVSI_t=\sum_{y}P(y)\max_a EU_t(a\mid p'_y)-\max_a EU_t(a)$$
-(utilities evaluated at the same time $t$ — time cost handled separately.)
+(utilities evaluated at the same time $t$ — time cost handled separately. This is a same-time reference calculation, not a forecast incorporating future routine reports, future truth, or simulated future decisions.)
 $$NetVOI_t=EVSI_t-c\cdot\tfrac{\text{delay}_v}{60}-\text{cost}_v$$
 where $c\cdot \text{delay}_v/60$ is the delay cost of waiting for the result (applies if any GO action is still the best use of the information; the engine ALWAYS subtracts it for a conservative estimate) and cost$_v$ is `costUnits`.
 Example (golden): at $t=22$ with $\rho_v=0.95$: EVSI 31.38 − 9.00 − 5.00 = **17.38**.
 
 ### 23.7 Verification feasibility
-Verification result must arrive before the window closes: `t + delaySec < closeSec`. Otherwise `VERIFY_TOO_LATE` (the UI disables the button with the reason "Result would arrive at 32:00, after the 30:00 deadline").
-The AAR defines `t_lastChance = closeSec − delaySec − 1` (in seconds; display in minutes).
+Verification is legal only in the current open, undecided DP with a permitted actor and remaining per-asset capacity, and requires `t + delaySec < closeSec`. Equality is rejected as `VERIFY_TOO_LATE`; UI wording is "Result would arrive at or after the deadline", with the actual result/deadline times.
+The AAR defines `t_lastChance = closeSec - delaySec - 1` in integer seconds, displayed as mm:ss without minute rounding. Formula net VOI remains calculable even when the temporal `feasible` flag is false; capacity/phase/role guards are additionally enforced at tasking.
 
 ### 23.8 What the trainee sees vs what only the AAR shows
-- During play: asset cost, delay, accuracy grade ("A/B/C"), feasibility. NO EVSI hints (training integrity).
+- During play: asset cost, delay, accuracy grade (A/B/C/D), feasibility. No live expected utilities, best-action, EVPI, EVSI, or net-VOI diagnostics for trainees.
 - Instructor view: EVSI/EVPI live (diagnostic panel).
 - AAR: EVPI at decision, EVSI/NetVOI at the evaluation time, verdict.
 
 ### 23.9 API (`decision.ts`, `voi.ts`)
 ```ts
 export function expectedUtilities(dp: DecisionPointDef, belief: BeliefSnapshot, tSec: SimSeconds, hyps: HypothesisDef[]): Record<ActionId, number>;
-export function evaluateDecision(dp, belief, tSec, hyps, chosen: ActionId): { eu: Record<ActionId, number>; bestActionId: ActionId; isTie: boolean; regret: number; maxRegret: number; dq: number; posture: Posture; evpi: number };
-export function realizedUtility(dp, truth: Record<HypothesisId, boolean>, actionId: ActionId, tSec: SimSeconds): number;
-export function evsi(dp, belief, tSec, asset: AssetDef, hyps): number;
-export function netVoi(dp, belief, tSec, asset: AssetDef, hyps): { evsi: number; timeCost: number; assetCost: number; net: number; feasible: boolean };
+export function evaluateDecision(dp: DecisionPointDef, belief: BeliefSnapshot, tSec: SimSeconds, hyps: HypothesisDef[], chosen: ActionId, model: ModelParams): { eu: Record<ActionId, number>; bestActionId: ActionId; isTie: boolean; regret: number; maxRegret: number; dq: number; posture: Posture; evpi: number };
+export function realizedUtility(dp: DecisionPointDef, truth: Record<HypothesisId, boolean>, actionId: ActionId, tSec: SimSeconds): number;
+export function evsi(dp: DecisionPointDef, belief: BeliefSnapshot, tSec: SimSeconds, asset: AssetDef, hyps: HypothesisDef[]): number;
+export function netVoi(dp: DecisionPointDef, belief: BeliefSnapshot, tSec: SimSeconds, asset: AssetDef, hyps: HypothesisDef[]): { evsi: number; timeCost: number; assetCost: number; net: number; feasible: boolean };
 ```
+Pass `scenario.model` explicitly for tie/posture thresholds; no hidden mutable configuration. These exact calculations are P0 scoring dependencies; P1 owns their dedicated signature presentation.
 $DQ = 1 - R_t/R_{max}$ if $R_{max}>0$, else 1.
 
 ---
@@ -1344,13 +1435,13 @@ $DQ = 1 - R_t/R_{max}$ if $R_{max}>0$, else 1.
 | Metric | Formula | Interpretation | Edge cases |
 |---|---|---|---|
 | Decision Quality (DQ) | $1-R_t/R_{max}$ | Was this the best action given what had arrived? 1 = best under belief | $R_{max}=0$ → 1; timeout decisions use the timeout action's regret |
-| Outcome (O) | $\mathrm{clip}\big((U_{real}+100)/200,0,1\big)$ with the scenario's `outcomeScale`; $U_{real}$ includes delay cost and verification asset costs | What actually happened | Clipping at 0 and 1 |
-| Information Utilization (IU) | $\dfrac{\sum_{g\ \text{opened}}|\ell_g|}{\sum_g |\ell_g|}$ over contributing evidence groups at decision time, using the group's selected report; "opened" = that report was inspected before decision | Did you read the evidence that moved the belief? | No contributions → 1 |
-| Timeliness (T) | $\max\!\big(0,\,1-\dfrac{\text{effLatencySec}}{\text{closeSec}-\text{openSec}}\big)$ | Penalizes waiting; excludes net-positive verification wait | Timeout → 0 |
-| Verification Efficiency (VE) | see 24.3 | Used verification when worth it, skipped when not | No assets → 1 |
-| Calibration Alignment (CAL) | $1-\min(1,|q-p_{sys}|/0.5)$ | How close your stated probability was to the reference belief | No estimate → 0 |
+| Outcome (O) | $\mathrm{clip}\big((U_{real}-\text{min})/(\text{max}-\text{min}),0,1\big)$ using `outcomeScale`; flagship simplifies to $(U_{real}+100)/200$. Use decision-cut truth, delay cost, and all accepted verification costs for this DP | What actually happened under the canonical model | Clipping at 0 and 1 |
+| Information Utilization (IU) | $\dfrac{\sum_{g\ \text{opened}}\lvert\ell_g\rvert}{\sum_g \lvert\ell_g\rvert}$ over contributing `(group, hypothesis)` pairs at the decision cut; any report in the pair inspected by the deciding role before that cut counts as opened | Did you read the evidence that moved the belief? | Zero total evidence magnitude → 1 |
+| Timeliness (T) | $\max\!\big(0,\,1-\dfrac{\text{effLatencySec}}{\text{closeSec}-\text{openSec}}\big)$ | Penalizes waiting; excludes actual waiting for nonnegative-net verification | Timeout → 0 |
+| Verification Efficiency (VE) | see 24.3 | Used verification when worth it, skipped when not | No assets or zero evaluation EVPI → 1 |
+| Calibration Alignment (CAL) | $1-\min(1,\lvert q-p_{sys}\rvert/0.5)$ | How close your stated probability was to the reference belief | No estimate → 0 |
 
-Effective latency is represented in seconds throughout the engine: $\text{effLatencySec}=(t_d-\text{openSec})-\text{verifyWaitSec}$. Set `verifyWaitSec = verification.delaySec` when the verification had `netVOI >= 0` at tasking; otherwise set it to `0`. Convert to minutes only for display. The denominator for Timeliness is `closeSec - openSec`, so numerator and denominator MUST use the same unit.
+Effective latency is represented in seconds: $\text{effLatencySec}=(t_d-\text{openSec})-\text{verifyWaitSec}$. For each accepted verification by the deciding role at this DP whose net VOI at its request cut was nonnegative, form `[max(openSec, requestedAtSec), min(t_d, deliversAtSec)]`; discard empty intervals. `verifyWaitSec` is the length of their union. Credit only actual predecision waiting, never future/unrealized delay or overlapping waits twice. Path A retains six minutes of credit. Convert to minutes only for display; the Timeliness denominator is `closeSec - openSec`. Timeout still forces Timeliness to zero.
 
 ### 24.2 Training Score (composite, 0–100)
 $$S=100\cdot\left(w_{DQ}\,DQ+w_{IU}\,IU+w_{O}\,O+w_{T}\,T+w_{VE}\,VE+w_{CAL}\,CAL\right)$$
@@ -1359,26 +1450,34 @@ Weights come from the scenario (`scoreWeights`; flagship .40/.15/.15/.10/.15/.05
 ### 24.3 Verification Efficiency (exact algorithm)
 ```text
 if scenario has no assets for the DP: VE = 1
-if verified (any VerificationRecord at this DP):
-    v = first verification; bv = belief at v.requestedAtSec; nv = netVoi(dp, bv, v.requestedAt, asset)
+else if verified (any accepted VerificationRecord by the deciding role at this DP before the decision cut):
+    v = first such verification in causal order
+    bv = deciding role's belief at v's request cut
+    nv = netVoi at that same cut for v.assetId
     waste = max(0, -nv.net)
-    VE = 1 - min(1, waste / EVPI(bv, v.requestedAt))           (EVPI = 0 → VE = 1)
+    VE = 1 if evaluation EVPI is zero, else 1 - min(1, waste / evaluation EVPI)
 else:
-    t_eval = min(t_d, closeSec - bestAsset.delaySec - 1s)       (the last moment verification could still help, or the decision time if earlier)
-    bv = belief at t_eval; best = max over feasible assets of netVoi.net
-    missed = max(0, best)
-    VE = 1 - min(1, missed / EVPI(bv, t_eval))
+    for EACH asset in dp.assets:
+        t_eval = min(t_d, closeSec - asset.delaySec - 1)
+        retain only a legal request candidate within [openSec, closeSec)
+        reconstruct this role's belief and availability at that candidate cut
+        compute that asset's net VOI and EVPI at the SAME candidate cut
+    select greatest net VOI; equal net values break by dp.assets order
+    missed = max(0, selected.net)
+    VE = 1 if selected.evpi is zero, else 1 - min(1, missed / selected.evpi)
 ```
-Golden: Path A → 1.0000; Path B → 0.7388 (t_eval 24:00 → 6.93/26.53); Path C → 1.0000.
+When a candidate time equals commitment time, use the decision's causal cut, not later same-second work. Listed assets without the required valid request opportunity fail the applicable scenario invariant; do not synthesize a fake `bestAsset` or successful assessment. The first-verification VE rule is unchanged when several tasks exist; all accepted costs and the union of actual worthwhile waits still count separately.
+
+Golden: A = 1.0000; B/D = 0.543063833 from UAV at 23:59 (net 17.722857386 / EVPI 38.786287199); C = 1.0000. Ford at its own 24:59 candidate has net -9.060932228. Composite anchors: A 88.47, B 66.17, C 83.67, D 33.12. The 24:00 formula reference (net 6.93) is not a feasible UAV candidate.
 
 ### 24.4 Calibration (`calibration.ts`)
 - `calibrationAlignment(q, pSys) = 1 − min(1, |q − pSys| / 0.5)`.
 - `brier(q, truth) = (q − (truth ? 1 : 0))²`. Reported for the user's estimate AND the system belief, each with the label "single-event Brier: noisy; meaningful only across sessions".
 - `reliabilityBins(summaries)` → 5 bins [0–.2, .2–.4, .4–.6, .6–.8, .8–1] with count, mean stated probability, observed frequency of truth (P2 analytics; show only when n ≥ 3 per bin, else "not enough data"). Use half-open bins `[0,0.2)`, `[0.2,0.4)`, `[0.4,0.6)`, `[0.6,0.8)`, `[0.8,1]` so boundary values belong to exactly one bin.
-- The trainee's "final estimate" is the last `SET_ESTIMATE` at or before the decision for the primary hypothesis. The initial estimate (first one) is also stored; AAR shows revision `q_first → q_final` and whether the aid was consulted (`AFTER_ESTIMATE` mode).
+- The trainee's "final estimate" is the deciding role's last primary-hypothesis `SET_ESTIMATE` causally before commitment; later same-second estimates and other roles' estimates are excluded. The initial estimate is that role's first at the cut. AAR shows `q_first → q_final` and whether that role had consulted its aid (ALWAYS is available from start; AFTER_ESTIMATE is role-scoped).
 
 ### 24.5 Information Utilization details
-Use the contributing set at decision time (after the evidence-group rule). A group counts as opened if the report that was SELECTED for the group, or any report in that group, was opened (the trainee read the evidence group). Verification result reports count as normal groups.
+Use the deciding role's contributing set at the causal decision cut (after the evidence-group rule). A `(group, hypothesis)` pair counts as opened if any of its delivered role-visible reports was inspected by that role before the cut, not only the selected report. Other roles' inspections and later same-second inspections do not count. Verification results count as normal groups.
 
 ### 24.6 Latency
 "Decision latency" displayed = `t_d − openSec` (mm:ss). Timeliness uses the seconds-normalized `effLatencySec` from 24.1. Timeout: `t_d = closeSec`, T = 0.
@@ -1404,7 +1503,7 @@ Check against golden paths: A (DQ 1.00, O 0.6975) → SOUND_SUCCESS; B (DQ 1.00,
 | EVPI | "The most that perfect information would have been worth at that moment." |
 
 ### 24.9 Test requirements
-Golden paths A–F plus unit tests: DQ range [0,1]; composite weights sum; IU with duplicates; VE branches (verified-worthwhile, verified-wasteful, skipped-worthwhile, skipped-correctly); quadrant truth table.
+P0 tests Golden Paths A-F and all mathematics required by its six scores: clamp/no-evidence/zero-evidence/group ties, numerical maximum versus display ties, custom outcome scale, grade boundaries, role-scoped IU/calibration, per-asset capacity and costs, partial/overlapping verification waits, VE branches including zero EVPI/no assets/per-asset candidate times, strict integer-second equality, and the quadrant truth table. P1 adds counterfactual and signature/instructor integration acceptance.
 
 ---
 
@@ -1419,6 +1518,8 @@ export interface Aar {
   participants: { role: RoleId; name?: string }[];
   header: { completedAtIso: string | null; decisionAtSec: SimSeconds; decisionLatencySec: SimSeconds; timedOut: boolean };
   decision: {
+    decisionPointId: string; role: RoleId; atSec: SimSeconds; timedOut: boolean;
+    truthAtDecision: Record<HypothesisId, boolean>;
     actionId: ActionId; actionLabel: string; belief: Record<HypothesisId, number>; bestActionId: ActionId; isTie: boolean;
     expectedUtilities: Record<ActionId, number>; regret: number; maxRegret: number; evpi: number; posture: Posture;
     estimates: { first: number | null; final: number | null; consultedAid: boolean };
@@ -1428,56 +1529,67 @@ export interface Aar {
     dq: number; outcome: number; infoUtil: number; timeliness: number; verifyEff: number; calibration: number; trainingScore: number;
     quadrant: Quadrant; realizedUtility: number; brierUser: number | null; brierSystem: number;
   };
-  truth: Record<HypothesisId, boolean>;
+  decisions: AarDecision[];           // one entry in P0; one per DP for P2 multi-decision sessions
+  truth: Record<HypothesisId, boolean>; // LAST decision's cut truth, not final world truth
   consequence: { headline: string; narrative: string };
   timeline: TimelineEntry[];          // chronological: reports issued/delivered/dropped, degradations, inspections, estimates, verifications, decisions, truth changes
   frames: ReplayFrame[];              // belief snapshots at each timeline time (Section 30)
   information: {
     delivered: ReportView[]; opened: ReportId[]; notOpened: { reportId: ReportId; llr: number }[];
-    dropped: { reportId: ReportId; issuedAtSec: SimSeconds; claim: string; whatIfBeliefAtDecision: Record<HypothesisId, number> }[];
+    dropped: { reportId: ReportId; issuedAtSec: SimSeconds; claim: string; whatIfBeliefAtDecision: Record<HypothesisId, number> | null }[];
     lateOrAfterDecision: { reportId: ReportId; issuedAtSec: SimSeconds; deliveredAtSec: SimSeconds; claim: string }[];
     contradictions: { atSec: SimSeconds; hypothesisId: HypothesisId; index: number; positiveReportIds: ReportId[]; negativeReportIds: ReportId[] }[];
   };
   verification: null | {
-    used: boolean; assetId?: AssetId; requestedAtSec?: SimSeconds; deliveredAtSec?: SimSeconds;
+    used: boolean; assetId: AssetId; requestedAtSec?: SimSeconds; deliveredAtSec?: SimSeconds;
     netVoiAtEval: number; evsiAtEval: number; evpiAtEval: number; evalAtSec: SimSeconds; verdict: 'WORTH_IT_USED' | 'WORTH_IT_SKIPPED' | 'NOT_WORTH_IT_SKIPPED' | 'NOT_WORTH_IT_USED' | 'TOO_LATE_OR_UNAVAILABLE';
   };
-  counterfactuals: Counterfactual[];   // Section 30
+  counterfactuals: Counterfactual[];   // Section 30; empty before P1 with explicit limitations
   coachNotes: CoachNote[];
   team?: TeamSection;                  // P2/P3
   limitations: string[];               // Section 3.4 text
 }
+export interface AarDecision { decision: Aar['decision']; scores: Aar['scores'] }
 export interface TimelineEntry { atSec: SimSeconds; lane: 'LAND'|'AIR'|'CYBER'|'EW'|'SYSTEM'|'TRAINEE'|'INSTRUCTOR'; kind: string; summary: string; reportId?: ReportId; revealedToTrainee: boolean }
 export interface CoachNote { id: string; severity: 'INFO' | 'GOOD' | 'ATTENTION'; text: string; evidence: string[] }
 ```
 ### 25.2 Builder (`buildAar(scenario, log): Aar`)
-Steps: (1) `replayLog` to completion; (2) locate the last decision; (3) compute belief at decision time using ONLY delivered reports; (4) `evaluateDecision`; (5) `realizedUtility` with truth + verification costs; (6) scores; (7) information analysis; (8) verification analysis; (9) counterfactuals; (10) coach notes; (11) frames. The builder takes ONLY `(scenario, log)` so exports can be regenerated from stored logs. Time: ≤ 150 ms.
+Replay accepted intents/events through completion while capturing each decision's exact pre-commit cut (including timeout event position). For each DP, use that deciding role's delivered evidence, inspections, estimates, and verifications at the cut; call `evaluateDecision` with `scenario.model`; use cut truth for realized utility/branch selection and subtract accepted task costs once. Build scores and information/verification analysis from those snapshots, then eligible counterfactuals, factual coach notes, and historical frames. Never compute a decision from final state plus its timestamp.
+
+Session AAR availability remains tied to actual COMPLETE, not to reaching `durationSec`. Include the actual terminal event and any authorized intervening timeline information beyond the exercise horizon. Post-decision consequence waiting does not change decision latency, decision-cut truth, or committed scoring inputs.
+
+`Aar.decisions` contains one `{ decision, scores }` entry per DP; `Aar.decision` equals the last entry's `decision` for compatibility and `Aar.truth` equals its `truthAtDecision`. P2 aggregation follows Section 35.2. The builder still takes ONLY `(scenario, log)`; `completedAtIso` stays null in pure output and is supplied by the adapter for presentation. Time: ≤ 150 ms.
+
+P0 supplies exact metrics, factual inventory/coaching, and basic causal replay. Before P1, `counterfactuals: []` MUST accompany `Aar.limitations` text "P0: counterfactual and what-if delivery analysis not implemented." Null what-if fields in P0 mean unavailable analysis, not evidence that there was no effect. P1 enables those analyses and their full acceptance statements.
 
 ### 25.3 "What you never saw" (information.dropped / lateOrAfterDecision)
-For each DROPPED report r: compute `whatIfBeliefAtDecision = computeBelief(..., { extraReports: [r delivered at issue time] })`. For late deliveries compute the belief if it had arrived on time. Golden: R10 what-if at t=20:00 → p(north) 0.5488 vs actual 0.8733; at t=22:00 → 0.4026 vs 0.7372; R11 delivered 31:00: p(north) = 0.4695 at t=31 vs 0.7808 at t=30.
+In P1, for each dropped/late report issued by the evaluated decision cut, replace its runtime entry by ID with a hypothetical delivery at issue time, preserving the role's visibility rules. Do not duplicate it or include future-issued information. Reports issued after the cut may appear in the authorized post-mortem inventory with temporal labels, but their `whatIfBeliefAtDecision` is null and the limitation is explicit.
+
+Reference checks (not all at the decision timestamp): R10 what-if at 20:00 gives p(north) 0.5488 vs actual 0.8733; at 22:00, 0.4026 vs 0.7372. The unverified reference stream gives p(north) 0.4695 at R11 delivery at 31:00, compared with 0.7808 at 30:00; these are separately labelled times, never retroactive scoring inputs.
 
 ### 25.4 Coach notes (deterministic rules, `coach.ts`; evaluated in order; at most 5 shown, severity ATTENTION first)
 | Rule id | Condition | Text template (fill `{}` from data) |
 |---|---|---|
-| C1 | quadrant SOUND_UNLUCKY | "Sound decision, unfavourable outcome. By {t}, {action} had the highest expected value ({eu}). The hidden truth was {truthLabel}. Judge the decision by what you knew, not by how it ended." |
-| C2 | quadrant LUCKY | "Favourable outcome from a weak decision. {action} had lower expected value ({eu}) than {best} ({euBest}) given what had arrived. Luck, not judgement, produced the result." |
-| C3 | quadrant SOUND_SUCCESS | "Well judged and well rewarded: {action} was the best action given the evidence at {t}." |
-| C4 | quadrant POOR | "Weak decision and unfavourable outcome. Regret under belief was {regret}. Review the contradiction at {t} and the reports you did not open." |
-| C5 | verification.verdict = WORTH_IT_SKIPPED | "A verification tasked by {tLast} was worth +{netVoi} net. You did not use it. Evidence conflicted (contradiction index {ci}); that is when verifying pays." |
-| C6 | verification.verdict = WORTH_IT_USED | "Verifying at {tReq} was worth +{netVoi} net and changed your belief from {pBefore} to {pAfter}." |
-| C7 | verification.verdict = NOT_WORTH_IT_USED | "Verification cost more than it was worth at {tReq} (net {netVoi}). The picture was already clear enough." |
-| C8 | notOpened has an item with llr ≥ 0.3 | "You did not open {reportId} ('{claim}'), which carried {weightPct}% of the evidence weight." |
-| C9 | dropped nonempty | "{n} report(s) never reached you. Had {reportId} arrived on time your belief in '{hyp}' would have been {pWhatIf} instead of {pActual}." |
-| C10 | posture OVER_CAUTIOUS | "You stood down while {best} had higher expected value. Waiting has a price: every minute after {departure} lowers the payoff." |
-| C11 | posture OVER_COMMITTED | "You committed to {action} while {best} was better under your belief. Pause to compare expected values when evidence conflicts." |
+| C1 | quadrant SOUND_UNLUCKY | "Sound decision, unfavourable outcome. At {t}, {action} had expected value {eu}; the highest available was {euBest}, with regret {regret}. The hidden truth was {truthLabel}. Judge the decision by what you knew, not by how it ended." |
+| C2 | quadrant LUCKY | "Favourable outcome from a weak decision. {action} had lower expected value ({eu}) than {best} ({euBest}) given what had arrived. The outcome does not erase that expected-value gap." |
+| C3 | quadrant SOUND_SUCCESS | "Sound decision and favourable outcome: at {t}, {action} had expected value {eu}; the highest available was {euBest}, with regret {regret}." |
+| C4 | quadrant POOR | "Weak decision and unfavourable outcome. Regret under belief was {regret}. Review the evidence available at {t}." Append a contradiction/unopened-report reference only when that evidence exists |
+| C5 | verification.verdict = WORTH_IT_SKIPPED | "{asset} evaluated at {tEval} was worth +{netVoi} net. You did not use it." Include contradiction index only if a contradiction exists at that cut; do not generalize the same value to all earlier times |
+| C6 | verification.verdict = WORTH_IT_USED | "{asset} requested at {tReq} had net value +{netVoi}." Add whether its result arrived before commitment, after commitment, or was pending; report belief changes only from established, labelled cuts |
+| C7 | verification.verdict = NOT_WORTH_IT_USED | "Verification cost more than its reference information value at {tReq} (net {netVoi})." |
+| C8 | deciding role did not inspect a contributing report before the cut and its absolute llr ≥ 0.3 | "You did not open {reportId} ('{claim}'), which carried {weightPct}% of the evidence weight." |
+| C9 | eligible dropped report with computed what-if analysis | "{n} report(s) never reached you. At {tEval}, had {reportId} arrived on time your reference belief in '{hyp}' would have been {pWhatIf} instead of {pActual}." |
+| C10 | posture OVER_CAUTIOUS | "You chose {action} while {best} had higher expected value." Add the waiting-cost reminder only for actions with delay cost and a positive rate; do not imply the cautious action's fixed payoff decays |
+| C11 | posture OVER_COMMITTED | "You committed to {action} while {best} was better under the reference belief." Reference a contradiction only if one exists at the cut |
 | C12 | estimates.first and final differ by ≥ 0.15 | "You revised your estimate from {first} to {final}. The reference belief was {pSys}." |
-| C13 | timedOut | "The decision window expired. Standing down is the default; it carries a latency penalty." |
-| C14 | isTie | "The evidence did not clearly favour either route at {t}. When options are tied, information is the highest-value move." |
-Coach text MUST be generated from templates; NEVER by an LLM in P0–P2. Numbers are formatted by `utils/format.ts`.
+| C13 | timedOut | "The decision window expired. {timeoutActionLabel} was recorded automatically; Timeliness is zero." |
+| C14 | isTie | "The leading actions were within the model's tie threshold at {t}." Recommend a named verification only when a feasible positive-net candidate is established at that cut |
+SOUND means DQ >= 0.8, not necessarily maximum expected utility. For coach templates, `euBest` is the numerical maximum and `best` names a numerical maximizer (scenario order breaks exact ties), not a lower-valued near-tie display winner. Say the chosen action was "highest" or "best" only when it actually attains that maximum. Preserve deterministic severity ordering, evidence links, and the five-note cap; do not cite absent contradictions, unavailable results, or uncomputed analysis. Coach text MUST be generated from templates; NEVER by an LLM in P0–P2. Numbers are formatted by `utils/format.ts`.
 
 ### 25.5 AAR sections on screen (Section 38.12) and exports
-- **Exports (`export.ts`)**: (a) JSON: full `Aar` object; (b) CSV: one row per timeline entry (`atSec,lane,kind,summary,reportId,revealedToTrainee`) plus a second CSV `decisions.csv` with one row per decision (`role,atSec,action,belief,regret,dq,outcome,rationaleText,citedReports,tags`); (c) printable view: `window.print()` using `src/styles/print.css` (A4, 12 mm margins, no navigation, page breaks before "Timeline" and "Counterfactuals").
+- **Exports (`export.ts`)**: (a) JSON: full authorized completed `Aar`; (b) timeline CSV columns `atSec,lane,kind,summary,reportId,revealedToTrainee,dataProvenance`; decisions CSV columns `role,decisionPointId,atSec,action,belief,regret,dq,outcome,trainingScore,rationaleText,citedReports,tags,dataProvenance`. These match Section 50.2. Export one row per actual timeline entry and one per `Aar.decisions` entry, using that DP's metrics. (c) `window.print()` with `src/styles/print.css` (A4, 12 mm margins, no navigation, page breaks before Timeline, Counterfactuals, and Team Section).
 - Rationale capture (Section 28.6) is included in all three exports.
+- Every CSV row carries the canonical `Aar.dataProvenance` value. Do not invent a timeline event or alter rationale text to carry provenance.
 
 ### 25.6 Team AAR (P2) — see Section 29.7.
 
@@ -1509,7 +1621,7 @@ export function nextDifficulty(current: 1|2|3|4|5, scores: { dq: number; infoUti
 | M5 | seeded | Decoy reports: add `decoys` low-reliability reports (ρ ∈ [0.55, 0.62]) on CYBER or EW with stance OPPOSITE to the initial truth of the primary hypothesis, each in its own evidence group `GDECOY{n}`, issued uniformly between first degradation start and `closeSec − 180 s` (stream `seed ^ 0x53`) |
 Seeded operators run ONLY when `seed !== 0`. Deterministic operators always run. Identity rule: `level === 3 && seed === 0` MUST return the base scenario unchanged (golden contract).
 ### 26.3 Validity gate (mutation MUST NOT produce an unplayable scenario)
-After mutation: (1) `loadScenario` invariants; (2) at least one contradiction condition is reachable: simulate belief each minute and assert there exists a minute `m ≤ closeSec` with `contradicted` true on the primary hypothesis; (3) a verification is feasible: there exists a minute `m ≤ closeSec − asset.delaySec − 60` with `netVoi.net ≥ 0`. If a gate fails, retry with `seed' = hash(seed + attempt)` up to 20 attempts; otherwise return the deterministic-only variant and log a warning.
+After mutation: (1) shared normalized runtime invariants, without reparsing seconds as authoring minutes; keep report/issue times and inserted restores synchronized; (2) at least one contradiction condition is reachable: simulate belief each minute and assert there exists a minute `m ≤ closeSec` with `contradicted` true on the primary hypothesis; (3) verification is feasible: some whole-minute candidate inside the DP has `m + asset.delaySec < closeSec` and `netVoi.net >= 0`. This search grid does not round the engine's integer-second deadline. If a gate fails, retry with `seed' = hash(seed + attempt)` up to 20 attempts; otherwise use the deterministic-only variant with a warning only if that variant satisfies the required invariants. Surface validation failure if it does not; never return an invalid scenario as a successful fallback. Option B applies to variants: preserve the exercise-horizon invariant, but derive terminal completion from the variant's actual decision and consequence timing, never from a hardcoded flagship completion bound or duration extension.
 ### 26.4 Adaptive rule (`nextDifficulty`)
 - If `dq ≥ 0.8` AND `infoUtil ≥ 0.7` AND `quadrant !== 'LUCKY'` → level + 1 (max 5); reason "Strong decision quality with good use of evidence."
 - Else if `dq < 0.5` → level − 1 (min 1); reason "Decision quality was below 50%."
@@ -1543,7 +1655,7 @@ Identity at (3,0); determinism for equal (seed, level); invariant satisfaction f
 ### 27.3 Inject cooldown and safety
 Instructor injects are rejected with `UNKNOWN_PRESET` if the id is not in the scenario. The UI disables a preset for 3 s after use. Injects after the decision window closes are allowed but marked `post-decision` in the log.
 ### 27.4 Local-mode instructor
-In `LocalSessionClient`, the same `InjectPanel` and `SessionControls` render in a **Control Drawer** opened with key `I` in the Trainee Console. Intents carry `role: 'INSTRUCTOR'`. The drawer is hidden unless URL has `?controls=1` or Demo Mode is active.
+In `LocalSessionClient`, the same `InjectPanel` and `SessionControls` render in a **Control Drawer** opened with key `I` in the Trainee Console. The enabled drawer is an explicit instructor-capability surface; its adapter stamps `role: 'INSTRUCTOR'`. Ordinary trainee intents cannot choose their own role. The drawer is hidden unless URL has `?controls=1` or Demo Mode is active. This is a local demonstration control, not a network credential or claim of cheat-proof browser secrecy.
 ### 27.5 Keyboard shortcuts (Instructor Console and Control Drawer)
 `Space` pause/resume · `1`–`5` inject preset by index · `R` reset (opens confirm dialog) · `T` toggle truth display · `M` toggle diagnostics · `?` shortcuts overlay.
 ### 27.6 Acceptance
@@ -1554,31 +1666,30 @@ Pressing `1` (JAM_LAND) at t = 10:00 produces a LAND channel DEGRADED state with
 ## 28. TRAINEE SYSTEM
 
 ### 28.1 Information feed (`ReportFeed.tsx`, `ReportCard.tsx`)
-- Newest delivered first; filter chips by channel (ALL, LAND, AIR, CYBER, EW); sorted by `deliveredAt` desc; a divider "Not yet delivered: channel DOWN" never reveals undelivered content.
+- Newest delivered role-visible reports first; filter chips by channel (ALL, LAND, AIR, CYBER, EW); sorted by `deliveredAt` desc. A generic "Link DOWN; reports may not arrive" notice must not imply the existence, count, or identity of hidden/undelivered reports.
 - Card (collapsed): channel icon + label, claim (title), source grade chip, `issued mm:ss → delivered mm:ss (+Δ)`, age (live), badges (DELAYED, STALE, RELAYED, UNCONFIRMED, VERIFIED, CONTRADICTS #id), Fog Veil rendering (Section 36.5), "NEW" marker until opened.
-- Expanding (click/Enter/Space) shows `detail`, evidence group id, effective accuracy now (`A`), and the report's current contribution in nats; logs `OPEN_REPORT` once per report.
-- Contradiction link: if a report's stance opposes another delivered report on the same hypothesis in the contributing set, show `CONTRADICTS R0x` chips; hovering highlights the opposing card.
+- Expanding (click/Enter/Space) dispatches OPEN_REPORT once per (report, role) and then shows projected detail. Effective accuracy and signed contribution require both inspection and that role's aid reveal. The component never receives raw rho/stance or computes hidden contributions.
+- When aid is available, contradiction links may reference only delivered reports visible to that role on the same hypothesis in its contributing set. No link or badge may expose a hidden report ID.
 ### 28.2 Channel Health Strip (`ChannelHealthStrip.tsx`)
-Four channel tiles (LAND, AIR, CYBER, EW): icon, label, health chip (text + icon + pattern; Section 36.4), mode note (e.g., "Delay +6:00 until 26:00" — shown for DEGRADED modes, revealing the instructor-visible reason only as a generic "Link degraded"), last contact "N min ago", sparkline of deliveries in last 10 min.
-Local/SOLO trainees see health state and last-contact; they do NOT see `until` times (unknown to them). INSTRUCTOR sees full details.
+Four channel tiles (LAND, AIR, CYBER, EW): icon, label, health chip (text + icon + pattern; Section 36.4), generic trainee mode note ("Link degraded"), and visible-channel last contact/sparkline. Hidden channels expose health only, not report-specific contact data. No trainee sees future `until` times or instructor reasons. Only INSTRUCTOR sees details such as "Delay +6:00 until 26:00".
 ### 28.3 Belief panel (`BeliefPanel.tsx`, `FogMeter.tsx`, `ContradictionMeter.tsx`, `EvidenceWaterfall.tsx`)
 - Per hypothesis: probability bar with numeric %, label "Reference belief" and a small "i" opening the Reference Model drawer.
 - Fog meter: Fog Index as a ring (0–100%) with label "Fog".
 - Contradiction meter: two opposing arcs sized by $W^{+}$ and $W^{-}$ and a flag chip "Evidence conflicts" when `contradicted`.
-- Waterfall: signed horizontal bars for each contribution; hovering shows report id, claim, ρ, age, A, ℓ.
-- Aid mode `AFTER_ESTIMATE`: the panel renders with `FoggedPlaceholder` (blurred, "Log your own estimate to reveal the reference belief"); after the first SET_ESTIMATE on the primary hypothesis it reveals with a 320 ms de-blur and shows "Your estimate: x%" marker on the bar. Keyboard users get the same via a "Log estimate" button.
+- Waterfall: inspected rows may show signed bars and report id, claim, source grade, age, A, and contribution; unopened rows show an inspection affordance. Never use raw rho/stance. All aid rows/aggregates follow Section 33.2's projection gates.
+- Aid mode `AFTER_ESTIMATE`: before this role's first primary SET_ESTIMATE, the aid payload is absent and `FoggedPlaceholder` says "Log your own estimate to reveal the reference belief". Reveal animates only after the authorized projection arrives; another role's estimate does not reveal it. Keyboard users get the same via "Log estimate". REVEAL_AID cannot bypass the estimate requirement.
 ### 28.4 Decision panel (`DecisionPanel.tsx`, `VerifyPanel.tsx`)
 - Window banner: "Decision window: OPEN — closes 30:00 (in 05:12)". States: UPCOMING (disabled), OPEN (enabled), CLOSED.
 - Estimate control: slider 0–100 labelled "Your probability that {hypothesis} is {trueLabel}" + button "Log estimate" (SET_ESTIMATE). Required before commit when `requiredEstimates` includes the hypothesis.
 - Actions: three cards (label, description). Selecting one enables "Commit decision" which opens the RationaleDialog (28.6).
-- Verify panel: asset cards with label, delay ("result in 06:00"), cost ("5 units"), accuracy grade chip (A/B/C), feasibility. "Task asset" → VERIFY. Pending state shows countdown and a skeleton report card. Disabled reasons shown verbatim: "Already used", "Result would arrive after the window closes".
-- Payoff reference (collapsible): table of payoffs per action/state and the delay cost rule, rendered from scenario data.
+- Verify panel: asset cards with label, delay ("result in 06:00"), cost ("5 units"), grade A/B/C/D, remaining per-asset capacity, and feasibility. "Task asset" → VERIFY. Pending state shows the known request's countdown and a generic placeholder, not an undelivered result ID/claim. Disabled reasons: "Capacity exhausted", "Result would arrive at or after the deadline" with actual times.
+- Payoff reference (collapsible): table of payoffs per action/state and the delay cost rule, rendered from the explicit safe projection, never raw ScenarioDef.
 ### 28.5 Timeline bar (`TimelineBar.tsx`)
-Horizontal sim-time axis 0 → duration: decision window shaded; ticks for delivered reports (colored by channel + icon); hatched bands where a channel was DOWN/DEGRADED (revealed only for the segments already passed); cursor = now; markers for verification tasked/result and decision. During replay it becomes the scrubber.
+Horizontal sim-time axis initially spans 0 to the exercise/commitment horizon, with that horizon labelled separately from the DP deadline. Extend the displayed range when needed to include projected current time and the authorized public consequence reveal time; retain the original duration marker rather than changing scenario metadata or clipping the cursor. Decision window shaded; ticks for delivered reports (colored by channel + icon); hatched bands where a channel was DOWN/DEGRADED (revealed only for the segments already passed); cursor = now; markers for verification tasked/result and decision. During completed replay it becomes the scrubber through the actual terminal event, including any post-horizon consequence interval. Use only role-projected data; this display range is not a second clock or completion deadline.
 ### 28.6 Rationale capture (E4 "rationale")
-`RationaleDialog.tsx`: (1) read-only summary of the chosen action; (2) text area "Why this action?" (max 280 chars); (3) checklist of delivered reports ("Which reports did you rely on?") — selected ids become `citedReportIds`; (4) tag chips (`RationaleTag`); (5) buttons "Commit decision" (primary) and "Commit without rationale". Timer continues while the dialog is open; if the window closes while it is open, the decision times out and the dialog shows "Window closed — standing down". `DecisionRecord.rationale` stores the value; AAR/exports include it; coach rule C8 references cited vs weight.
+`RationaleDialog.tsx`: (1) read-only summary of the chosen action; (2) text area "Why this action?" (max 280 chars); (3) checklist of delivered role-visible reports ("Which reports did you rely on?") — selected ids become `citedReportIds`; (4) tag chips (`RationaleTag`); (5) buttons "Commit decision" (primary) and "Commit without rationale". Timer continues while the dialog is open; if the window closes, timeout occurs and the dialog names the DP's timeout action ("Window closed — standing down" for the flagship). `DecisionRecord.rationale` stores the value; AAR/exports include it. C8 compares actual inspection with evidence weight, not citation alone.
 ### 28.7 Consequence overlay
-After DECIDE, the console shows "Convoy en route…" with a progress ring to `consequenceRevealAtSec`; late reports continue to arrive (labelled "arrived after your decision"). At reveal: a full-width banner with the consequence headline, narrative, and the hidden truth chips; primary button "Open after-action review".
+After DECIDE, show "Decision committed. Awaiting outcome." with an optional ring to the truth-independent public `pendingConsequence.revealAtSec` from Section 17.6. Late delivered role-visible reports continue to arrive, labelled "arrived after your decision"; they never alter the committed score. Only at COMPLETE show the selected consequence with its labelled decision-cut truth, then "Open after-action review"; any current-world truth is separately labelled, not substituted for outcome truth. Do not expose branch-specific timing or complete early on one truth branch.
 ### 28.8 Keyboard operation (MUST work without a mouse)
 `J/K` move between report cards · `Enter/Space` open/close card · `E` focus estimate slider (arrow keys ±1, Shift+arrow ±10) · `L` log estimate · `V` focus verify panel · `D` focus decision panel · `Esc` close dialogs · `?` shortcuts. Focus order: header → report feed → belief panel → decision panel → timeline.
 
@@ -1589,10 +1700,10 @@ After DECIDE, the console shows "Convoy en route…" with a progress ring to `co
 ### 29.1 Roles and visibility
 | Role | Channels seen directly | Can act | Cannot |
 |---|---|---|---|
-| COMMANDER | LAND, AIR | OPEN_REPORT, SET_ESTIMATE, VERIFY, DECIDE | See CYBER/EW unless relayed |
-| ANALYST | CYBER, EW | OPEN_REPORT, SET_ESTIMATE, RELAY, ADVISE | DECIDE, VERIFY |
+| COMMANDER | LAND, AIR | OPEN_REPORT, SET_ESTIMATE, own estimate-gated REVEAL_AID, VERIFY, DECIDE | See CYBER/EW unless relayed |
+| ANALYST | CYBER, EW | OPEN_REPORT, SET_ESTIMATE, own estimate-gated REVEAL_AID, RELAY, ADVISE | DECIDE, VERIFY |
 | INSTRUCTOR | all + truth + diagnostics | START, PAUSE, RESUME, INJECT, RESET | Alter decisions |
-`visibleTo` in the scenario channel definitions drives this. SOLO sees everything.
+`visibleTo` drives direct-channel visibility. SOLO sees all channels but not hidden truth, undelivered reports, or instructor diagnostics before completion. Section 17.3a is the canonical permission matrix; all its state/capacity guards remain binding.
 ### 29.2 Relay mechanic (the coordination under degraded information)
 - Analyst selects a delivered report from analyst-visible channels and presses "Relay to Commander" with an optional note (≤ 80 chars).
 - Capacity: 3 relays per session (`relayCapacityLeft` shown). Exhausted → `RELAY_LIMIT`.
@@ -1601,19 +1712,19 @@ After DECIDE, the console shows "Convoy en route…" with a progress ring to `co
 ### 29.3 Advice
 `ADVISE` intent (Analyst): picks one of the scenario actions + optional note (≤ 80 chars); shown to Commander as "Analyst advises: {action}" with timestamp; logged; no authority.
 ### 29.4 Authority and synchronization
-- The server is authoritative. Clients send `INTENT` messages WITHOUT `t` or `role`; the server stamps both (`t` = server sim time, `role` = the connection's role).
-- Each applied change increments `seq`; the server sends each client a role-projected `SessionView`. Clients ignore any `VIEW` with `seq` ≤ last applied.
-- The clock loop runs every 500 ms: `advanceTo(state, now)` where `now = elapsedSimSeconds` accumulated at `speedSecPerMin`; paused sessions do not advance. Views are broadcast only when `seq` changes OR the displayed minute changes (so ≤ 2 Hz).
+- The server is authoritative. Strict INTENT DTOs reject `t`, `role`, and `fromRole`; the server stamps trusted time and the connection's role. RELAY uses the same trusted `role` as other intents; `fromRole` remains output provenance only.
+- Each view change receives a monotonically newer `seq`, including clock-only progression, rejection/clearing of `engineError`, and reset. Clients ignore VIEW with `seq <= last applied`; never send a changed view with an old sequence. Sequence metadata is outside deterministic SimState.
+- The 500 ms clock advances RUNNING and CONSEQUENCE through trusted integer sim seconds, including CONSEQUENCE beyond `durationSec`, freezes PAUSED, and stops at actual COMPLETE. Coalesce broadcasts to at most 2 Hz; a displayed-time-only update also needs a newer sequence. Scheduled progression accompanying an admitted rejection remains visible.
 ### 29.5 Sessions: create, join, lobby
 1. Instructor: Home → "Create session" → `POST /api/sessions` → receives `code`, `clientId`, `token`; navigates to `/instructor/:code` and shows the join code and a copyable link `/join?code=ABC123`.
 2. Trainees: `/join` → enter code + name + role (COMMANDER/ANALYST) → WS `HELLO` → `/lobby/:code`. Lobby shows roster and "Waiting for instructor to start…".
 3. Instructor presses Start when ≥ 1 trainee role is filled (SOLO-like single-trainee networked mode is allowed: Commander only).
 4. Late join: allowed any time before COMPLETE; the joining client receives the current role-projected view.
 ### 29.6 Reconnect, disconnect, fallback
-- Client auto-reconnect: backoff 0.5 s, 1 s, 2 s, 4 s, then 8 s repeating; sends `HELLO` with the stored `clientId` + `token`; the server rebinds the role and sends a fresh `WELCOME` with the current view.
+- Client auto-reconnect: backoff 0.5 s, 1 s, 2 s, 4 s, then 8 s repeating; sends session code + stored clientId/token over the protected connection, not the entire history. The server rebinds the role and sends a fresh WELCOME with the current projection.
 - Disconnect: role marked disconnected in roster; the simulation continues (the instructor may pause). The Commander timing out is possible and expected.
 - Token mismatch → `ERROR { code: 'BAD_TOKEN' }` and the client returns to Join.
-- After 3 consecutive failed connections: show "Connection unavailable — continue in local mode" button → `LocalSessionClient` with the same scenario/seed/difficulty (role SOLO).
+- After 3 consecutive failed connections: show "Connection unavailable — continue in local mode" -> a fresh LocalSessionClient exercise with the same scenario/seed/difficulty, role SOLO. Explain that unavailable authoritative progress is not recovered.
 ### 29.7 Team AAR section (`Aar.team`)
 ```ts
 interface TeamSection {
@@ -1628,7 +1739,7 @@ interface TeamSection {
 ```
 Metric definitions (P3 display only; NO composite team score): `informationSharingRate` = relayed-before-decision analyst-channel reports with |ℓ| ≥ 0.3 ÷ all such reports delivered before the decision (null if none); `estimateConvergence` = 1 − |q_commander − q_analyst| (final estimates before decision; null if either missing); `medianRelayDelayMin` = median of (relay delivery − original delivery) in minutes.
 ### 29.8 Server-side validation (every intent)
-role permission; phase; schema (zod); rate limit 10 intents/s per client; `reportId` visibility to the sender; relay capacity; payload sizes (note ≤ 80 chars, rationale text ≤ 280, ≤ 12 cited reports).
+Apply Section 19.4's ingress/admission/progression/action-guard order: strict Zod schema and payload limits, rate limit 10 intents/s, trusted binding/time, then engine phase/window/visibility/estimate/capacity checks after admitted scheduled progression. Note <= 80 chars, rationale <= 280, <= 12 cited reports. Normalize unknown/hidden/undelivered report errors, including citation/relay probes.
 ### 29.9 Single-user fallback
 Everything in Sections 18–25 works without the server. P2 networked mode is an overlay: `RemoteSessionClient` and `server/` can be deleted without breaking local mode.
 
@@ -1639,25 +1750,58 @@ Everything in Sections 18–25 works without the server. P2 networked mode is an
 ### 30.1 Replay
 ```ts
 export interface ReplayFrame {
-  atSec: SimSeconds; belief: BeliefSnapshot; deliveredIds: ReportId[]; droppedIds: ReportId[]; openedIds: ReportId[];
+  atSec: SimSeconds; role: RoleId; belief: BeliefView | null;
+  deliveredIds: ReportId[]; droppedIds: ReportId[]; openedIds: ReportId[];
+  truth: Record<HypothesisId, boolean>;                  // completion-only Truth tab; truth at this frame/cut
   channels: Record<ChannelId, ChannelHealth>; annotations: string[];     // e.g., "Wideband interference on LAND link"
   trainee: { estimate: number | null; verifyPending: boolean; decided: boolean };
 }
 export function buildFrames(scenario: ScenarioDef, log: SessionLog): ReplayFrame[];
 ```
-Frame times = union of all event times, intent times, decision time, and every full minute from 0 to decision+60 s (cap 80 frames). Replay is a pure fold over `SessionLog`. NFR: ≤ 100 ms.
+Frame candidates use the union of event times, accepted-intent times, decision times, and every full minute from 0 to decision+60 s (cap 80 frames). Preserve separately labelled decision cuts and any later same-second frame; timestamp deduplication must not merge them. Retain decision-cut frames when limiting the sample. Replay is a pure fold over ordered `SessionLog` and an explicit horizon; preserve each frame's applicable truth, never substitute one final truth map. P0 provides basic reconstruction/scrubbing; P1 integrates richer analysis. NFR: ≤ 100 ms.
+
+Completed replay includes the actual terminal event even after `durationSec`; retain its frame when sampling. The minute-sampling range is not an engine replay cutoff. Partial replay may end in CONSEQUENCE without claiming completion, and the scrubber must not clip authorized post-horizon frames to the exercise duration.
 ### 30.2 Replay UI (`ReplayScrubber.tsx`)
-Slider across frame times with ticks; Play/Pause at 4× speed (each frame 250 ms); keyboard `←/→` step, `Home/End`. The panel shows: (a) "What the trainee knew" (delivered + opened reports and the belief at that frame), (b) "What was true" toggle (reveals truth and dropped/in-transit reports), (c) channel health at that time. Tab labels: **Knew**, **Truth**, **Never saw**.
+Slider across ordered frame cuts with temporal labels; Play/Pause at 4× speed (each frame 250 ms); keyboard `←/→` step, `Home/End`. The completed AAR shows: (a) **Knew** from that role/time/cut's projection, including original aid/inspection gates; (b) **Truth** with truth and dropped/in-transit reports at that cut; (c) **Never saw** with authorized post-mortem information. Completion never retroactively grants reports, detail, or aid to a historical Knew frame.
 ### 30.3 Counterfactuals (exact definitions)
 Every counterfactual panel MUST carry the label `COUNTERFACTUAL — simulated, not what happened`.
 | Id | Title | Computation |
 |---|---|---|
-| CF_ACTIONS | "If you had chosen differently" | For each action `a`: expected utility under belief at decision time, realized utility under truth (`realizedUtility`), consequence headline from the scenario's consequence table |
-| CF_VERIFY_EARLIER | "If you had verified earlier" | Find the earliest minute `m ∈ [openSec, t_lastChance]` with `netVoi.net ≥ 0` (using belief at `m`); build intents' = original intents with `t < m` + `VERIFY` at `m` of the best asset; replay to `m + delay`; compute `a*` there; add `DECIDE a*` at `m + delay`; replay to completion; report realized utility, outcome, quadrant. Omit if no such `m`, or if the trainee already verified at or before `m` |
-| CF_NO_LOSS | "If nothing had been lost" | Recompute belief at the decision time with all DROPPED reports delivered at issue time and all late reports delivered at issue time (`extraReports`); report belief, `a*`, EVPI, and whether `a*` differs from the actual choice |
-Determinism: counterfactuals use the same engine; they never write to history.
+| CF_ACTIONS | "If you had chosen differently" | For each legal action, branch at the actual deciding role's commitment cut with the same preceding intents, estimates, belief, truth, and incurred costs; compare expected/realized utility and consequence |
+| CF_VERIFY_EARLIER | "If you had verified earlier" | Search whole-minute times represented as integer seconds, from the window opening up to but strictly before actual commitment. At each candidate use only information at that cut and assets whose result arrives strictly before close; select greatest net VOI (ties by DP asset order). At the earliest candidate with net >= 0, retain original intents with t < candidate, discard all future original intents, task the asset, replay to its result, choose the branch best action, satisfy required estimates via the labelled policy below, then DECIDE and replay through completion. Omit when no legal candidate exists or the trainee already verified at/before that candidate |
+| CF_DECIDE_EARLIER | "If you had decided earlier" | Branch at the current DP's window opening, replaying only preceding actual intents/events, then choose the actual selected action with the labelled estimate policy. Omit if no earlier legal comparison exists |
+| CF_NO_LOSS | "If nothing had been lost" | At the actual decision cut, replace each eligible dropped/late report by ID with delivery at issue, only if issued by that cut and visible to the role under the branch. Do not append duplicates or future-issued evidence. Report belief, best action, EVPI, and whether the best action differs |
+
+Every executable branch obeys the actual role, phase, estimate, deadline, visibility, authorization, and capacity guards. Do not weaken the engine for counterfactuals. When a branch lacks a required estimate, insert a model-generated SET_ESTIMATE equal to that branch's reference belief at its simulated decision cut, before DECIDE. Record it as a **counterfactual policy assumption**, never a trainee statement; never borrow a later actual estimate. Branch output must list these assumptions with role, hypothesis, time, and probability. Existing legitimate prefix estimates remain unchanged.
+
+Counterfactual output contract (P1; each rendered result carries the label above):
+```ts
+export interface CounterfactualPolicyAssumption {
+  kind: 'MODEL_ESTIMATE'; role: RoleId; hypothesisId: HypothesisId; atSec: SimSeconds; p: number;
+  label: 'COUNTERFACTUAL POLICY ASSUMPTION - not a trainee statement';
+}
+export type Counterfactual =
+  | {
+      id: 'CF_ACTIONS'; policyAssumptions: CounterfactualPolicyAssumption[];
+      alternatives: { actionId: ActionId; expectedUtility: number; realizedUtility: number; consequenceHeadline: string }[];
+    }
+  | {
+      id: 'CF_VERIFY_EARLIER'; policyAssumptions: CounterfactualPolicyAssumption[];
+      assetId: AssetId; requestedAtSec: SimSeconds; resultAtSec: SimSeconds; result: AarDecision;
+    }
+  | {
+      id: 'CF_DECIDE_EARLIER'; policyAssumptions: CounterfactualPolicyAssumption[];
+      atSec: SimSeconds; result: AarDecision;
+    }
+  | {
+      id: 'CF_NO_LOSS'; policyAssumptions: CounterfactualPolicyAssumption[];
+      belief: Record<HypothesisId, number>; bestActionId: ActionId; evpi: number; choiceChanged: boolean;
+    };
+```
+
+Determinism: use the same engine and cut-truth rule; counterfactuals never write to actual history or rescore the actual decision. An omitted branch is not a fabricated successful result. Before P1, retain the explicit P0 analysis limitation.
 Golden values: CF_NO_LOSS for Path B at t=26: R10 delivered at 20:00 and R11 delivered at 25:00 → belief and a* MUST be computed by the engine; test asserts `a*` ≠ GO_NORTH and p(north) < 0.5.
-CF_VERIFY_EARLIER for Path B: earliest feasible `m` with net VOI ≥ 0 is at or before 24:00; the resulting `a*` MUST be GO_SOUTH and realized utility positive.
+CF_VERIFY_EARLIER for Path B: earliest whole-minute positive candidate is UAV at 20:00, net VOI 0.088368045. The result arrives at 26:00; the executable branch chooses GO_SOUTH and realizes utility 44.00 after its delay and asset cost. Any inserted estimate is a labelled policy assumption, not the actual estimate logged later in Path B.
 
 ---
 
@@ -1688,11 +1832,16 @@ CF_VERIFY_EARLIER for Path B: earliest feasible `m` with net VOI ≥ 0 is at or 
 | Historical datasets | NO | None |
 | Synthetic scenario content | YES (all) | Authored JSON; labelled `SYNTHETIC SCENARIO` in UI footer, briefing, AAR, exports |
 | Simulated feeds | YES | Degradation engine; labelled "Simulated link degradation" |
-| User-generated data | Session logs and history | Browser-local only; never uploaded |
-| External APIs | NONE for P0–P2 | P3 narration only (optional) |
+| User-generated data | Session logs, estimates, rationale, names, and history | Local core processes exercise data browser-side; networked mode transmits participant data to the project-owned authoritative service (32.4) |
+| Third-party APIs | NONE required for P0–P2 | Project-owned service only for selected network mode; optional P3 narration has a separate disclosure |
 32.1 The UI footer on every scenario screen reads: `SYNTHETIC SCENARIO — fictional entities. Reliabilities and payoffs are authoring assumptions, not doctrine.`
 32.2 No map tiles, no external fonts, no CDN scripts. All assets are bundled.
 32.3 Dataset provenance statement for the PPT: "No real data. The system's value is the evaluation method; scenarios are synthetic and replaceable by instructor-authored content."
+32.4 Privacy by mode:
+- Local core does not upload exercise actions, estimates, rationale, or history. Ordinary static hosting requests/network metadata may still exist; "local" is not a promise of zero hosting logs.
+- Network mode transmits participant names, actions, estimates, and rationale to the project-owned server. Exercise sessions are in memory with the idle TTL in Section 14.2 and are lost on restart; that is not a guarantee of erasure from infrastructure logs.
+- Reconnect uses the active session binding, not an upload of browser history. Completed AAR downloads/print are user-initiated disclosures and may contain authorized post-mortem data.
+- If optional P3 narration is enabled, it sends only its documented redacted summary; the local-only claim does not cover that opt-in path.
 
 ---
 
@@ -1707,6 +1856,9 @@ CF_VERIFY_EARLIER for Path B: earliest feasible `m` with net VOI ≥ 0 is at or 
 | GET | `/api/sessions/:code` | — | `200 { code, scenarioId, phase, roster: [{ role, name, connected }], createdAtIso }` | `404 SESSION_NOT_FOUND` |
 | GET | `/api/sessions/:code/aar` | `Authorization: Bearer <session-token>` | `200 Aar` | `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 SESSION_NOT_FOUND`, `409 NOT_COMPLETE` |
 | POST | `/api/aar/narrate` (P3) | `{ aar: AarSummary }` | `200 { text: string }` | `501 NARRATION_DISABLED`, `502 UPSTREAM_ERROR` |
+
+Scenario-list `durationMin` is the exercise/commitment horizon (Section 13.2), not a promised completion ceiling. The AAR endpoint remains `409 NOT_COMPLETE` until actual COMPLETE, including while a valid consequence continues beyond that horizon.
+
 Example:
 ```http
 POST /api/sessions
@@ -1721,15 +1873,16 @@ Rate limits: 30 requests/min/IP on `POST /api/sessions` (in-memory token bucket)
 ```ts
 export interface SessionView {
   seq: number; role: RoleId; phase: Phase; nowSec: SimSeconds; speedSecPerMin: number;
-  scenario: { id: string; title: string; subtitle: string; summary: string; briefing: string[]; durationSec: SimSeconds; difficultyLevel: number };
-  hypotheses: { id: HypothesisId; label: string; trueLabel: string; falseLabel: string; primary: boolean }[];   // NO prior/initialTruth for non-instructor
+  scenario: { id: string; title: string; subtitle: string; summary: string; briefing: string[]; durationSec: SimSeconds; difficultyLevel: number }; // duration is the exercise/commitment horizon
+  hypotheses: { id: HypothesisId; label: string; trueLabel: string; falseLabel: string; primary: boolean }[]; // NEVER initialTruth; public priors below
+  referenceModel: { priors: Record<HypothesisId, number>; tauSec: Record<ChannelId, SimSeconds>; parameters: ModelParams; scoreWeights: ScoreWeights; limitations: string[] };
   channels: { id: ChannelId; label: string; sourceLabel: string; health: ChannelHealth; lastDeliveredAtSec: SimSeconds | null; visible: boolean; detail?: string /* instructor only */ }[];
   reports: ReportView[];
-  belief: BeliefSnapshot | null; beliefHidden: boolean;
+  belief: BeliefView | null; beliefHidden: boolean;
   decisionPoint: null | {
     id: string; title: string; prompt: string; openSec: SimSeconds; closeSec: SimSeconds; status: 'UPCOMING' | 'OPEN' | 'CLOSED';
     actions: { id: ActionId; label: string; description: string; payoffs: { when: string; value: number }[] }[];
-    assets: { id: AssetId; label: string; delaySec: SimSeconds; costUnits: number; gradeLabel: 'A'|'B'|'C'; usesLeft: number; feasible: boolean; reasonDisabled?: string }[];
+    assets: { id: AssetId; label: string; delaySec: SimSeconds; costUnits: number; gradeLabel: 'A'|'B'|'C'|'D'; usesLeft: number; feasible: boolean; reasonDisabled?: string }[];
     requiredEstimates: HypothesisId[]; delayCostPerMin: number; departureSec: SimSeconds;
   };
   myEstimates: EstimateRecord[]; myInspected: ReportId[];
@@ -1738,28 +1891,52 @@ export interface SessionView {
   advice: { atSec: SimSeconds; actionId: ActionId; note?: string }[];
   relayCapacityLeft: number;
   roster: { role: RoleId; name: string; connected: boolean }[];
-  consequence?: { headline: string; narrative: string; revealAtSec: SimSeconds };
-  truth?: Record<HypothesisId, boolean>;                       // COMPLETE or INSTRUCTOR only
-  instructor?: { diagnostics: { eu: Record<ActionId, number>; bestActionId: ActionId; isTie: boolean; evpi: number; assets: { id: AssetId; evsi: number; netVoi: number }[] }; inTransit: ReportView[]; dropped: ReportView[]; eventLog: { atSec: SimSeconds; text: string }[]; traineeSnapshots: { role: RoleId; opened: number; delivered: number; lastOpened: ReportId | null; estimate: number | null; decided: boolean }[] };
+  pendingConsequence?: { revealAtSec: SimSeconds };             // truth-independent; no selected branch
+  consequence?: { headline: string; narrative: string; authoredArrivalSec: SimSeconds; revealAtSec: SimSeconds }; // COMPLETE only
+  truth?: Record<HypothesisId, boolean>; truthAtSec?: SimSeconds; // current truth/time; COMPLETE or INSTRUCTOR
+  postMortem?: {
+    atSec: SimSeconds; reports: ReportView[];
+    decisionTruth: { decisionPointId: string; atSec: SimSeconds; role: RoleId; truth: Record<HypothesisId, boolean> }[];
+  };                                                          // COMPLETE only; never substituted for Knew
+  instructor?: { diagnostics: { eu: Record<ActionId, number>; bestActionId: ActionId; isTie: boolean; evpi: number; assets: { id: AssetId; evsi: number; netVoi: number }[] }; inTransit: ReportView[]; dropped: ReportView[]; eventLog: { atSec: SimSeconds; text: string }[]; traineeSnapshots: { role: RoleId; opened: number; delivered: number; lastOpened: ReportId | null; estimate: number | null; aidRevealed: boolean; decided: boolean }[] };
   aidMode: 'ALWAYS' | 'AFTER_ESTIMATE'; aidRevealed: boolean; aarReady: boolean;
-  engineError?: { code: string; message: string };            // last rejected intent for this client
+  engineError?: { code: EngineErrorCode; message: string };     // recipient-safe last rejection
+}
+export interface BeliefView {
+  atSec: SimSeconds; fogIndex: number;
+  perHypothesis: Record<HypothesisId, {
+    p: number; logOdds: number; entropyBits: number;
+    positiveNats: number; negativeNats: number; contradictionIndex: number; contradicted: boolean;
+    contributions: {
+      reportId: ReportId; group: EvidenceGroupId; channel: ChannelId; gradeLabel: 'A'|'B'|'C'|'D'; ageSec: SimSeconds;
+      effectiveAccuracy: number | null; llr: number | null;     // inspection + aid required
+      weight: number;                                         // aid available; no raw rho/stance
+    }[];
+  }>;
 }
 export interface ReportView {
-  id: ReportId; channel: ChannelId; claim: string; detail: string | null /* null until opened by this role */; rho?: number /* instructor/COMPLETE only */; gradeLabel: 'A'|'B'|'C'|'D';
+  id: ReportId; channel: ChannelId; claim: string; detail: string | null /* trainee/Knew: inspection-gated; instructor/postMortem exception */; rho?: number /* instructor/COMPLETE only */; gradeLabel: 'A'|'B'|'C'|'D';
   stance?: Stance /* omitted for trainees before COMPLETE; included for INSTRUCTOR/COMPLETE */; hypothesisId: HypothesisId | null;
   issuedAtSec: SimSeconds; deliveredAtSec: SimSeconds | null; status: ReportStatus; origin: 'SCENARIO'|'INJECT'|'VERIFY'|'RELAY';
   badges: ('DELAYED'|'STALE'|'RELAYED'|'UNCONFIRMED'|'VERIFIED'|'NEW')[]; evidenceGroup: string; relayedFrom?: { role: RoleId; atSec: SimSeconds; note?: string };
   effectiveAccuracy: number | null; contributionNats: number | null; weight: number | null; contradicts: ReportId[];
 }
 ```
-Important: trainees DO see which hypothesis a report concerns (so the feed is readable) and the engine's per-report contribution after they open it. Stance is NOT sent as a field for trainees before COMPLETE, but `contributionNats` (signed) is sent once the report is opened (the sign reveals stance after reading; this is intended).
+Projection rules apply recursively, including nested arrays and errors. For trainees before COMPLETE and in historical Knew frames, `reports` contains only delivered role-visible reports; `detail` is null until that role opens the report. `effectiveAccuracy`, `contributionNats`, and `BeliefView` row `llr` require inspection AND aid reveal. A signed contribution after both gates intentionally communicates direction, but raw rho/stance remain absent. Weight may be projected for Fog Veil once aid is available even before inspection; unopened waterfall rows do not expose signed bars or accuracy.
+
+When this role's aid is hidden, `belief` is null, `beliefHidden` is true, and report math/weights/automated contradiction links are withheld. In ALWAYS, aid is available from start; in AFTER_ESTIMATE only the role's own primary estimate unlocks it. `myEstimates` and `myInspected` are role-scoped. `verifications.resultReportId` stays null until a role-visible delivery; a known task's countdown does not authorize hidden result metadata. Hidden-channel `lastDeliveredAtSec` is null and instructor-only detail is absent.
+
+Public `referenceModel` data is explicitly static and safe; do not fill it by spreading ScenarioDef. COMPLETE's postMortem permits authorized hidden/dropped/future-report explanations with temporal labels and per-decision truth. Instructor/post-mortem projections may include their permitted report detail/math without trainee inspection or aid reveal; this never creates trainee records or rewrites Knew. Instructor diagnostics are not blocked by a trainee's aid gate. The live `truth` snapshot is labelled with `truthAtSec`; AAR decision truth is separately cut-specific. Instructor data is separately authorized, never copied into trainee views.
 
 ### 33.3 WebSocket protocol (`/ws`; JSON text frames; validated with zod in `src/session/protocol.ts`)
 Client → server:
 ```ts
+type WithoutAuthority<T> = T extends unknown ? Omit<T, 't' | 'role'> : never;
+export type ClientIntent = WithoutAuthority<Intent>;
+
 type ClientMsg =
   | { type: 'HELLO'; code: string; role: 'COMMANDER'|'ANALYST'|'INSTRUCTOR'; name: string; clientId?: string; token?: string }
-  | { type: 'INTENT'; intent: ClientIntent }      // ClientIntent = Intent without `t` and `role`
+  | { type: 'INTENT'; intent: ClientIntent }      // distributive omission preserves each union member
   | { type: 'PING'; ts: number };
 ```
 Server → client:
@@ -1770,30 +1947,34 @@ type ServerMsg =
   | { type: 'ERROR'; code: 'SESSION_NOT_FOUND'|'ROLE_TAKEN'|'BAD_TOKEN'|'BAD_MESSAGE'|'RATE_LIMITED'|'FORBIDDEN'|'SESSION_FINISHED'; message: string }
   | { type: 'PONG'; ts: number };
 ```
-Rules: first message MUST be `HELLO` within 5 s or the server closes with code 4001. A new binding without a valid token may request only `COMMANDER` or `ANALYST`. `INSTRUCTOR` is reserved for the `clientId`+`token` pair returned by `POST /api/sessions`; a HELLO that declares `INSTRUCTOR` without that server-issued credential MUST return `FORBIDDEN`. `HELLO` with a valid `clientId`+`token` rebinds the existing role. Intent rejections do not close the socket: the next `VIEW` carries `engineError`. Ordering: the server processes messages per client in arrival order; views carry `seq`. Heartbeat: client `PING` every 20 s; server drops connections silent for 60 s. Max message size 8 KB.
+Rules: first message MUST be HELLO within 5 s or close with code 4001. A new binding without a valid token may request only COMMANDER or ANALYST. INSTRUCTOR requires the clientId/token from POST /api/sessions; a role declaration alone returns FORBIDDEN. Reconnect validates code/clientId/token and rebinds the existing role.
+
+Use strict per-member Zod DTOs; reject `t`, `role`, and legacy `fromRole` inside INTENT, even though HELLO legitimately requests a role. Both session adapters stamp trusted actor/time on every intent, including lifecycle and RELAY. The engine independently enforces Section 17.3a. Mode is creation configuration, not client-controlled intent data.
+
+Intent rejection keeps the socket open and produces a recipient-safe engineError in a newer-sequenced view. Ingress rejection cannot advance the engine; admitted action failure retains scheduled effects (Section 19.4). Process accepted work in server arrival order with per-client order preserved; store that exact causal order in the log. Heartbeat: PING every 20 s; drop connections silent for 60 s. Max message size 8 KB.
 
 ---
 
 ## 34. JSON EXAMPLES (contract fixtures; also used in tests)
 
-34.1 Report (ReportView, trainee, after opening R06 at t=22:30):
+34.1 Report (ReportView, SOLO trainee, aid ALWAYS, after opening R06 at 22:00):
 ```json
 { "id": "R06", "channel": "LAND", "claim": "Patrol: rockfall observed near Veer Pass entrance",
   "detail": "A patrol vehicle saw fresh rockfall near the pass entrance and turned back before reaching it. The report was queued while the link was degraded.",
-  "rho": 0.75, "gradeLabel": "B", "hypothesisId": "north_pass", "issuedAtSec": 960, "deliveredAtSec": 1320,
+  "gradeLabel": "B", "hypothesisId": "north_pass", "issuedAtSec": 960, "deliveredAtSec": 1320,
   "status": "DELIVERED", "origin": "SCENARIO", "badges": ["DELAYED"], "evidenceGroup": "G6",
   "effectiveAccuracy": 0.6852, "contributionNats": -0.7778, "weight": 1.0, "contradicts": ["R01", "R02", "R04"] }
 ```
 34.2 Event (scenario): `{ "kind": "CHANNEL_DEGRADE", "atMin": 16, "channel": "LAND", "mode": "DELAY", "extraDelayMin": 6, "untilMin": 26, "note": "…" }`.
 34.3 Action (view): `{ "id": "GO_NORTH", "label": "Take the north route (Veer Pass)", "description": "…", "payoffs": [{ "when": "Veer Pass passable", "value": 100 }, { "when": "Veer Pass blocked", "value": -80 }] }`.
-34.4 Consequence: `{ "headline": "Convoy halted at the Veer Pass debris field", "narrative": "…", "revealAtSec": 1800 }`.
+34.4 Path B pending projection in CONSEQUENCE: `"pendingConsequence": { "revealAtSec": 1860 }`, with no `consequence` or truth. Only at COMPLETE (31:00): `"consequence": { "headline": "Convoy halted at the Veer Pass debris field", "narrative": "…", "authoredArrivalSec": 240, "revealAtSec": 1860 }`. The authored four-minute branch delay is unchanged; the public five-minute North reveal is truth-independent.
 34.5 Scoring block of the AAR for Path A:
 ```json
 { "dq": 1.0, "outcome": 0.6975, "infoUtil": 0.9481, "timeliness": 0.3889, "verifyEff": 1.0, "calibration": 0.9795,
   "trainingScore": 88.47, "quadrant": "SOUND_SUCCESS", "realizedUtility": 39.5, "brierUser": 0.0625, "brierSystem": 0.0575 }
 ```
 34.6 Decision record: `{ "decisionPointId": "DP1", "atSec": 1740, "actionId": "GO_SOUTH", "role": "SOLO", "timedOut": false, "rationale": { "text": "Rockfall report plus the sortie result outweigh the stale clear reports.", "citedReportIds": ["R06", "V01"], "tags": ["WEIGHED_CONTRADICTION", "AWAITED_VERIFICATION"] }, "estimates": { "north_pass": 0.25 }, "consultedAid": true }`.
-34.7 Session log: `{ "logVersion": 1, "scenarioId": "kestrel-relief-corridor", "scenarioVersion": 1, "scenarioHash": "<fnv1a hex>", "seed": 0, "difficultyLevel": 3, "aidMode": "ALWAYS", "intents": [ { "type": "START", "t": 0 }, … ] }`.
+34.7 Session log: `{ "logVersion": 1, "scenarioId": "kestrel-relief-corridor", "scenarioVersion": 1, "scenarioHash": "<fnv1a hex>", "seed": 0, "difficultyLevel": 3, "mode": "LOCAL", "aidMode": "ALWAYS", "intents": [ { "type": "START", "t": 0, "role": "SOLO" }, … ] }`. The hash remains a placeholder, not a generated replacement.
 
 ---
 
@@ -1810,9 +1991,9 @@ Purpose: prove the engine is scenario-agnostic and exercise two decision points.
 | Assets | `DRONE_SWEEP` (north quay; ρ 0.92; delay 5; cost 4), `GAUGE_CHECK` (ridge road; ρ 0.88; delay 4; cost 3) |
 | DP1 (12:00–26:00, departure 12:00, delay cost 1.2/min) | Actions `POSITION_QUAY`, `POSITION_RIDGE`, `HOLD_POSITION` (cautious/timeout). Utilities: quay: +90 if quay_dry else −70; ridge: +60 if ridge_road_open else −60; hold: +8 |
 | DP2 (28:00–38:00, departure 28:00, delay cost 1.0/min) | Actions `ROUTE_VIA_QUAY`, `ROUTE_VIA_RIDGE`, `HOLD_ROUTE`; same hypotheses; utilities +80/−60, +55/−55, +5; requiredEstimates: `quay_dry` |
-| Duration | 45 min |
+| Exercise/commitment horizon | 45 min; terminal completion follows Section 13.2, not a duration cutoff |
 ### 35.2 Engine support required for two DPs
-Per-DP verification capacity resets at each DP; `currentDecisionPointIndex` advances on a valid non-last DECIDE; `Aar.decision` becomes `decisions[]` for scenarios with more than one DP: implement `Aar.decisions: AarDecision[]` and keep `Aar.decision` as the LAST decision for flagship-compatible UI. Scores are computed per DP and averaged (mean) for the composite.
+Per-asset capacity is counted separately for each DP; `currentDecisionPointIndex` advances on a valid non-last DECIDE. Populate `Aar.decisions: AarDecision[]` with one `{ decision, scores }` entry per DP (Section 25.1), including its own causal-cut truth. Keep `Aar.decision` equal to the LAST entry's `decision` for compatible UI and `Aar.truth` equal to that last cut's truth. Scores are computed per DP; the composite is their mean. CSV exports use each DP's own row/metrics, not the aggregate copied into every row.
 ### 35.3 Tests
 Loader invariants pass; a scripted two-decision path produces finite scores; `mutateScenario` gates pass for seeds 1..50 at levels 2–4.
 
@@ -1838,7 +2019,7 @@ The interface MUST remain fictional and non-operational.
 
 ### 36.2 Design language
 
-Use a dark-neutral command-console foundation with restrained semantic accents.
+Use the single dark-neutral command-console foundation with restrained semantic accents. Additional themes and theme switching are out of scope (Section 9); the contrast-only token adjustment rule in Section 36.3 remains binding.
 
 Primary design qualities:
 
@@ -1938,6 +2119,8 @@ opacity = 0.72 + 0.28 * evidenceWeight
 
 where evidenceWeight is [0,1].
 
+Use only the role-projected weight after aid reveal. Before reveal, use neutral styling without receiving hidden math; Fog Veil is not an alternative to the payload gate.
+
 Use:
 
 - lower contrast on low-weight reports
@@ -1961,10 +2144,11 @@ Requirements:
 
 - one horizontal row per contributing evidence group
 - anchor line at prior log-odds
-- positive contribution extends right
-- negative contribution extends left
+- inspected positive contribution extends right
+- inspected negative contribution extends left
 - report ID displayed at readable density
-- hover/focus reveals:
+- unopened rows offer inspection; no signed bar, accuracy, or numeric contribution
+- when aid is available and this role inspected the report, hover/focus reveals:
   - report ID
   - claim
   - source grade
@@ -2122,15 +2306,15 @@ Reduced motion MUST remove non-essential animation.
 
 ### 36.14 Information arrival animation
 
-When a new report arrives:
+When a new role-visible report arrives:
 
 1. insert card at top
 2. show NEW marker
 3. animate a 160ms vertical translation
 4. briefly emphasize channel indicator
 5. update channel health sparkline
-6. update belief state
-7. animate belief delta over 250ms
+6. update the permitted belief projection
+7. animate belief delta over 250ms only when that role's aid is revealed
 
 The animation MUST NOT delay the engine update.
 
@@ -2141,7 +2325,7 @@ When communication degrades:
 - channel strip changes state
 - a narrow banner appears:
   > “LAND link degraded”
-- pending reports visually show transit state
+- show generic channel transit/degradation state and known task countdowns, never hidden report placeholders or metadata
 - no catastrophic screen shake
 - no audio requirement
 
@@ -2428,9 +2612,10 @@ Clicking `RUN FLAGSHIP DEMO`:
 2. seed = 0
 3. difficulty = 3
 4. aidMode = ALWAYS
-5. skips configuration
-6. navigates to `/demo`
-7. shows demo overlay
+5. speedSecPerMin = 2 (ordinary-session default remains 4)
+6. skips configuration
+7. navigates to `/demo`
+8. shows demo overlay
 
 The path MUST have zero network dependencies.
 
@@ -2501,7 +2686,7 @@ Display:
 
 - scenario cards
 - difficulty
-- duration
+- exercise/commitment duration (not an absolute completion ceiling)
 - decision count
 - training focus
 - synthetic badge
@@ -2755,7 +2940,10 @@ seed = 0
 difficulty = 3
 aidMode = ALWAYS
 mode = LOCAL
+speedSecPerMin = 2
 ```
+
+This is the Demo Mode presentation preset only; ordinary sessions retain 4 wall seconds per simulation minute. Engine seconds, report chronology, deadlines, scoring, and duration semantics do not change. Demo uses Section 13.2's exercise/commitment horizon and continues any valid consequence through its actual terminal event, including after 36:00.
 
 ### 39.3 Demo overlay
 
@@ -2795,9 +2983,11 @@ The demo controller MUST support:
 
 These controls are presenter-only.
 
+They must advance the real engine and dispatch legal, ordered intents; never patch state, truth, score, or timeline events. Skip-to-AAR must reach actual completion through a legal decision or timeout. Paused controls must respect the same action guards rather than secretly enabling trainee actions while PAUSED.
+
 ### 39.5 First WOW target
 
-The first WOW should happen by approximately 60 seconds of wall time.
+The first WOW must occur within 60 seconds of wall time from Demo start. At the two-second preset, the authored minute-22 contradiction arrives around 44 seconds without pauses; any early presenter pauses must fit the remaining budget.
 
 Target event:
 
@@ -2900,9 +3090,9 @@ Each report card MUST expose:
 - status
 - delivery age
 - reliability grade
-- contradiction status
+- contradiction status only when present in the role's aid projection; otherwise indicate the aid is hidden
 
-Example accessible summary:
+Example accessible summary (Commander, aid revealed, inspected R06):
 
 > “LAND report R06. Patrol reports fresh obstruction. Delivered 6 minutes after issue. Reliability grade B. Contradicts reports R01 and R02.”
 
@@ -3007,7 +3197,7 @@ It loads the same:
 - seed
 - difficulty
 
-but uses `LocalSessionClient`.
+but starts a fresh `LocalSessionClient` exercise. State explicitly that unavailable server-authoritative progress is not restored; do not imply the full disconnected history was uploaded or recovered.
 
 ### 41.6 Storage failure
 
@@ -3054,10 +3244,12 @@ Team AAR:
 
 A rejected intent MUST:
 
-- not mutate state
+- never mutate its input or append action-specific changes
+- preserve due scheduled progression for an admitted request; malformed/unauthorized/invalid-time ingress causes no intent-driven progression (Section 19.4)
 - attach `engineError`
 - show a human-readable reason
 - clear automatically after a successful intent
+- issue a newer transport sequence when the error or view changes
 
 ---
 
@@ -3240,6 +3432,7 @@ Before judging:
 - WebSocket session can be created when server is available.
 - Render uses `wss://`.
 - Static fallback works without server APIs.
+- Local/static and server-authoritative sessions preserve post-horizon CONSEQUENCE progression, completed replay, and AAR availability at actual COMPLETE; deployment introduces no duration cutoff.
 
 ---
 
@@ -3278,10 +3471,13 @@ Never trust a client-supplied role inside an intent.
 
 Before COMPLETE:
 
-- trainee clients MUST NOT receive truth
+- trainee clients MUST receive explicit recursive allowlists, not raw state/scenario/belief/effects
+- no truth, hidden report IDs/content, raw rho/stance, unauthorized contribution details, or truth-dependent consequence timing
 - analyst cannot see commander-only channels
 - commander cannot see analyst-only channels
 - instructor can see truth
+
+Delivered authorized relays are the channel-visibility exception. Aid reveal is per-role and estimate-gated; inspection gates apply independently. COMPLETE post-mortem access does not change historical Knew frames. Local closure isolation is UI safety, not a secrecy guarantee against public bundles (Sections 10.4 and 33.2).
 
 ### 43.5 Input validation
 
@@ -3343,24 +3539,24 @@ match an active binding.
 
 ### 43.10 REST AAR authorization
 
-The `/api/sessions/:code/aar` endpoint MUST require a valid session token bound to that active session. The token may belong to the instructor or a participant role for that session. Invalid/missing tokens return `401`; a valid token for another session returns `403`. Do not treat knowing the six-character session code as authorization.
+The `/api/sessions/:code/aar` endpoint MUST require a valid session token bound to that active session and phase COMPLETE. The token may belong to the instructor or a participant role for that session. Invalid/missing tokens return `401`; a valid token for another session returns `403`; incomplete sessions return `409 NOT_COMPLETE`. Do not treat knowing the six-character session code as authorization.
 
 ### 43.11 Export privacy
 
-Exports include only session data relevant to training.
+Exports include only authorized completed-session training data, including permitted model explanations and temporally labelled post-mortem truth. User-initiated JSON/CSV/download/print is a disclosure boundary, not covered by "local processing never uploads exercise data".
 
 Never include:
 
 - server secrets
 - session tokens
 - client network addresses
-- internal diagnostics hidden from trainees
+- internal server/connection diagnostics (distinct from authorized AAR model explanations)
 
 ### 43.12 LLM privacy
 
 If P3 narration is enabled:
 
-- send only AAR summary
+- send only the documented redacted AAR summary when the optional feature is enabled; disclose that this mode sends data outside local processing
 - never send secrets
 - never send connection metadata
 - label generated narrative as optional
@@ -3392,6 +3588,8 @@ Full replay:
 AAR generation:
 
 > <= 150 ms
+
+These budgets cover actual terminal completion, including valid post-horizon consequence processing and replay. The flagship's 36-minute exercise horizon is performance context, not a limit at which work may be truncated.
 
 ### 44.3 UI tick rate
 
@@ -3504,6 +3702,8 @@ Few critical E2E tests
 
 ### 45.2 Unit-test target areas
 
+Every exported engine function requires unit coverage. P0 owns the exact mathematics needed by its score/AAR obligations; advanced integration follows its feature gate rather than delaying required numerical tests.
+
 Create tests for:
 
 - RNG
@@ -3539,6 +3739,8 @@ The flagship golden test MUST compare:
 - composite score
 - quadrant
 
+Current composite anchors are A 88.47, B 66.17, C 83.67, D 33.12. Assert the strict 23:59 UAV candidate and distinguish it from the infeasible 24:00 formula reference. Preserve all published tolerances. P0 tests the numerical/causal path contracts; P1 adds the marked what-if/counterfactual presentation acceptance.
+
 ### 45.4 Determinism tests
 
 Same:
@@ -3546,14 +3748,20 @@ Same:
 ```text
 scenario
 +
+configuration
++
 seed
 +
-ordered intents
+ordered accepted intents
++
+explicit replay horizon
 ```
 
 MUST produce equivalent runtime state.
 
-Exclude wall-clock metadata.
+Exclude wall-clock metadata. Equal-seed runs require byte equality; Path F's different-seed comparison excludes only changed seed metadata on the same unmutated scenario.
+
+Also test clone/continue with pending dynamic events, two independently interleaved sessions, chunked versus one-shot advancement to the same horizon, same-time injection without retroactive reordering, and RESET with a fresh exercise log but preserved transport sequencing.
 
 ### 45.5 Invariant tests
 
@@ -3568,6 +3776,12 @@ Test:
 - no Infinity
 - valid event ordering
 
+Required causal/error cases: delivery at close precedes timeout; DECIDE at close returns WINDOW_CLOSED and retains timeout; verification equality is rejected, one second earlier is legal; malformed/forbidden/invalid-time ingress causes no intent-driven progression; admitted action failure retains due effects without inspection/estimate/task/charge/counter mutations. Include paused injection and forced restoration versus stale automatic restores, terminal DROPOUT, and unchanged in-transit/BURST schedules.
+
+Mathematical cases include exact zero evidence, prior clamp with no reports, agreeing/conflicting evidence-group ties, numerical maximum versus display tie winner, exhaustive grades, custom outcome bounds, per-asset candidate selection, zero EVPI, partial/overlapping wait credit, and role-scoped inspection/estimate cuts. Later same-second inputs or later truth changes must not alter a committed evaluation.
+
+Duration cases use unchanged flagship data and legal intents: South at 29:00 completes at 36:00; South at 29:59 remains in CONSEQUENCE at 36:00 and 36:58, then completes at 36:59. Partial replay to 36:00 must remain incomplete with AAR unavailable; default completed replay must reach the terminal event. No duration-triggered timeout or state transition may occur. Retain the 30:00 DP timeout and its 33:00 STAND_DOWN completion. These are required future implementation checks, not results of this documentation amendment.
+
 ### 45.6 Scenario validation tests
 
 Each scenario MUST pass:
@@ -3581,6 +3795,8 @@ Each scenario MUST pass:
 - valid verification
 - contradiction reachability
 
+Test authoring versus normalized-runtime boundaries, one-time conversion/restore insertion, finite integer seconds, all four channels, references, positive decay constants, nonnegative/capped weights, and deterministic canonical hashing (UTF-16 key order, array order, UTF-8 bytes, eight lowercase hex digits). Do not create placeholder scenarios. Preserve the duration invariant as an exercise-horizon authoring constraint, not a proof or requirement of absolute completion coverage. Under resolved K5b Option B, the unchanged flagship remains valid when a legal consequence completes after 36:00; do not change fixture duration, version, hash, chronology, or delays to force completion inside that horizon.
+
 ### 45.7 Role-redaction tests
 
 Verify:
@@ -3590,6 +3806,10 @@ Verify:
 - commander cannot see CYBER/EW direct details
 - instructor sees diagnostics
 - truth appears at COMPLETE
+
+Inspect recursively serialized payloads, not merely rendered text: no raw rho/stance in nested contributions, no hidden report links/IDs/existence-specific errors, no live trainee utility/VOI diagnostics, and no selected consequence branch before completion. Compare identical visible histories with different hidden truth: pending timing AND COMPLETE transition time must be truth-independent for the same chosen action. A South commitment at 29:59 must reveal at 36:59 for either truth branch, with trainee truth/selected consequence withheld throughout the preceding post-horizon interval.
+
+Test Analyst OPEN_REPORT/SET_ESTIMATE/own REVEAL_AID, forbidden Analyst VERIFY/DECIDE, lifecycle authorization, authority-field rejection, own-estimate requirements, no cross-role aid reveal, and inspection-plus-aid gating. Verify the SOLO R06 fixture at 22:00 and historical Knew redaction even after completion.
 
 ### 45.8 WebSocket tests
 
@@ -3605,6 +3825,8 @@ Test:
 - intent ordering
 - sequence numbers
 - heartbeat
+
+Include error-only and clock-only sequence increments, admitted rejection effects, and reset/reconnect without sequence regression. Cover post-horizon CONSEQUENCE views through actual COMPLETE without a server or client duration cutoff. UI-only permissions do not satisfy these tests.
 
 ### 45.9 E2E tests
 
@@ -3622,6 +3844,8 @@ Minimum P2 tests:
 10. relay report
 11. complete session
 
+Use stable data-test identifiers for demo-critical controls. Assert Demo's two-second preset reaches minute-22 WOW within 60 wall seconds, AAR within 3 minutes, and reset in less than 3 seconds without fabricated state.
+
 ### 45.10 Export tests
 
 Verify:
@@ -3631,6 +3855,14 @@ Verify:
 - CSV row counts
 - printable view excludes navigation
 - provenance is included
+
+Assert the exact Section 50.2 column order, provenance on every row without fake events, and one decision row with its own metrics per DP. Verify authorized post-mortem data is temporally labelled and credentials/operational diagnostics are absent.
+
+### 45.10a Counterfactual and coaching integration (P1)
+
+Test executable branches under unchanged guards, labelled model-estimate assumptions, no borrowed later estimates, no future-issued/duplicate evidence, and immutable actual history. Path B's earlier verification is at 20:00, arrives at 26:00, chooses GO_SOUTH, and realizes 44.00. Test earlier-decision omission when no earlier legal cut exists.
+
+Coach tests include SOUND but not numerically best, negative high-magnitude unopened evidence, absent contradiction, pending/late verification results, exact asset/evaluation time, and ties without worthwhile verification. Assert evidence links, deterministic severity order, and at most five notes.
 
 ### 45.11 Accessibility tests
 
@@ -3667,7 +3899,7 @@ npm run e2e
 
 ### 46.1 P0 — Safe Core
 
-P0 is complete when all exist. Where the P0 console needs a belief display, it may use the foundational belief primitive defined by Section 22, but the full signature-grade reliability/evidence-group/contradiction model remains a P1 gate. Similarly, P0 verification means the verification action can be tasked and its result can arrive; EVSI/Net-VOI analysis remains P1.
+P0 is complete only with the exact Section 7.1 dependencies: full specified fusion/decay/health/evidence-group/clamp/entropy/contradiction mathematics; utility, regret/DQ/posture and EVPI/EVSI/net VOI; all six metrics/composite; causal reconstruction; basic replay; factual AAR/coaching; and numerical/edge-case/golden tests. Approximate belief, fixed scores, or hardcoded flagship results do not pass. P1 adds signature presentation/integration, not delayed correctness of required P0 scores.
 
 - home
 - scenario library
@@ -3687,30 +3919,25 @@ P0 is complete when all exist. Where the P0 console needs a belief display, it m
 - rationale
 - consequence
 - AAR
+- six-component scoring and quadrant
+- basic causal replay and honest pre-P1 analysis limitations
 - deterministic demo
 - synthetic-data disclosure
 - golden tests
 
 ### 46.2 P1 — Signature Intelligence
 
-P1 adds:
+P1 adds signature presentation/integration over the tested P0 mathematics:
 
-- reliability-weighted fusion
-- age decay
-- evidence groups
-- contradiction index
-- entropy
+- explainable reliability/age/evidence-group/contradiction/entropy presentation
 - reference-model drawer
 - evidence waterfall
-- regret
-- EVPI
-- EVSI
-- Net VOI
-- information-conditioned scoring
+- dedicated regret, EVPI, EVSI, and net-VOI explanations
+- richer information-conditioned scoring/AAR explanations
 - counterfactual replay
 - what-if delivery
 - instructor controls
-- deterministic replay
+- richer deterministic replay integration
 
 P1 is the main differentiation layer.
 
@@ -3742,9 +3969,9 @@ P3 adds:
 
 ### 46.5 Feature unlock rule
 
-A tier can begin only when the prior tier's gate is green.
+A tier can begin only when its prerequisite gates are green: default P0 -> P1 -> Demo -> P2 -> selected P3. Only explicitly dependency-independent P3 work may begin after Gate 4 under Section 58.7; network-dependent P3 waits for Gate 5. P2 acceptance and multiplayer's priority are not waived.
 
-**Foundational dependency exception:** a higher-tier engine primitive MAY be implemented at its minimum correctness level earlier when P0 literally depends on it (for example, a minimal belief calculation needed to display a decision state). The full signature-grade implementation remains P1 work. This is not permission to build P1 UI/features early; it is only permission to satisfy P0 dependencies without creating artificial rework.
+**Foundational dependency rule:** implement the exact specified mathematical primitive and its edge cases in P0 whenever a P0 obligation depends on it. This is not permission for approximate scores or to unlock unrelated P1/P3 presentation merely because the primitive exists.
 
 The agent MUST NOT partially implement three P3 features before P1 is complete.
 
@@ -3756,7 +3983,7 @@ Because the project has a buffered multi-day schedule:
 
 But:
 
-> only after the preceding gate passes.
+> only after its prerequisite gates pass, with the sole independent-P3 exception in Section 58.7.
 
 ---
 
@@ -3770,12 +3997,12 @@ CREATE:
 .github/copilot-instructions.md
 ```
 
-This file MUST contain concise permanent project rules and MUST reference the master spec. The repository SHOULD also contain path-specific instruction files under `.github/instructions/` so engine and UI work receive focused rules without bloating global context.
+Create this file only if absent; otherwise narrowly synchronize it without overwriting existing authoritative instructions. It MUST contain concise permanent rules referencing this master. Preserve existing AGENTS, Builder, and path-specific instructions rather than regenerating them blindly.
 
 Use:
 
 ```md
-@COPILOT_MASTER_ENGINEERING_SPEC.md
+@COPILOT_MASTER_ENGINEERING_SPEC_AUDITED_v1.2.md
 ```
 
 GitHub documents repository-wide instructions in `.github/copilot-instructions.md` and agent instructions in `AGENTS.md`; Copilot CLI and related agent surfaces can discover these files. Keep the repository instruction file concise and treat the master spec as the detailed source.
@@ -3792,6 +4019,8 @@ CREATE:
 `engine.instructions.md` MUST target `src/engine/**` and enforce pure deterministic TypeScript, no DOM/Node APIs, no wall-clock access, no uncontrolled randomness, explicit invariants, and unit tests for every exported function.
 
 `ui.instructions.md` MUST target `src/features/**/*.tsx` and `src/components/**/*.tsx` and enforce tokenized styling, accessibility, no business logic duplication, stable data-test identifiers for demo-critical controls, and separation between view state and engine state.
+
+Abbreviated path instructions do not waive the master obligations: exported-function unit tests and stable demo-control identifiers remain required. Synchronize scenario/server/test instructions and gate summaries whenever an approved amendment changes their contracts.
 
 ### 47.3 `AGENTS.md`
 
@@ -3851,7 +4080,7 @@ At first run:
 6. check Node/npm versions
 7. inspect and record `git status`; NEVER discard or overwrite pre-existing user changes
 8. create implementation plan internally
-9. begin P0
+9. only when implementation is authorized, begin the highest unlocked gate; a documentation audit/amendment is not Gate 0
 
 Do not ask the user to choose between architecture alternatives.
 
@@ -3925,16 +4154,15 @@ Authors MUST:
 
 ### 48.5 Scenario registry
 
-`src/scenarios/index.ts` exports:
+At P0, `src/scenarios/index.ts` registers only the implemented, validated flagship:
 
 ```ts
 export const scenarios = [
   loadScenario(kestrel),
-  loadScenario(harbour),
 ] as const;
 ```
 
-Avoid dynamic filesystem access in browser code.
+Add `loadScenario(harbour)` only when the P2 scenario is implemented and validated. Do not invent placeholders to match the final tree. Avoid dynamic filesystem access in browser code.
 
 ### 48.6 Scenario selection
 
@@ -4033,6 +4261,7 @@ kind
 summary
 reportId
 revealedToTrainee
+dataProvenance
 ```
 
 Decision file:
@@ -4056,7 +4285,10 @@ trainingScore
 rationaleText
 citedReports
 tags
+dataProvenance
 ```
+
+These lists are canonical and match Section 25.5. Every timeline row is an actual timeline entry; every decision row represents one `Aar.decisions` entry with its own role, DP, and metrics. Every row ends with the exact `Aar.dataProvenance` string; do not add fake events or alter rationale to store provenance.
 
 ### 50.3 Printable AAR
 
@@ -4085,7 +4317,7 @@ Page break before:
 
 ### 50.4 Export provenance
 
-Every export MUST include:
+JSON retains the canonical `Aar.dataProvenance` field; both CSV schemas include that exact value on every row. The printable AAR must visibly include:
 
 ```text
 SYNTHETIC SCENARIO — fictional entities.
@@ -4160,6 +4392,8 @@ Prefer:
 ### 51.5 Explainability
 
 Every coach note MUST be explainable from recorded data.
+
+Use the deciding role's causal evidence, never later same-second work. SOUND does not by itself establish "highest expected value"; a tie does not establish worthwhile verification; a requested asset does not establish result availability or belief change. Section 25.4 defines these factual conditions.
 
 ---
 
@@ -4510,6 +4744,8 @@ Every addition must have a reason.
 
 ## 57. ENGINEERING SCHEDULE — ACTUAL MULTI-DAY EXECUTION
 
+These time blocks do not override gates. Required P0 numerical/golden tests run as their features are built and before P1; later golden-test slots are regression/integration work.
+
 ### 57.1 Block A — 12 PM–8 PM
 
 Primary objectives:
@@ -4621,6 +4857,8 @@ Only fix defects that threaten submission.
 
 ## 58. ENGINEERING GATES
 
+The approved contract, including Option B's duration disposition, is internally consistent and ready for Gate 0 preparation. All implementation gates remain unpassed until their required implementation evidence exists; this documentation amendment neither executes nor passes a gate.
+
 ### 58.1 Gate 0 — Repository boots
 
 Pass:
@@ -4644,33 +4882,37 @@ Pass:
 Pass:
 
 - trainee can complete flagship locally
-- decision is recorded
-- consequence occurs
-- AAR opens
+- decision and scoring use the deciding role's exact causal cut
+- all six metrics/composite and their exact fusion/VOI dependencies pass numerical/edge-case tests
+- golden Paths A-F pass the P0 obligations, with approved A/B/C/D anchors and unchanged tolerances
+- truth-independent consequence occurs through its actual terminal event, including valid completion after `durationSec` under Section 13.2; the required post-horizon timing/replay/AAR checks pass
+- factual AAR, basic replay, and explicit pre-P1 analysis limitations work
+- required role/redaction/timing/rejection invariants are covered
+
+A valid consequence completing after 36:00 is not a Gate 2 blocker. Gate 2 still requires actual implementation and verification evidence; Option B approval alone does not pass it.
 
 ### 58.4 Gate 3 — P1
 
-Pass:
+Pass signature integration on the golden scenario, retaining all P0 numerical correctness:
 
-- fusion
-- contradiction
-- entropy
-- regret
-- EVPI/EVSI
-- scoring
-- counterfactual
-- replay
+- reference-model drawer and evidence waterfall
+- fusion/contradiction/entropy explanations
+- regret/EVPI/EVSI/net-VOI and scoring explanations
+- executable counterfactual and what-if delivery analysis
+- richer replay and causal Knew/Truth/Never saw views
+- local instructor controls/diagnostics and projection safety
 
-all work on golden scenario.
+All P1 integration tests and retained P0 regressions must pass.
 
 ### 58.5 Gate 4 — Demo
 
 Pass:
 
 - Demo Mode launches in one action
-- WOW occurs
-- decision
-- AAR
+- Demo preset is 2 wall seconds per simulated minute; ordinary default remains 4
+- minute-22 WOW occurs within 60 seconds
+- legal decision through the real engine
+- AAR within 3 minutes
 - reset < 3 seconds
 
 ### 58.6 Gate 5 — P2
@@ -4684,6 +4926,7 @@ Pass:
 - instructor
 - reconnect
 - team AAR
+- remaining FR-P2 features and their acceptance tests, including the second scenario, mutation/difficulty, estimate-first aid, history/analytics, and E2E coverage
 
 ### 58.7 Gate 6 — Advanced
 
@@ -4692,7 +4935,7 @@ Pass:
 - selected P3 features stable
 - no regression
 
-Dependency rule: P3 features that depend on P2 networking MUST wait for Gate 5. P3 features that depend only on P1/P0 (for example Presentation Mode and Scenario Authoring) MAY begin after Gate 4/Demo and are still subject to their own tests. This prevents a networking failure from blocking independent high-value work.
+Dependency rule: P3 features that depend on P2 networking MUST wait for Gate 5. Explicitly dependency-independent P3 features (for example Presentation Mode and Scenario Authoring) MAY begin after Gate 4/Demo only while their P0/P1 dependencies remain green, and still require their own tests. This prevents a networking failure from blocking independent work; it does not pass Gate 5, waive multiplayer/P2 acceptance, or change multiplayer's last-P2-to-cut priority.
 
 ### 58.8 Gate 7 — Deployment
 
@@ -4703,6 +4946,8 @@ Pass:
 - network demo
 - local fallback
 - export
+
+Deployment must preserve the same exercise-horizon and actual-completion semantics as local mode, including Section 42.11's post-horizon replay/AAR acceptance.
 
 ### 58.9 Gate 8 — Submission
 
@@ -4837,7 +5082,7 @@ Presenter says:
 
 ### 60.2 0:00–0:30
 
-Open Demo Mode.
+Open Demo Mode at its two-wall-seconds-per-sim-minute preset. Deliver the opening while the real engine runs, not as a mandatory delay before launch.
 
 Show:
 
@@ -4848,19 +5093,24 @@ Show:
 
 Do not explain every UI element.
 
+For canonical Path A, inspect R01, R02, R03, and R04 at simulation 09:00 using the real ordered controls.
+
 ### 60.3 0:30–1:00
 
-Let information arrive.
+Show the authored changes already occurring: LAND degrades around wall 0:32, AIR drops out around 0:36, and R06 arrives at simulation 22:00 around wall 0:44.
+
+For Path A, log the 0.80 estimate and open R05 at 18:00; open R06 and task UAV at 22:00, then pause through presenter controls. This preserves the simulation cut for the explanation below without deferring the first WOW.
 
 Show:
 
 - fresh report
 - delayed report
 - channel state
+- contradiction/Fog spike by 60 seconds
 
 ### 60.4 1:00–1:30
 
-Trigger degradation.
+Explain the degradation/contradiction already reached; do not wait until this interval to trigger the first WOW or add an extra inject to the canonical Path A script. Pause for explanation only through presenter controls.
 
 Show:
 
@@ -4875,7 +5125,7 @@ Presenter line:
 
 ### 60.5 1:30–2:00
 
-Open verification panel.
+Explain the verification already tasked at 22:00. Resume through R07 at 24:00 (open it for Path A) to V01 at 28:00; inspect V01 and pause for discussion if needed. Presenter skips/steps use the same ordered legal intents; they do not allow VERIFY while PAUSED.
 
 Show:
 
@@ -4883,14 +5133,11 @@ Show:
 - delay
 - feasibility
 
-Then either:
-
-- verify
-- or proceed
+If taking a different path, the last legal UAV request remains 23:59; never imply a late request can be made because the wall-time script says "verify now".
 
 ### 60.6 2:00–2:30
 
-Commit decision.
+For Path A, resume if paused. V01 must have been opened at 28:00; log the 0.25 estimate at 29:00, then commit GO_SOUTH at 29:00 in that order. Other choices remain real, evaluated paths rather than a forced score.
 
 Show:
 
@@ -4900,7 +5147,9 @@ Show:
 
 ### 60.7 2:30–3:00
 
-Open AAR.
+Reach real COMPLETE and open AAR by three wall minutes. Path A reveals at simulation 36:00; its seven-minute post-decision wait takes fourteen unpaused wall seconds at the Demo preset.
+
+36:00 is Path A's completion, not a universal demo cutoff. A legal South commitment at 29:59 instead reaches COMPLETE at 36:59 under the same rules. Continue the real engine; do not clamp, timeout, or expose AAR at the 36-minute exercise horizon. The wall-time targets remain unchanged.
 
 Show first:
 
@@ -5316,9 +5565,38 @@ Answer:
 
 ---
 
-## 65.0 v1.2 consistency patches applied before implementation
+## 65.0 v1.2 baseline and approved contract amendment record
 
-The following issues were explicitly patched in this revision: (1) Timeliness now uses seconds consistently; display conversion to minutes is presentation-only. (2) `/api/sessions/:code/aar` requires session-token authorization. (3) P0/P1 belief and verification boundaries are explicit. (4) Shadow styling is tokenized. (5) GitHub path-specific instruction files are included. (6) Calibration bin boundaries are unambiguous.
+The authoritative filename and baseline remain `COPILOT_MASTER_ENGINEERING_SPEC_AUDITED_v1.2.md`; no new semantic release or alias is created. The prior v1.2 record covered seconds-based timeliness, token-authorized AAR access, tokenized shadows, path-specific instructions, and calibration bins. Its claim that the P0/P1 boundary was already reconciled is superseded by approved Finding B below, not evidence that an application gate passed.
+
+**Approved amendments applied in the reconciliation pass and final duration disposition:**
+
+| Finding | Authoritative synchronized surfaces |
+|---|---|
+| A - master filename | Heading, Section 12 tree, Section 47 reference; existing repository references retain the audited basename |
+| B - P0/P1 mathematics | Sections 7, 18, 22-25, 30, 45-46, 58, 66; exact P0 scoring dependencies and tests, P1 signature integration, explicit P0 analysis limitations |
+| C - visual system | Sections 9, 36 and UI instructions; one dark-neutral system, contrast-only token adjustments, no theme switching |
+| D/F - identity, permissions, types | Sections 13, 17, 19, 23.9, 27-29, 33-34, 43, 45; trusted lifecycle/RELAY role, immutable mode, typed errors/results/parameters, distributive client DTO, Analyst inspection/estimation but no verification/decision |
+| E - strict deadlines | Sections 16-19, 23-25, 28, 30, 45; open-inclusive/close-exclusive seconds, strict verification arrival, feasible per-asset cutoff fixtures |
+| G - recursive redaction | Sections 10, 13, 22, 25, 27-30, 33-34, 36, 40, 43, 45; allowlisted belief/report/model/post-mortem projections, role/estimate/inspection gates, no raw rho/stance or hidden probes |
+| H - rejection versus progression | Sections 17, 19, 29, 33, 41, 45; ingress rejection versus admitted state-guard failure, retained due effects, newer error/clock view sequences |
+| I - privacy | Sections 10, 14, 29, 32-33, 41, 43, 50; local versus network processing, TTL/restart/log caveats, reconnect/fresh-local fallback, authorized exports and optional narration |
+| J - gates | Sections 0, 46, 58, 66, 72 and repository/Builder/gate instructions; default P0 -> P1 -> Demo -> P2 -> selected P3 with only the Gate 4 independent-P3 exception |
+| K1/K2 - event state and degradation | Sections 13, 16-17, 19, 21, 45; state-owned dynamic queue/order, immutable processed prefix, terminal DROP, forced restore, fixed issued-report schedules |
+| K3/K4 - causal evaluation and replay | Sections 1, 8, 10, 13, 17-19, 24-25, 30, 34-35, 45; cut-specific role/truth, ordered golden scripts, horizon, seed metadata comparison, fresh reset log |
+| K5a - consequence disclosure | Sections 7, 10, 17, 28-29, 33-34, 39, 43, 45, 58, 60; truth-independent pending/COMPLETE timing, selected branch withheld, clock continues through CONSEQUENCE |
+| K5b - resolved by Option B | Sections 0, 7-8, 13, 17, 19, 25-26, 28-30, 33, 35, 38-39, 42, 44-45, 58, 60, 65.0; duration is the exercise/commitment horizon, not a completion ceiling; valid consequences and completed replay continue to the actual terminal event without scenario data/version/hash changes |
+| K6/K7 - verification and math edges | Sections 13, 18-20, 22-25, 28, 33, 45; per-asset capacity/costs, actual wait union, candidate/zero-EVPI rules, grouping/clamp/zero evidence/numerical maxima/outcome scale/grades |
+| K8 - executable counterfactual policy | Sections 25, 30, 35, 45; same guards, labelled model-estimate assumptions, earlier-decision definition, no future/duplicate evidence or history mutation |
+| K9 - validation/hash boundaries | Sections 13, 15, 26, 45, 48 and scenario instructions; strict authoring then normalized validation, deterministic restores/canonical UTF-8 FNV-1a, no placeholder scenarios |
+| K10/K11 - exports and factual coaching | Sections 18, 25, 30, 35, 43, 45, 50-51; canonical CSV columns/provenance, per-DP rows/cut truth, evidence-conditioned templates |
+| K12/K13 - demo/bootstrap | Sections 11-12, 38-39, 45-48, 57-58, 60, 65-66, 69, 72 and UI/test instructions; two-second Demo preset, real-engine runbook, frozen version precedence, existing-root preservation, mandatory prebuild validation |
+
+**Approved numerical corrections:** strict-cutoff skipped-verification assessment selects UAV at 23:59 (net 17.722857386, EVPI 38.786287199, VE 0.543063833), not the infeasible 24:00 reference. Composite anchors are A **88.47**, B **66.17**, C **83.67**, D **33.12**. A/C, underlying formulas/weights, ordinary belief anchors, scenario observations, and tolerances are unchanged. Formula references are not assertions of deadline feasibility. These are approved reference calculations, not executed application test results.
+
+**Final K5 disposition:** K5a is approved and applied. K5b, previously held, is now **resolved by the explicitly approved Option B**: the flagship's retained 36-minute duration is the outer exercise/commitment horizon, not an absolute terminal completion ceiling. DP1 still closes at 30:00; a legal South commitment at 29:59 validly completes at 36:59. CONSEQUENCE and completed replay continue through the actual terminal event; partial replay does not claim COMPLETE, and session AAR availability remains completion-gated. The retained v1.2 duration invariant is not proof of absolute terminal completion coverage. This disposition requires no scenario data/version/hash change: the exact flagship JSON, version 1, report chronology/observations, consequence delays, scoring formulas/weights, and approved golden anchors are preserved. No hash is generated or replaced. The earlier proposed 38-minute data repair is not adopted; Option B resolves the governance issue without it. No second clock, grace period, hidden extension field, hardcoded completion exception, early reveal, or replay truncation is permitted.
+
+**Governance/status:** the approved amendments and final Option B disposition above are authoritative; unapproved proposals are not. Reconciliation is recorded only when dependent prose, types, examples, numerical fixtures, and test requirements are synchronized. The duration contract is now internally consistent, with no remaining K5b blocker, and the amended contract is ready for Gate 0 preparation. All implementation gates remain unpassed and require later actual evidence; Gate 2 is not blocked solely by valid post-horizon completion. Future discoveries must be recorded as unresolved until approved and synchronized, not declared reconciled by a blanket note. These passes change documentation only: no application implementation, dependency installation, scenario implementation, or application gate/test result is claimed.
 
 ## 65. FINAL ENGINEERING AUDIT
 
@@ -5386,7 +5664,7 @@ Can they reach AAR in:
 
 Can they reset in:
 
-> <= 3 seconds?
+> < 3 seconds?
 
 If no:
 
@@ -5405,21 +5683,21 @@ When Copilot starts, it MUST treat this file as the authoritative engineering sp
 Execute:
 
 ```text
-1. Repository setup
-2. Agent controls
-3. Core engine
-4. Scenario schema
-5. Flagship scenario
-6. P0 UI
-7. P0 AAR
-8. P1 intelligence
-9. Golden tests
-10. Demo mode
-11. Instructor
+1. Repository preflight; preserve existing authoritative files
+2. Authorized bootstrap and agent-control synchronization (Gate 0)
+3. Scenario schema/loader and flagship
+4. Pure event engine and invariants (Gate 1)
+5. Exact P0 mathematical/scoring dependencies with their tests
+6. P0 UI and decision flow
+7. P0 AAR and basic causal replay
+8. P0 numerical/golden/role-redaction acceptance (Gate 2)
+9. P1 signature presentation, counterfactuals, local instructor controls (Gate 3)
+10. Deterministic Demo acceptance (Gate 4)
+11. Recheck dependencies; independent P3 is only the optional Section 58.7 exception
 12. P2 multiplayer
 13. Second scenario
 14. Mutation/difficulty
-15. Analytics
+15. Analytics and remaining P2 acceptance (Gate 5)
 16. Dependency-independent P3 features that already passed the Gate 4 dependency rule
 17. Network-dependent P3 features after P2 is green
 18. Deployment
@@ -5605,7 +5883,7 @@ GitHub currently documents repository-wide custom instructions, path-specific in
 
 ### 69.2 Current runtime/tooling baseline
 
-As of 2 October 2026, Node.js 24.21.0 is an LTS release and Node.js 20 is EOL. React 19.3.0 is the current React release, and Vite 8.3.2 is the current Vite package version at the time this audit was performed. The project MUST therefore use Node 24 LTS rather than Node 20. Package-lock remains authoritative after the first install.
+The v1.2 audit baseline recorded Node.js 24.21.0 LTS (rather than Node 20), React 19.3.0, and Vite 8.3.2. These are frozen project choices, not a request to rediscover "latest" at bootstrap. Section 11.1's explicit pins override scaffold defaults; the first lockfile captures those choices and the resolved unpinned packages. A reproduced compatibility blocker follows Section 47.6.
 
 ### 69.3 Render WebSocket support
 
@@ -5707,7 +5985,7 @@ Then:
 
 Then:
 
-> CREATE THE AGENT CONTROL FILES.
+> PRESERVE AND SYNCHRONIZE EXISTING AGENT CONTROL FILES; CREATE ONLY MISSING ONES WHEN IMPLEMENTATION IS AUTHORIZED.
 
 Then:
 
@@ -5758,6 +6036,8 @@ Then:
 > PERFORM FINAL QA.
 
 Do not skip gates.
+
+The default sequence above preserves the sole dependency-independent P3 exception after Gate 4 in Section 58.7; it never waives Gate 5 for network-dependent work. A documentation-only audit/amendment does not authorize bootstrap or pass any application gate.
 
 Do not invent architecture.
 
