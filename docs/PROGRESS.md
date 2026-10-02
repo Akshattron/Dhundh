@@ -2,8 +2,11 @@
 
 ## Current Gate
 
+Gate 2 - P0 trainee experience: **GREEN**, implemented and verified in this
+worktree. Gate 1 and Gate 0 remain **GREEN**.
+
 Gate 1 - Engine foundation: **GREEN**, started and verified locally on 2026-10-02.
-Gate 0 remains **GREEN**. Gate 2 has **not** started.
+Gate 0 remains **GREEN**.
 
 Gate 0 is GREEN and merged at `3381f01`. Gate 1 work is confined to
 `akshattron-gate-1-foundation`; the initial worktree was clean. The complete
@@ -187,10 +190,80 @@ docs/PROGRESS.md
 | Reset deterministic | All five phases, retained configuration, byte equality, replay and interleaving | Pass |
 | Validation passes | Schema/invariant negatives, real CLI failures, focused/full tests, typecheck/build | Pass |
 
+## Gate 2 Completed — P0 Trainee Experience
+
+- Added a deterministic local trainee journey: Home → Scenario Library →
+  Briefing → live exercise → consequence reveal → AAR. The flagship demo uses
+  seed 0 and 2 wall seconds per simulation minute; regular sessions use 4.
+- Connected the local session adapter to the Gate 1 engine for report
+  inspection, estimates, verification, decisions, pause/resume/reset, and
+  consequence progression. Engine state remains private; React receives the
+  role-scoped `projectTraineeView`.
+- Implemented exact belief fusion, evidence-group handling, entropy,
+  contradiction, action expected utility/regret/DQ/EVPI, EVSI/net VOI,
+  calibration, all six score components, effective latency, verification
+  efficiency, and the weighted Training Score. Added explicit numerical,
+  boundary, tie, role, overlap, no-evidence, no-asset, zero-EVPI, and quadrant
+  tests without changing the flagship scenario or approved A-D anchors.
+- Built the factual, completion-gated AAR from replayed causal cuts. It records
+  truth at commitment rather than later truth, includes the actual terminal
+  event and post-horizon completion, decision timeline/frames, evidence and
+  verification analysis, deterministic pre-P1 coach notes, decision rationale,
+  limitations, JSON and provenance-bearing CSV exports, and A4 print/PDF.
+  P0 what-if/counterfactual fields remain empty with an explicit limitation.
+- Added responsive Home, scenario library, briefing, live console, real-engine
+  demo entry, and AAR pages. The console includes report filtering, evidence
+  waterfall, responsive console tabs, timeline, decision panel, and stable
+  demo controls. AAR includes the decision/outcome quadrant, decision-cut
+  belief, fog, EVPI, scores, replay scrubber, and export controls.
+- No dependency or scenario-content changes. Canonical flagship hash remains
+  **`1f7af0fb`**.
+
+### Gate 2 Validation
+
+| Command | Actual result |
+| --- | --- |
+| `npm test` | Exit 0; 19 files, 195 tests passed |
+| `npm run typecheck` | Exit 0; strict `tsc --noEmit` |
+| `npm run validate:scenarios` | Exit 0; `OK kestrel-relief-corridor v1 hash=1f7af0fb` |
+| `npm run e2e` | Exit 0; Chromium completes flagship, opens AAR, and resets |
+| Targeted Prettier check | Exit 0; Gate 2 implementation/test files |
+| `npm run build` | Exit 0; scenario prebuild validation, typecheck, and Vite production build |
+
+The production build transformed 2,044 modules. Main JavaScript is 320.27 kB
+(101.85 kB gzip); the main CSS is 6.19 kB (1.96 kB gzip). Feature routes are
+lazy-loaded into separate chunks.
+
+### Gate 2 Files Changed
+
+- Engine: `src/engine/index.ts` and new `aar.ts`, `belief.ts`,
+  `calibration.ts`, `coach.ts`, `contradiction.ts`, `decision.ts`, `entropy.ts`,
+  `export.ts`, `replay.ts`, `scoring.ts`, `view.ts`, and `voi.ts`.
+- Session/state/utilities: new `src/session/LocalSessionClient.ts`,
+  `src/session/SessionClient.ts`, `src/state/useSessionStore.ts`, and
+  `src/utils/format.ts`.
+- UI: `src/routes.tsx`, `src/styles/print.css`, new `src/components/`,
+  `src/components/ui/`, and feature pages/styles under
+  `src/features/{home,library,briefing,session,demo,aar}/`.
+- Tests: `tests/golden/flagship.test.ts`, `tests/smoke.test.ts`, new engine
+  tests under `tests/engine/`, session tests under `tests/session/`, journey
+  tests under `tests/ui/`, and the Chromium scenario at
+  `tests/e2e/flagship-demo.spec.ts`.
+
+### Gate 2 Limitations and Next Phase
+
+- P1 dropped/late-report what-if delivery, counterfactual re-simulation, and
+  richer causal replay views are not implemented. Their absence is explicit in
+  the AAR; no uncomputed effect is implied.
+- This is the local P0 path, not the Gate 4 presenter controller. Instructor
+  controls, signature/reference-model diagnostics, network sessions,
+  multiplayer, and persistent server-backed sessions remain gated work.
+- **Next unlocked phase: Gate 3 — P1 signature integration**, retaining all
+  verified P0 scoring, truth-redaction, timing, and golden regressions.
+
 ## Next Exact Action
 
-**STOP after Gate 1.** Gate 2 is the next unlocked phase, but no work on it was
-started. No P0 product UI or P1/P2/P3 feature work was prematurely implemented.
+Proceed with Gate 3 P1 only; preserve Gate 2 acceptance and numerical anchors.
 
 ## Gate 0 Evidence (Historical)
 

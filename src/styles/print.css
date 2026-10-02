@@ -6,12 +6,24 @@
 @media print {
   :root {
     color-scheme: light;
-    --bg-0: var(--print-background);
     --surface-0: var(--print-background);
     --text-strong: var(--print-text);
     --text-default: var(--print-text);
     --text-muted: var(--print-text);
+    --text-faint: var(--print-text);
     --accent-cyan: var(--print-text);
+    --accent-green: var(--print-text);
+    --accent-amber: var(--print-text);
+    --accent-violet: var(--print-text);
+    --bg-0: var(--print-background);
+    --bg-1: var(--print-background);
+    --bg-2: var(--print-background);
+    --bg-3: #ddd;
+    --surface-1: var(--print-background);
+    --surface-2: var(--print-background);
+    --border-subtle: #ccc;
+    --border-default: #999;
+    --border-strong: #666;
   }
 
   nav,
@@ -20,7 +32,25 @@
     display: none;
   }
 
+  body,
+  .page,
+  .panel,
+  .result,
+  .scoreSection,
+  .coach,
+  .preP1 {
+    color: var(--print-text);
+    background: var(--print-background);
+    box-shadow: none;
+  }
+
   main {
     width: 100%;
+  }
+
+  .scoreSection,
+  .columns,
+  .preP1 {
+    break-inside: avoid;
   }
 }
