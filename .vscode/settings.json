@@ -1,0 +1,21 @@
+{
+  "github.copilot.chat.codeGeneration.useInstructionFiles": true,
+  "chat.includeApplyingInstructions": true,
+  "chat.includeReferencedInstructions": true,
+  "chat.useAgentsMdFile": true,
+  "github.copilot.chat.reviewSelection.instructions": [
+    {
+      "file": "${workspaceFolder}/.github/copilot-instructions.md"
+    }
+  ],
+  "github.copilot.chat.commitMessageGeneration.instructions": [
+    {
+      "file": "${workspaceFolder}/.github/copilot-instructions.md"
+    }
+  ],
+  "github.copilot.chat.pullRequestDescriptionGeneration.instructions": [
+    {
+      "file": "${workspaceFolder}/.github/copilot-instructions.md"
+    }
+  ]
+}
