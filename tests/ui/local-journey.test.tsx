@@ -4,6 +4,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { Route, Routes, MemoryRouter } from "react-router-dom";
@@ -11,6 +12,7 @@ import AppShell from "../../src/components/AppShell";
 import AarPage from "../../src/features/aar/AarPage";
 import BriefingPage from "../../src/features/briefing/BriefingPage";
 import DemoPage from "../../src/features/demo/DemoPage";
+import HistoryPage from "../../src/features/history/HistoryPage";
 import HomePage from "../../src/features/home/HomePage";
 import ScenarioLibraryPage from "../../src/features/library/ScenarioLibraryPage";
 import SessionPage from "../../src/features/session/SessionPage";
@@ -28,6 +30,7 @@ function renderJourney(path: string) {
           <Route path="/scenario/:id/briefing" element={<BriefingPage />} />
           <Route path="/session/local/:id" element={<SessionPage />} />
           <Route path="/demo" element={<DemoPage />} />
+          <Route path="/history" element={<HistoryPage />} />
           <Route path="/aar/:id" element={<AarPage />} />
         </Route>
       </Routes>
@@ -38,12 +41,69 @@ function renderJourney(path: string) {
 afterEach(() => {
   cleanup();
   useSessionStore.getState().clear();
+  localStorage.clear();
 });
 
 describe("local trainee journey", () => {
+  it("withholds reference aid in estimate-first mode until the trainee estimates", () => {
+    const scenario = scenarios[0]!;
+    const client = createLocalSession(scenario, {
+      seed: 0,
+      difficultyLevel: scenario.meta.difficulty,
+      aidMode: "AFTER_ESTIMATE",
+      speedSecPerMin: 4,
+    });
+    client.dispatch({ type: "START" });
+    client.advanceToSeconds(720);
+    useSessionStore.getState().setClient(client, client.getSnapshot());
+    renderJourney(`/session/local/${scenario.meta.id}`);
+
+    expect(
+      screen.queryByRole("button", { name: /Reference model/ }),
+    ).toBeNull();
+    expect(
+      screen.getByText(
+        "Reference aid unlocks after your first probability estimate.",
+      ),
+    ).toBeTruthy();
+
+    const primary = scenario.hypotheses.find(
+      (hypothesis) => hypothesis.primary,
+    );
+    if (!primary)
+      throw new Error("Flagship scenario must define a primary hypothesis.");
+    act(() =>
+      client.dispatch({
+        type: "SET_ESTIMATE",
+        hypothesisId: primary.id,
+        p: 0.6,
+      }),
+    );
+    expect(
+      screen.getByRole("button", { name: /Reference model/ }),
+    ).toBeTruthy();
+  });
+
+  it("shows local learning analytics without requiring prior session data", () => {
+    renderJourney("/history");
+    expect(
+      screen.getByRole("heading", { name: "Session history" }),
+    ).toBeTruthy();
+    expect(screen.getByText("Learning signals")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Completed AARs will appear here after they are opened.",
+      ),
+    ).toBeTruthy();
+  });
+
   it("browses a validated scenario, starts the engine, and opens a delivered report", () => {
     renderJourney("/scenarios");
-    fireEvent.click(screen.getByTestId("scenario-launch"));
+    const flagshipCard = screen
+      .getByText(scenarios[0]!.meta.title)
+      .closest("article");
+    expect(flagshipCard).not.toBeNull();
+    fireEvent.click(within(flagshipCard!).getByTestId("scenario-launch"));
     expect(screen.getByText("Exercise briefing")).toBeTruthy();
 
     fireEvent.click(screen.getByTestId("start-exercise"));

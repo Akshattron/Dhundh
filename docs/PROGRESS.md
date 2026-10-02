@@ -2,8 +2,75 @@
 
 ## Current Gate
 
-Gate 4 - deterministic Demo Mode: **GREEN**, implemented and verified in this
-worktree. Gates 3, 2, 1, and 0 remain **GREEN**.
+Gate 5 - authoritative multiplayer and remaining P2: **GREEN**, implemented and
+verified in this worktree. Gates 4, 3, 2, 1, and 0 remain **GREEN**.
+
+## Gate 5 Completed — Authoritative Multiplayer and P2
+
+- Replaced the placeholder server with strict REST/WebSocket session handling:
+  bounded in-memory capacity and expiry, short join codes, scoped reconnect
+  tokens, rate limits, server-stamped role/time, authoritative clock, history
+  bounds, payload limits, and health/scenario/session/AAR routes. An instructor
+  cannot start until at least one trainee joins.
+- Added Commander, Analyst, and Instructor join/lobby/monitor flows. The server
+  projects evidence by role, withholds truth from trainees until completion,
+  exposes truth and monitoring only to the instructor, and requires an
+  authenticated participant credential for post-completion team AAR.
+- Implemented the reserved network RELAY/ADVISE/INJECT actions. Analyst relay
+  copies preserve evidence provenance, arrive after 120 simulated seconds, and
+  are capped at three per run. Commander and Analyst controls, including
+  keyboard shortcuts, follow their role permissions.
+- Added the synthetic `harbour-flood-response` scenario with two decision
+  points. Added validated seeded mutation and difficulty profiles to both local
+  and network session creation; seed 0 / level 3 keeps the flagship hash
+  unchanged. AAR scores are computed at each decision-time cut and aggregated
+  across the run.
+- Added post-completion team reconstruction of participant activity, estimates,
+  decisions, verification, relays, and advice. Added estimate-first reference
+  aid selection and UI gating, plus a bounded local history storing aggregate
+  scores and synthetic scenario metadata only.
+- Added a browser multiplayer path covering session creation, Commander and
+  Analyst joins, reconnect, role-private reports, relay delivery, decision,
+  consequence, team AAR, and history. The Vite E2E readiness probe now waits on
+  the session service health endpoint.
+- **Files changed:** `server/index.ts`, `server/sessions.ts`, protocol and
+  remote/local session clients; engine AAR, belief, simulation, view, mutation,
+  and difficulty modules; harbour scenario and registry; session, briefing,
+  network, history, home, library, and AAR UI/routes; README, Playwright
+  configuration, Gate 5 engine/server/session/UI/E2E tests, and this progress
+  record.
+
+### Gate 5 Validation
+
+| Command / check              | Actual result                                                                     |
+| ---------------------------- | --------------------------------------------------------------------------------- |
+| `npm test`                   | Exit 0; 29 files, 271 tests passed                                                |
+| `npm run test:golden`        | Exit 0; all 18 deterministic golden regressions passed                            |
+| `npm run typecheck`          | Exit 0; strict `tsc --noEmit`                                                     |
+| `npm run validate:scenarios` | Exit 0; harbour hash `cdcc6039`; flagship hash remains `1f7af0fb`                 |
+| `npm run build`              | Exit 0; scenario prebuild validation, typecheck, and production Vite build passed |
+| `npm run e2e`                | Exit 0; local flagship demo and full multiplayer journey passed in Chromium       |
+| Targeted Prettier check      | Exit 0; all changed source, docs, and tests matched formatting                    |
+| `git diff --check`           | Exit 0; no whitespace errors                                                      |
+
+The complete E2E run took approximately **1.5 minutes**, largely due to the
+authoritative wall-clock simulation; this is a local run and not a
+cross-device performance guarantee.
+
+### Gate 5 Limitations and Next Phase
+
+- Network sessions and their authoritative accepted-intent logs are in memory,
+  expire after six hours of inactivity, and do not survive a server restart.
+  No accounts, database, or external service were added.
+- Learning history is a maximum of 100 aggregate summaries in the current
+  browser; it is not shared across devices and stores no raw logs, rationale,
+  estimates, or hidden truth.
+- Browser acceptance was run locally against the project-owned service; it
+  does not establish deployment, multi-process coordination, or internet-scale
+  availability.
+- **Next unlocked phase: selected P3 work under the master specification.**
+  Gate 5/P2 acceptance and the multiplayer priority remain binding; no P3 work
+  is included in this change.
 
 ## Gate 4 Completed — Deterministic Flagship Demo
 
@@ -52,8 +119,8 @@ were not changed.
 
 - No Gate 4 blocker. The demo remains a single-trainee local flagship path;
   networked multiplayer, the second scenario, mutation/difficulty, and analytics
-  remain Gate 5/P2 work.
-- **Next unlocked phase: Gate 5 — P2**, with all Gate 0–4 checks retained.
+  were the subsequent Gate 5/P2 work and are now complete in this worktree.
+- **Next unlocked phase at Gate 4: Gate 5 — P2**, with all Gate 0–4 checks retained.
   Section 58.7's independent-P3 exception remains optional and does not waive
   P2 acceptance or multiplayer priority.
 
@@ -111,14 +178,14 @@ failure, `npm ci --no-fund` restored the unchanged lockfile: 221 packages added,
 
 Final checks were rerun after the admission-order review correction:
 
-| Command | Actual result |
-| --- | --- |
-| `npm test -- tests\engine tests\golden` | Exit 0; 10 files, 154 focused Gate 1 tests passed |
-| `npm test` | Exit 0; 11 files, 155 tests passed, including the unchanged Gate 0 smoke test |
-| `npm run typecheck` | Exit 0; strict `tsc --noEmit`, no ignored type errors |
-| `npm run validate:scenarios` | Exit 0; `OK kestrel-relief-corridor v1 hash=1f7af0fb` |
-| `npm run build` | Exit 0; real prebuild scenario validation, typecheck, and Vite build |
-| `npx --no-install prettier --check --log-level warn src\engine src\scenarios tests\engine tests\golden scripts\validate-scenarios.ts` | Exit 0 |
+| Command                                                                                                                               | Actual result                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `npm test -- tests\engine tests\golden`                                                                                               | Exit 0; 10 files, 154 focused Gate 1 tests passed                             |
+| `npm test`                                                                                                                            | Exit 0; 11 files, 155 tests passed, including the unchanged Gate 0 smoke test |
+| `npm run typecheck`                                                                                                                   | Exit 0; strict `tsc --noEmit`, no ignored type errors                         |
+| `npm run validate:scenarios`                                                                                                          | Exit 0; `OK kestrel-relief-corridor v1 hash=1f7af0fb`                         |
+| `npm run build`                                                                                                                       | Exit 0; real prebuild scenario validation, typecheck, and Vite build          |
+| `npx --no-install prettier --check --log-level warn src\engine src\scenarios tests\engine tests\golden scripts\validate-scenarios.ts` | Exit 0                                                                        |
 
 The full count includes the focused count; these are not 309 distinct tests.
 Golden Paths A-F cover their Gate 1 chronology, intent, verification, timeout,
@@ -232,12 +299,12 @@ docs/PROGRESS.md
 
 ## Gate 1 Acceptance
 
-| Master Gate 1 criterion | Evidence | Result |
-| --- | --- | --- |
-| Flagship loads | Strict loader, single registry, exact master JSON equality, CLI hash | Pass |
-| Event timeline advances | All 11 report anchors, mode transitions, strict deadline and consequence tests | Pass |
-| Reset deterministic | All five phases, retained configuration, byte equality, replay and interleaving | Pass |
-| Validation passes | Schema/invariant negatives, real CLI failures, focused/full tests, typecheck/build | Pass |
+| Master Gate 1 criterion | Evidence                                                                           | Result |
+| ----------------------- | ---------------------------------------------------------------------------------- | ------ |
+| Flagship loads          | Strict loader, single registry, exact master JSON equality, CLI hash               | Pass   |
+| Event timeline advances | All 11 report anchors, mode transitions, strict deadline and consequence tests     | Pass   |
+| Reset deterministic     | All five phases, retained configuration, byte equality, replay and interleaving    | Pass   |
+| Validation passes       | Schema/invariant negatives, real CLI failures, focused/full tests, typecheck/build | Pass   |
 
 ## Gate 2 Completed — P0 Trainee Experience
 
@@ -270,14 +337,14 @@ docs/PROGRESS.md
 
 ### Gate 2 Validation
 
-| Command | Actual result |
-| --- | --- |
-| `npm test` | Exit 0; 19 files, 195 tests passed |
-| `npm run typecheck` | Exit 0; strict `tsc --noEmit` |
-| `npm run validate:scenarios` | Exit 0; `OK kestrel-relief-corridor v1 hash=1f7af0fb` |
-| `npm run e2e` | Exit 0; Chromium completes flagship, opens AAR, and resets |
-| Targeted Prettier check | Exit 0; Gate 2 implementation/test files |
-| `npm run build` | Exit 0; scenario prebuild validation, typecheck, and Vite production build |
+| Command                      | Actual result                                                              |
+| ---------------------------- | -------------------------------------------------------------------------- |
+| `npm test`                   | Exit 0; 19 files, 195 tests passed                                         |
+| `npm run typecheck`          | Exit 0; strict `tsc --noEmit`                                              |
+| `npm run validate:scenarios` | Exit 0; `OK kestrel-relief-corridor v1 hash=1f7af0fb`                      |
+| `npm run e2e`                | Exit 0; Chromium completes flagship, opens AAR, and resets                 |
+| Targeted Prettier check      | Exit 0; Gate 2 implementation/test files                                   |
+| `npm run build`              | Exit 0; scenario prebuild validation, typecheck, and Vite production build |
 
 The production build transformed 2,044 modules. Main JavaScript is 320.27 kB
 (101.85 kB gzip); the main CSS is 6.19 kB (1.96 kB gzip). Feature routes are
@@ -340,16 +407,16 @@ Proceed with Gate 3 P1 only; preserve Gate 2 acceptance and numerical anchors.
 
 ### Gate 3 Validation
 
-| Command / check | Actual result |
-| --- | --- |
-| `npm run validate:scenarios` | Exit 0; flagship validated with hash `1f7af0fb` |
-| `npm test` | Exit 0; 22 files, 207 tests passed |
-| `npm run test:golden` | Exit 0; 18 flagship golden tests passed |
-| `npm run typecheck` | Exit 0; strict `tsc --noEmit` |
-| `npm run build` | Exit 0; production build transformed 2,055 modules |
-| `npm run e2e` | Exit 0; Chromium flagship journey, AAR, and reset passed |
-| Targeted Prettier check | Exit 0; changed source and test files |
-| Local performance sample | 50 iterations: `advanceTo` max 2.08 ms, full replay max 5.88 ms, AAR build max 56.63 ms |
+| Command / check              | Actual result                                                                           |
+| ---------------------------- | --------------------------------------------------------------------------------------- |
+| `npm run validate:scenarios` | Exit 0; flagship validated with hash `1f7af0fb`                                         |
+| `npm test`                   | Exit 0; 22 files, 207 tests passed                                                      |
+| `npm run test:golden`        | Exit 0; 18 flagship golden tests passed                                                 |
+| `npm run typecheck`          | Exit 0; strict `tsc --noEmit`                                                           |
+| `npm run build`              | Exit 0; production build transformed 2,055 modules                                      |
+| `npm run e2e`                | Exit 0; Chromium flagship journey, AAR, and reset passed                                |
+| Targeted Prettier check      | Exit 0; changed source and test files                                                   |
+| Local performance sample     | 50 iterations: `advanceTo` max 2.08 ms, full replay max 5.88 ms, AAR build max 56.63 ms |
 
 Performance figures are local Node `v24.21.0` observations, not cross-device
 guarantees. The remaining limitations are deliberately out of Gate 3 scope:

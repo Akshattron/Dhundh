@@ -404,28 +404,34 @@ describe("intent admission and action guards", () => {
     }
   });
 
-  it("retains deferred intent contracts without implementing later-gate actions", () => {
+  it("accepts networked instructor injects and analyst relay and advice actions", () => {
     const state = freeze(started(flagship, { mode: "NETWORKED" }));
-    for (const request of [
+    const requests = [
       { type: "INJECT", t: 1320, role: "INSTRUCTOR", presetId: "JAM_LAND" },
       { type: "RELAY", t: 1320, role: "ANALYST", reportId: "R04" },
       { type: "ADVISE", t: 1320, role: "ANALYST", actionId: "GO_SOUTH" },
-    ] satisfies Intent[]) {
+    ] satisfies Intent[];
+    for (const request of requests) {
       const result = applyIntent(state, flagship, request);
-      expect(result.result).toMatchObject({
-        error: "INVALID_INTENT",
-      });
-      expect(result.result.effects).toContainEqual({
-        kind: "REPORT_DELIVERED",
-        reportId: "R06",
-        atSec: 1320,
-      });
-      expect(result.state).toMatchObject({
-        nowSec: 1320,
-        injectedCounter: 0,
-        relays: [],
-        advice: [],
-      });
+      expect(result.result).toMatchObject({ ok: true });
+      expect(result.state.nowSec).toBe(1320);
+      expect(result.result.effects).toContainEqual(
+        expect.objectContaining({
+          kind: "REPORT_DELIVERED",
+          reportId: "R06",
+          atSec: 1320,
+        }),
+      );
+      if (request.type === "INJECT") {
+        expect(result.state.channels.LAND).toMatchObject({
+          mode: "DELAY",
+          health: "DEGRADED",
+        });
+      } else if (request.type === "RELAY") {
+        expect(result.state.relays).toHaveLength(1);
+      } else {
+        expect(result.state.advice).toHaveLength(1);
+      }
       expect(state.nowSec).toBe(0);
     }
     expect(

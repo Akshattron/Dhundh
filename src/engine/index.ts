@@ -20,6 +20,9 @@ export { brier, calibrationAlignment } from "./calibration";
 export * from "./scoring";
 export { projectTraineeView } from "./view";
 export { buildAar } from "./aar";
+export { mutateScenario } from "./mutation";
+export { nextDifficulty, PROFILES } from "./difficulty";
+export type { DifficultyLevel, DifficultyProfile } from "./difficulty";
 export { buildFrames } from "./replay";
 export { buildCounterfactuals, COUNTERFACTUAL_LABEL } from "./counterfactual";
 export type {

@@ -1,0 +1,487 @@
+{
+  "meta": {
+    "id": "harbour-flood-response",
+    "version": 1,
+    "title": "Harbour Flood Response",
+    "subtitle": "Two decisions while the harbour picture changes",
+    "synthetic": true,
+    "difficulty": 3,
+    "durationMin": 45,
+    "summary": "In fictional Port Anand, choose a relief staging position and later a delivery route while delayed, grouped, noisy, and missing reports describe a quay and ridge road.",
+    "briefing": [
+      "Port Anand is a fictional port city experiencing a synthetic flood. Relief supplies are waiting for a staging decision, followed by a separate delivery-route decision.",
+      "The north quay offers higher author-assigned payoffs if dry. The ridge road offers lower payoffs if open. Holding defers the corresponding activity with a small fixed payoff.",
+      "Choose a position between 12:00 and 26:00, then a route between 28:00 and 38:00. Waiting costs 1.2 points per minute for positioning and 1.0 per minute for routing after each window opens.",
+      "A drone sweep checks the north quay in five minutes for four points; a gauge check assesses the ridge road in four minutes for three points. Each asset can be used once per decision point on a dedicated tasking link.",
+      "Some routine reports share the same underlying observation. LAND messages may arrive in a burst; telemetry can be noisy, aerial reports delayed, and spectrum notices missing.",
+      "This is a synthetic training scenario. The reference model is a transparent scoring baseline, not real doctrine. All entities, reliabilities, utilities, and consequences are fictional authoring assumptions."
+    ],
+    "tags": [
+      "land",
+      "air",
+      "cyber",
+      "ew",
+      "flood-response",
+      "two-decisions",
+      "evidence-groups"
+    ]
+  },
+  "hypotheses": [
+    {
+      "id": "quay_dry",
+      "label": "The north quay is dry",
+      "trueLabel": "Dry",
+      "falseLabel": "Flooded",
+      "prior": 0.65,
+      "primary": true,
+      "initialTruth": true
+    },
+    {
+      "id": "ridge_road_open",
+      "label": "The ridge road is open",
+      "trueLabel": "Open",
+      "falseLabel": "Closed",
+      "prior": 0.75,
+      "primary": false,
+      "initialTruth": true
+    }
+  ],
+  "channels": [
+    {
+      "id": "LAND",
+      "label": "Harbour observations",
+      "sourceLabel": "Port Anand observation desk",
+      "tauMin": 20,
+      "baseDelayMin": 0,
+      "visibleTo": ["SOLO", "COMMANDER", "INSTRUCTOR"]
+    },
+    {
+      "id": "AIR",
+      "label": "Aerial survey",
+      "sourceLabel": "Synthetic harbour survey relay",
+      "tauMin": 15,
+      "baseDelayMin": 0,
+      "visibleTo": ["SOLO", "COMMANDER", "INSTRUCTOR"]
+    },
+    {
+      "id": "CYBER",
+      "label": "Sensor telemetry",
+      "sourceLabel": "Synthetic water-level mesh",
+      "tauMin": 25,
+      "baseDelayMin": 0,
+      "visibleTo": ["SOLO", "ANALYST", "INSTRUCTOR"]
+    },
+    {
+      "id": "EW",
+      "label": "Spectrum monitor",
+      "sourceLabel": "Synthetic link monitoring desk",
+      "tauMin": 30,
+      "baseDelayMin": 0,
+      "visibleTo": ["SOLO", "ANALYST", "INSTRUCTOR"]
+    }
+  ],
+  "reports": [
+    {
+      "id": "H01",
+      "channel": "LAND",
+      "hypothesisId": "quay_dry",
+      "stance": 1,
+      "rho": 0.8,
+      "evidenceGroup": "HQ1",
+      "issuedAtMin": 3,
+      "claim": "Harbour desk: north quay surface dry",
+      "detail": "An early synthetic observation describes a dry quay. The later aerial relay H02 repeats this same observation, not an independent source."
+    },
+    {
+      "id": "H02",
+      "channel": "AIR",
+      "hypothesisId": "quay_dry",
+      "stance": 1,
+      "rho": 0.78,
+      "evidenceGroup": "HQ1",
+      "issuedAtMin": 5,
+      "claim": "Aerial relay repeats the early dry-quay observation",
+      "detail": "This relay shares evidence group HQ1 with H01 and must not be counted as a second independent observation."
+    },
+    {
+      "id": "H03",
+      "channel": "LAND",
+      "hypothesisId": "ridge_road_open",
+      "stance": 1,
+      "rho": 0.75,
+      "evidenceGroup": "HR1",
+      "issuedAtMin": 6,
+      "claim": "Observation desk: ridge road open",
+      "detail": "A synthetic ridge-road observation indicates the road is open. H04 carries telemetry derived from the same observation."
+    },
+    {
+      "id": "H04",
+      "channel": "CYBER",
+      "hypothesisId": "ridge_road_open",
+      "stance": 1,
+      "rho": 0.7,
+      "evidenceGroup": "HR1",
+      "issuedAtMin": 8,
+      "claim": "Telemetry relay repeats ridge-road open status",
+      "detail": "The report shares evidence group HR1 with H03; repeating the status does not provide independent corroboration."
+    },
+    {
+      "id": "H05",
+      "channel": "AIR",
+      "hypothesisId": "quay_dry",
+      "stance": -1,
+      "rho": 0.75,
+      "evidenceGroup": "HQ2",
+      "issuedAtMin": 11,
+      "claim": "Survey: water visible on the north quay",
+      "detail": "A new synthetic survey reports water on the quay, contradicting the earlier dry-surface group HQ1."
+    },
+    {
+      "id": "H06",
+      "channel": "LAND",
+      "hypothesisId": "quay_dry",
+      "stance": -1,
+      "rho": 0.72,
+      "evidenceGroup": "HQ3",
+      "issuedAtMin": 13,
+      "claim": "Harbour observation: quay surface covered by water",
+      "detail": "This independent synthetic observation is queued during the LAND burst window and arrives with other queued observations at 20:00."
+    },
+    {
+      "id": "H07",
+      "channel": "CYBER",
+      "hypothesisId": "quay_dry",
+      "stance": 1,
+      "rho": 0.64,
+      "evidenceGroup": "HQ4",
+      "issuedAtMin": 16,
+      "claim": "Telemetry: quay surface indicator still reads dry",
+      "detail": "The noisy synthetic indicator conflicts with the new water observations. Its excess accuracy is halved by CYBER noise at issue."
+    },
+    {
+      "id": "H08",
+      "channel": "AIR",
+      "hypothesisId": "quay_dry",
+      "stance": 1,
+      "rho": 0.7,
+      "evidenceGroup": "HQ5",
+      "issuedAtMin": 17,
+      "claim": "Partial survey: visible quay section appears dry",
+      "detail": "A partial synthetic image suggests a dry section. The routine aerial link delays this report by four minutes; it contradicts HQ2 and HQ3."
+    },
+    {
+      "id": "H09",
+      "channel": "LAND",
+      "hypothesisId": "ridge_road_open",
+      "stance": 1,
+      "rho": 0.65,
+      "evidenceGroup": "HR2",
+      "issuedAtMin": 18,
+      "claim": "Ridge desk: road remains open, observation incomplete",
+      "detail": "An independent, lower-reliability synthetic road observation is queued on LAND and delivered at the burst restoration."
+    },
+    {
+      "id": "H10",
+      "channel": "CYBER",
+      "hypothesisId": "quay_dry",
+      "stance": -1,
+      "rho": 0.68,
+      "evidenceGroup": "HQ6",
+      "issuedAtMin": 21,
+      "claim": "Water-level mesh: quay flooding indication",
+      "detail": "The synthetic mesh contradicts the dry-surface reports. This observation was issued during the noise window and retains reduced accuracy after restoration."
+    },
+    {
+      "id": "H11",
+      "channel": "EW",
+      "hypothesisId": null,
+      "stance": 0,
+      "rho": 0.7,
+      "evidenceGroup": "HI1",
+      "issuedAtMin": 18,
+      "claim": "Link monitor: spectrum notice unavailable on routine relay",
+      "detail": "An informational synthetic link notice issued during EW dropout. It is not evidence about quay or ridge truth and never reaches the routine feed."
+    },
+    {
+      "id": "H12",
+      "channel": "EW",
+      "hypothesisId": "quay_dry",
+      "stance": -1,
+      "rho": 0.6,
+      "evidenceGroup": "HQ7",
+      "issuedAtMin": 23,
+      "claim": "Restored relay: unconfirmed quay water observation",
+      "detail": "A low-reliability synthetic relay after restoration adds an independent water observation. It is not a dedicated verification result."
+    }
+  ],
+  "events": [
+    {
+      "kind": "TRUTH_CHANGE",
+      "atMin": 10,
+      "hypothesisId": "quay_dry",
+      "value": false
+    },
+    {
+      "kind": "CHANNEL_DEGRADE",
+      "atMin": 12,
+      "channel": "LAND",
+      "mode": "BURST",
+      "untilMin": 20,
+      "note": "Synthetic harbour observation relay queues messages until restoration"
+    },
+    {
+      "kind": "CHANNEL_DEGRADE",
+      "atMin": 14,
+      "channel": "CYBER",
+      "mode": "NOISE",
+      "healthMultiplier": 0.5,
+      "untilMin": 22,
+      "note": "Synthetic telemetry noise halves excess accuracy"
+    },
+    {
+      "kind": "CHANNEL_DEGRADE",
+      "atMin": 15,
+      "channel": "AIR",
+      "mode": "DELAY",
+      "extraDelayMin": 4,
+      "untilMin": 24,
+      "note": "Synthetic survey relay adds four minutes of delay"
+    },
+    {
+      "kind": "CHANNEL_DEGRADE",
+      "atMin": 18,
+      "channel": "EW",
+      "mode": "DROPOUT",
+      "untilMin": 21,
+      "note": "Synthetic monitoring relay loses routine messages"
+    },
+    { "kind": "REPORT_ISSUE", "atMin": 3, "reportId": "H01" },
+    { "kind": "REPORT_ISSUE", "atMin": 5, "reportId": "H02" },
+    { "kind": "REPORT_ISSUE", "atMin": 6, "reportId": "H03" },
+    { "kind": "REPORT_ISSUE", "atMin": 8, "reportId": "H04" },
+    { "kind": "REPORT_ISSUE", "atMin": 11, "reportId": "H05" },
+    { "kind": "REPORT_ISSUE", "atMin": 13, "reportId": "H06" },
+    { "kind": "REPORT_ISSUE", "atMin": 16, "reportId": "H07" },
+    { "kind": "REPORT_ISSUE", "atMin": 17, "reportId": "H08" },
+    { "kind": "REPORT_ISSUE", "atMin": 18, "reportId": "H09" },
+    { "kind": "REPORT_ISSUE", "atMin": 21, "reportId": "H10" },
+    { "kind": "REPORT_ISSUE", "atMin": 18, "reportId": "H11" },
+    { "kind": "REPORT_ISSUE", "atMin": 23, "reportId": "H12" }
+  ],
+  "assets": [
+    {
+      "id": "DRONE_SWEEP",
+      "label": "Drone sweep (north quay)",
+      "channel": "AIR",
+      "hypothesisId": "quay_dry",
+      "delayMin": 5,
+      "costUnits": 4,
+      "rho": 0.92,
+      "capacity": 1,
+      "resultClaims": {
+        "supports": "Synthetic sweep confirms north quay dry",
+        "contradicts": "Synthetic sweep confirms north quay flooded"
+      }
+    },
+    {
+      "id": "GAUGE_CHECK",
+      "label": "Gauge check (ridge road)",
+      "channel": "LAND",
+      "hypothesisId": "ridge_road_open",
+      "delayMin": 4,
+      "costUnits": 3,
+      "rho": 0.88,
+      "capacity": 1,
+      "resultClaims": {
+        "supports": "Synthetic gauge check confirms ridge road open",
+        "contradicts": "Synthetic gauge check confirms ridge road closed"
+      }
+    }
+  ],
+  "decisionPoints": [
+    {
+      "id": "DP1",
+      "title": "Choose a relief staging position",
+      "prompt": "Position supplies at the quay, on the ridge, or hold. Make a separate route decision in the next window.",
+      "openMin": 12,
+      "closeMin": 26,
+      "departureMin": 12,
+      "delayCostPerMin": 1.2,
+      "timeoutActionId": "HOLD_POSITION",
+      "assets": ["DRONE_SWEEP", "GAUGE_CHECK"],
+      "requiredEstimates": ["quay_dry"],
+      "actions": [
+        {
+          "id": "POSITION_QUAY",
+          "label": "Position at the north quay",
+          "description": "Higher synthetic payoff if dry; a flooded quay disrupts staging.",
+          "terminal": true,
+          "delayCostApplies": true,
+          "utility": [
+            { "when": { "quay_dry": true }, "value": 90 },
+            { "when": { "quay_dry": false }, "value": -70 }
+          ],
+          "consequences": [
+            {
+              "when": { "quay_dry": true },
+              "headline": "Supplies staged at the dry quay",
+              "narrative": "In the synthetic outcome, the chosen quay position supports staging. Routing remains a separate decision.",
+              "arrivalMin": 4
+            },
+            {
+              "when": { "quay_dry": false },
+              "headline": "Flooding disrupts quay staging",
+              "narrative": "In the synthetic outcome, water disrupts the chosen staging position. Routing remains a separate decision.",
+              "arrivalMin": 3
+            }
+          ]
+        },
+        {
+          "id": "POSITION_RIDGE",
+          "label": "Position on the ridge",
+          "description": "Moderate synthetic payoff if the road is open; closure disrupts staging.",
+          "terminal": true,
+          "delayCostApplies": true,
+          "utility": [
+            { "when": { "ridge_road_open": true }, "value": 60 },
+            { "when": { "ridge_road_open": false }, "value": -60 }
+          ],
+          "consequences": [
+            {
+              "when": { "ridge_road_open": true },
+              "headline": "Supplies staged on the ridge",
+              "narrative": "In the synthetic outcome, the open road permits ridge staging. Routing remains a separate decision.",
+              "arrivalMin": 5
+            },
+            {
+              "when": { "ridge_road_open": false },
+              "headline": "Road closure disrupts ridge staging",
+              "narrative": "In the synthetic outcome, the road closure prevents the intended ridge staging.",
+              "arrivalMin": 4
+            }
+          ]
+        },
+        {
+          "id": "HOLD_POSITION",
+          "label": "Hold the staging position",
+          "description": "Defer staging with a small fixed synthetic payoff.",
+          "terminal": true,
+          "delayCostApplies": false,
+          "utility": [{ "when": {}, "value": 8 }],
+          "consequences": [
+            {
+              "when": {},
+              "headline": "Staging deferred",
+              "narrative": "The synthetic staging activity remains on hold. The next routing window still opens independently.",
+              "arrivalMin": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "DP2",
+      "title": "Choose the relief delivery route",
+      "prompt": "Choose a quay route, a ridge route, or hold routing using the information now available.",
+      "openMin": 28,
+      "closeMin": 38,
+      "departureMin": 28,
+      "delayCostPerMin": 1,
+      "timeoutActionId": "HOLD_ROUTE",
+      "assets": ["DRONE_SWEEP", "GAUGE_CHECK"],
+      "requiredEstimates": ["quay_dry"],
+      "actions": [
+        {
+          "id": "ROUTE_VIA_QUAY",
+          "label": "Route via the north quay",
+          "description": "Higher synthetic payoff if the quay is dry; flooding disrupts delivery.",
+          "terminal": true,
+          "delayCostApplies": true,
+          "utility": [
+            { "when": { "quay_dry": true }, "value": 80 },
+            { "when": { "quay_dry": false }, "value": -60 }
+          ],
+          "consequences": [
+            {
+              "when": { "quay_dry": true },
+              "headline": "Synthetic delivery completes via the quay",
+              "narrative": "The dry quay allows the fictional delivery activity to complete.",
+              "arrivalMin": 6
+            },
+            {
+              "when": { "quay_dry": false },
+              "headline": "Flooded quay interrupts synthetic delivery",
+              "narrative": "Water at the fictional quay prevents completion of the chosen delivery activity.",
+              "arrivalMin": 4
+            }
+          ]
+        },
+        {
+          "id": "ROUTE_VIA_RIDGE",
+          "label": "Route via the ridge road",
+          "description": "Moderate synthetic payoff if the road is open; closure prevents delivery.",
+          "terminal": true,
+          "delayCostApplies": true,
+          "utility": [
+            { "when": { "ridge_road_open": true }, "value": 55 },
+            { "when": { "ridge_road_open": false }, "value": -55 }
+          ],
+          "consequences": [
+            {
+              "when": { "ridge_road_open": true },
+              "headline": "Synthetic delivery completes via the ridge",
+              "narrative": "The open fictional ridge road allows delivery with the authored lower payoff.",
+              "arrivalMin": 7
+            },
+            {
+              "when": { "ridge_road_open": false },
+              "headline": "Closed ridge road interrupts synthetic delivery",
+              "narrative": "The fictional road closure prevents the chosen delivery activity from completing.",
+              "arrivalMin": 5
+            }
+          ]
+        },
+        {
+          "id": "HOLD_ROUTE",
+          "label": "Hold the delivery route",
+          "description": "Defer delivery with a small fixed synthetic payoff.",
+          "terminal": true,
+          "delayCostApplies": false,
+          "utility": [{ "when": {}, "value": 5 }],
+          "consequences": [
+            {
+              "when": {},
+              "headline": "Synthetic delivery deferred",
+              "narrative": "The fictional delivery remains on hold for a later exercise window.",
+              "arrivalMin": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "outcomeScale": { "min": -100, "max": 100 },
+  "verifyOutcomeMode": "TRUTH_CONSISTENT",
+  "injectPresets": [
+    {
+      "id": "RESTORE_ALL",
+      "label": "Restore all synthetic links",
+      "description": "Restore routine links without retiming reports already issued.",
+      "effect": { "kind": "RESTORE_ALL" }
+    }
+  ],
+  "scoreWeights": {
+    "decisionQuality": 0.4,
+    "informationUtilization": 0.15,
+    "outcome": 0.15,
+    "timeliness": 0.1,
+    "verificationEfficiency": 0.15,
+    "calibration": 0.05
+  },
+  "model": {
+    "llrClamp": 5,
+    "contradictionMinNats": 0.5,
+    "contradictionThreshold": 0.5,
+    "tieEpsilon": 0.05
+  }
+}

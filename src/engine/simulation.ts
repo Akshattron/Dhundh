@@ -553,10 +553,13 @@ function reportAvailable(
     : undefined;
   return (
     report?.status === "DELIVERED" &&
-    scenario.channels.some(
+    (scenario.channels.some(
       (channel) =>
         channel.id === report.def.channel && channel.visibleTo.includes(actor),
-    )
+    ) ||
+      (actor === "COMMANDER" &&
+        report.origin === "RELAY" &&
+        report.relayedFrom?.role === "ANALYST"))
   );
 }
 
@@ -648,14 +651,6 @@ export function applyIntent(
       effects,
     );
   if (request.type === "INJECT") {
-    if (current.mode !== "LOCAL") {
-      return failure(
-        current,
-        "INVALID_INTENT",
-        "Instructor injects are available only in local sessions",
-        effects,
-      );
-    }
     const preset = scenario.injectPresets.find(
       (item) => item.id === request.presetId,
     );
@@ -759,13 +754,105 @@ export function applyIntent(
         : drained.state;
     return success(finalState, [...effects, ...drained.effects]);
   }
-  if (request.type === "RELAY" || request.type === "ADVISE") {
-    return failure(
-      current,
-      "INVALID_INTENT",
-      "Multiplayer actions are deferred to P2",
-      effects,
-    );
+  if (request.type === "RELAY") {
+    if (current.phase !== "RUNNING") {
+      return failure(
+        current,
+        "NOT_RUNNING",
+        "Exercise is not running",
+        effects,
+      );
+    }
+    if (current.relays.length >= 3) {
+      return failure(
+        current,
+        "RELAY_LIMIT",
+        "Relay capacity is exhausted",
+        effects,
+      );
+    }
+    if (!reportAvailable(current, scenario, request.reportId, "ANALYST")) {
+      return failure(
+        current,
+        "UNKNOWN_REPORT",
+        "Report is not available",
+        effects,
+      );
+    }
+    const original = current.reports[request.reportId];
+    if (!original || original.deliveredAtSec === null) {
+      return failure(
+        current,
+        "UNKNOWN_REPORT",
+        "Report is not available",
+        effects,
+      );
+    }
+    let ordinal = current.relays.length + 1;
+    let relayReportId = `RLY${ordinal}`;
+    while (Object.hasOwn(current.reports, relayReportId)) {
+      ordinal += 1;
+      relayReportId = `RLY${ordinal}`;
+    }
+    const deliveryAtSec = current.nowSec + 120;
+    const report: ReportRuntime = {
+      def: { ...original.def, id: relayReportId },
+      status: "IN_TRANSIT",
+      deliveredAtSec: deliveryAtSec,
+      droppedReason: null,
+      origin: "RELAY",
+      relayedFrom: {
+        role: "ANALYST",
+        atSec: current.nowSec,
+        ...(request.note === undefined ? {} : { note: request.note }),
+      },
+      sequence: current.nextSequence,
+      healthAtIssue: original.healthAtIssue,
+    };
+    let next = structuredClone(current);
+    next.reports[relayReportId] = report;
+    next.nextSequence += 1;
+    next.relays.push({
+      fromRole: "ANALYST",
+      reportId: request.reportId,
+      atSec: current.nowSec,
+      relayReportId,
+      ...(request.note === undefined ? {} : { note: request.note }),
+    });
+    next = scheduleEvent(next, {
+      kind: "REPORT_DELIVER",
+      atSec: deliveryAtSec,
+      reportId: relayReportId,
+    });
+    return success(next, effects);
+  }
+  if (request.type === "ADVISE") {
+    if (current.phase !== "RUNNING") {
+      return failure(
+        current,
+        "NOT_RUNNING",
+        "Exercise is not running",
+        effects,
+      );
+    }
+    const currentDp =
+      scenario.decisionPoints[current.currentDecisionPointIndex];
+    if (!currentDp?.actions.some((action) => action.id === request.actionId)) {
+      return failure(
+        current,
+        "UNKNOWN_ACTION",
+        "Action is not available",
+        effects,
+      );
+    }
+    const next = structuredClone(current);
+    next.advice.push({
+      role: "ANALYST",
+      atSec: current.nowSec,
+      actionId: request.actionId,
+      ...(request.note === undefined ? {} : { note: request.note }),
+    });
+    return success(next, effects);
   }
   if (
     (request.type === "DECIDE" || request.type === "VERIFY") &&
@@ -1120,7 +1207,10 @@ export function replayLog(
     if (options && intent.t > options.upToSec) {
       throw new RangeError("Replay horizon precedes an included intent");
     }
-    const applied = applyIntent(state, scenario, intent);
+    // Accepted logs omit clock ticks, including a prior DP's observed timeout.
+    const progressed = advanceTo(state, scenario, intent.t);
+    if (progressed.error) throw new RangeError(progressed.error.message);
+    const applied = applyIntent(progressed.state, scenario, intent);
     if (!applied.result.ok) {
       throw new Error(
         `Session log intent ${index} was not accepted: ${applied.result.error}: ${applied.result.message}`,

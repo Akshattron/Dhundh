@@ -6,6 +6,13 @@ import AppShell from "@/components/AppShell";
 const AarPage = lazy(() => import("@/features/aar/AarPage"));
 const BriefingPage = lazy(() => import("@/features/briefing/BriefingPage"));
 const DemoPage = lazy(() => import("@/features/demo/DemoPage"));
+const CreateSessionPage = lazy(
+  () => import("@/features/network/CreateSessionPage"),
+);
+const JoinPage = lazy(() => import("@/features/network/JoinPage"));
+const LobbyPage = lazy(() => import("@/features/network/LobbyPage"));
+const InstructorPage = lazy(() => import("@/features/network/InstructorPage"));
+const HistoryPage = lazy(() => import("@/features/history/HistoryPage"));
 const HomePage = lazy(() => import("@/features/home/HomePage"));
 const ScenarioLibraryPage = lazy(
   () => import("@/features/library/ScenarioLibraryPage"),
@@ -40,7 +47,13 @@ export const router = createBrowserRouter([
       { path: "scenarios", element: load(<ScenarioLibraryPage />) },
       { path: "scenario/:id/briefing", element: load(<BriefingPage />) },
       { path: "session/local/:id", element: load(<SessionPage />) },
+      { path: "session/network/:id", element: load(<SessionPage />) },
       { path: "demo", element: load(<DemoPage />) },
+      { path: "sessions/new", element: load(<CreateSessionPage />) },
+      { path: "join", element: load(<JoinPage />) },
+      { path: "lobby/:code", element: load(<LobbyPage />) },
+      { path: "instructor/:code", element: load(<InstructorPage />) },
+      { path: "history", element: load(<HistoryPage />) },
       { path: "aar/:id", element: load(<AarPage />) },
       { path: "*", element: <RouteError /> },
     ],

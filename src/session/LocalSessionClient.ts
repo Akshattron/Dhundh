@@ -5,7 +5,9 @@ import {
   computeBelief,
   createSession,
   evaluateDecision,
+  mutateScenario,
   netVoi,
+  PROFILES,
   projectTraineeView,
   scenarioHash,
 } from "../engine";
@@ -43,7 +45,12 @@ function makeIntent(command: SessionCommand, t: number): Intent {
       return { ...command, t, role: "SOLO" };
     case "SET_ESTIMATE":
       return { ...command, t, role: "SOLO" };
+    case "REVEAL_AID":
+      return { type: "REVEAL_AID", t, role: "SOLO" };
     case "VERIFY":
+      return { ...command, t, role: "SOLO" };
+    case "RELAY":
+    case "ADVISE":
       return { ...command, t, role: "SOLO" };
     case "INJECT":
       return { ...command, t, role: "INSTRUCTOR" };
@@ -53,6 +60,7 @@ function makeIntent(command: SessionCommand, t: number): Intent {
 }
 
 export class LocalSessionClient implements SessionClient {
+  private readonly scenario: ScenarioDef;
   private state: SimState;
   private readonly listeners = new Set<() => void>();
   private readonly interval: ReturnType<typeof setInterval>;
@@ -65,9 +73,21 @@ export class LocalSessionClient implements SessionClient {
   private disposed = false;
 
   constructor(
-    private readonly scenario: ScenarioDef,
+    baseScenario: ScenarioDef,
     private readonly options: LocalSessionOptions,
   ) {
+    const difficultyProfile = Object.values(PROFILES).find(
+      (profile) => profile.level === options.difficultyLevel,
+    );
+    if (!difficultyProfile) {
+      throw new TypeError("Session difficulty must be an integer from 1 to 5.");
+    }
+    const scenario = mutateScenario(
+      baseScenario,
+      options.seed,
+      difficultyProfile.level,
+    );
+    this.scenario = scenario;
     this.state = createSession(scenario, {
       seed: options.seed,
       difficultyLevel: options.difficultyLevel,

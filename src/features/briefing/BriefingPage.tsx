@@ -1,4 +1,5 @@
 import { ArrowRight, Check, Clock3, Shield } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { ScenarioBadge } from "@/components/ui/ScenarioBadge";
@@ -13,6 +14,18 @@ export default function BriefingPage() {
   const navigate = useNavigate();
   const scenario = scenarios.find((item) => item.meta.id === id);
   const setClient = useSessionStore((store) => store.setClient);
+  const [difficultyLevel, setDifficultyLevel] = useState<number>(
+    scenario?.meta.difficulty ?? 3,
+  );
+  const [seed, setSeed] = useState("0");
+  const [aidMode, setAidMode] = useState<"ALWAYS" | "AFTER_ESTIMATE">("ALWAYS");
+  const [configurationError, setConfigurationError] = useState<string | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (scenario) setDifficultyLevel(scenario.meta.difficulty);
+  }, [scenario?.meta.id]);
 
   if (!scenario) {
     return (
@@ -27,10 +40,18 @@ export default function BriefingPage() {
   }
 
   const startExercise = () => {
+    const parsedSeed = Number(seed);
+    if (!Number.isSafeInteger(parsedSeed) || parsedSeed < 0) {
+      setConfigurationError(
+        "Scenario seed must be a nonnegative safe integer.",
+      );
+      return;
+    }
+    setConfigurationError(null);
     const client = createLocalSession(scenario, {
-      seed: 0,
-      difficultyLevel: scenario.meta.difficulty,
-      aidMode: "ALWAYS",
+      seed: parsedSeed,
+      difficultyLevel,
+      aidMode,
       speedSecPerMin: 4,
     });
     client.dispatch({ type: "START" });
@@ -92,6 +113,57 @@ export default function BriefingPage() {
               </div>
             ))}
           </div>
+          <div className={styles.variantFields}>
+            <label>
+              Difficulty profile
+              <select
+                value={difficultyLevel}
+                onChange={(event) =>
+                  setDifficultyLevel(Number(event.target.value))
+                }
+              >
+                {[1, 2, 3, 4, 5].map((level) => (
+                  <option key={level} value={level}>
+                    Level {level}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Deterministic variant seed
+              <input
+                type="number"
+                min={0}
+                max={Number.MAX_SAFE_INTEGER}
+                step={1}
+                value={seed}
+                onChange={(event) => setSeed(event.target.value)}
+                required
+              />
+            </label>
+            <label>
+              Reference aid
+              <select
+                value={aidMode}
+                onChange={(event) =>
+                  setAidMode(
+                    event.target.value === "AFTER_ESTIMATE"
+                      ? "AFTER_ESTIMATE"
+                      : "ALWAYS",
+                  )
+                }
+              >
+                <option value="ALWAYS">Available from start</option>
+                <option value="AFTER_ESTIMATE">
+                  Reveal after first estimate
+                </option>
+              </select>
+            </label>
+            <p className={styles.variantNote}>
+              Seed 0 at the authored difficulty retains this scenario; other
+              settings produce a validated, repeatable synthetic variant.
+            </p>
+          </div>
           <details className={styles.payoff}>
             <summary>Payoff reference</summary>
             {scenario.decisionPoints[0]?.actions.map((action) => (
@@ -120,16 +192,23 @@ export default function BriefingPage() {
       <div className={styles.bottom}>
         <span>
           {formatClock(scenario.meta.durationSec)} exercise horizon · local
-          deterministic session
+          deterministic session · difficulty {difficultyLevel}
         </span>
-        <Button
-          variant="primary"
-          size="lg"
-          onClick={startExercise}
-          data-testid="start-exercise"
-        >
-          Start exercise <ArrowRight size={17} aria-hidden="true" />
-        </Button>
+        <div className={styles.startAction}>
+          {configurationError && (
+            <p role="alert" className={styles.configurationError}>
+              {configurationError}
+            </p>
+          )}
+          <Button
+            variant="primary"
+            size="lg"
+            onClick={startExercise}
+            data-testid="start-exercise"
+          >
+            Start exercise <ArrowRight size={17} aria-hidden="true" />
+          </Button>
+        </div>
       </div>
     </article>
   );

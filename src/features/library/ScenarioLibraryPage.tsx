@@ -61,7 +61,7 @@ export default function ScenarioLibraryPage() {
               >
                 View briefing <ArrowRight size={15} aria-hidden="true" />
               </Button>
-              <span>One flagship scenario · synthetic and fictional</span>
+              <span>Validated synthetic scenario · fictional</span>
             </div>
           </article>
         ))}

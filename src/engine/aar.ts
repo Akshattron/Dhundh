@@ -3,6 +3,7 @@ import { buildCounterfactuals, type Counterfactual } from "./counterfactual";
 import { buildCoachNotes } from "./coach";
 import type { AarCoachNote } from "./coach";
 import { evaluateDecision } from "./decision";
+import { PROFILES, type DifficultyProfile } from "./difficulty";
 import { readEvent } from "./events";
 import { replayLog } from "./simulation";
 import { buildFrames } from "./replay";
@@ -18,6 +19,7 @@ import type {
   DecisionRecord,
   HypothesisId,
   Quadrant,
+  ReportId,
   RoleId,
   ScenarioDef,
   SessionLog,
@@ -36,7 +38,8 @@ export interface Aar {
     title: string;
     hash: string;
     seed: number;
-    difficultyLevel: number;
+    difficultyLevel: DifficultyProfile["level"];
+    difficultyProfile: DifficultyProfile;
   };
   referenceModel: ReferenceModelView;
   participants: Array<{ role: RoleId }>;
@@ -156,6 +159,40 @@ export interface Aar {
   counterfactuals: Counterfactual[];
   coachNotes: AarCoachNote[];
   limitations: string[];
+  team?: {
+    participants: Array<{
+      role: Exclude<RoleId, "SOLO">;
+      name: string;
+      openedReportIds: string[];
+      estimates: Array<{
+        hypothesisId: HypothesisId;
+        p: number;
+        atSec: number;
+      }>;
+      decisions: Array<{
+        decisionPointId: string;
+        actionId: ActionId;
+        atSec: number;
+        timedOut: boolean;
+      }>;
+      verificationCount: number;
+      aidRevealedAtSec: number | null;
+    }>;
+    relays: Array<{
+      fromRole: "ANALYST";
+      reportId: ReportId;
+      relayReportId: ReportId;
+      atSec: number;
+      deliveredAtSec: number;
+      note?: string;
+    }>;
+    advice: Array<{
+      role: "ANALYST";
+      atSec: number;
+      actionId: ActionId;
+      note?: string;
+    }>;
+  };
 }
 
 export interface AarDecision {
@@ -462,8 +499,59 @@ export function buildAar(scenario: ScenarioDef, log: SessionLog): Aar {
   if (completed.phase !== "COMPLETE") {
     throw new Error("AAR is available only after the exercise is COMPLETE");
   }
-  const record = completed.decisions.at(-1);
-  if (!record) throw new Error("Completed exercise has no recorded decision");
+  const last = completed.decisions.at(-1);
+  if (!last) throw new Error("Completed exercise has no recorded decision");
+  const aar = buildDecisionAar(scenario, log, completed, last);
+  if (completed.decisions.length === 1) return aar;
+  aar.decisions = completed.decisions.map((record) => {
+    if (record === last) return { decision: aar.decision, scores: aar.scores };
+    const entry = buildDecisionAar(scenario, log, completed, record);
+    return { decision: entry.decision, scores: entry.scores };
+  });
+  const mean = (key: keyof Aar["scores"]) => {
+    const values = aar.decisions.flatMap(({ scores }) => {
+      const value = scores[key];
+      return typeof value === "number" ? [value] : [];
+    });
+    return values.length
+      ? values.reduce((sum, value) => sum + value, 0) / values.length
+      : null;
+  };
+  const dq = mean("dq")!;
+  const outcome = mean("outcome")!;
+  aar.scores = {
+    dq,
+    outcome,
+    infoUtil: mean("infoUtil")!,
+    timeliness: mean("timeliness")!,
+    verifyEff: mean("verifyEff")!,
+    calibration: mean("calibration")!,
+    trainingScore: mean("trainingScore")!,
+    realizedUtility: mean("realizedUtility")!,
+    brierUser: mean("brierUser"),
+    brierSystem: mean("brierSystem")!,
+    quadrant:
+      dq >= 0.8
+        ? outcome >= 0.6
+          ? "SOUND_SUCCESS"
+          : "SOUND_UNLUCKY"
+        : outcome >= 0.6
+          ? "LUCKY"
+          : "POOR",
+  };
+  return aar;
+}
+
+function buildDecisionAar(
+  scenario: ScenarioDef,
+  log: SessionLog,
+  completed: SimState,
+  record: DecisionRecord,
+): Aar {
+  const difficultyProfile = Object.values(PROFILES).find(
+    (profile) => profile.level === log.difficultyLevel,
+  );
+  if (!difficultyProfile) throw new Error("AAR difficulty profile is invalid");
   const dp = scenario.decisionPoints.find(
     (candidate) => candidate.id === record.decisionPointId,
   );
@@ -774,7 +862,8 @@ export function buildAar(scenario: ScenarioDef, log: SessionLog): Aar {
       title: scenario.meta.title,
       hash: log.scenarioHash,
       seed: log.seed,
-      difficultyLevel: log.difficultyLevel,
+      difficultyLevel: difficultyProfile.level,
+      difficultyProfile: { ...difficultyProfile },
     },
     referenceModel: projectReferenceModel(scenario),
     participants: [{ role }],
@@ -804,9 +893,15 @@ export function buildAar(scenario: ScenarioDef, log: SessionLog): Aar {
       contradictions,
     },
     verification,
-    counterfactuals: buildCounterfactuals(scenario, log, completed, record),
+    counterfactuals:
+      record === completed.decisions.at(-1)
+        ? buildCounterfactuals(scenario, log, completed, record)
+        : [],
     coachNotes: notes,
     limitations: [
+      ...scenario.meta.briefing.filter((paragraph) =>
+        paragraph.startsWith("Warning: Seed "),
+      ),
       "Hypotheses are binary; evidence groups are treated as conditionally independent.",
       "Reliabilities and utilities are synthetic scenario-authoring assumptions, not empirical measurements or doctrine.",
       "Calibration on a single decision is noisy; no training-transfer validation is claimed.",

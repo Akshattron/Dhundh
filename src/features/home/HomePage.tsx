@@ -5,6 +5,7 @@ import {
   GitBranch,
   Plus,
   ShieldCheck,
+  Users,
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -82,9 +83,17 @@ export default function HomePage() {
               variant="quiet"
               size="sm"
               icon={<Plus size={15} />}
-              onClick={() => navigate("/scenarios")}
+              onClick={() => navigate("/sessions/new")}
             >
-              Create training session
+              Create network session
+            </Button>
+            <Button
+              variant="quiet"
+              size="sm"
+              icon={<Users size={15} />}
+              onClick={() => navigate("/join")}
+            >
+              Join with code
             </Button>
           </div>
           {launchError && (

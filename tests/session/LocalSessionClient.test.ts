@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { mutateScenario, scenarioHash } from "../../src/engine";
 import { createLocalSession } from "../../src/session/LocalSessionClient";
 import { flagship } from "../engine/fixtures";
 
@@ -22,6 +23,23 @@ afterEach(() => {
 });
 
 describe("LocalSessionClient", () => {
+  it("uses the same seeded difficulty variant as the authoritative service", () => {
+    const options = {
+      seed: 17,
+      difficultyLevel: 4,
+      aidMode: "ALWAYS" as const,
+      speedSecPerMin: 4,
+    } as const;
+    const client = createLocalSession(flagship, options);
+    clients.push(client);
+
+    expect(client.getLog().scenarioHash).toBe(
+      scenarioHash(
+        mutateScenario(flagship, options.seed, options.difficultyLevel),
+      ),
+    );
+  });
+
   it("advances on its configured simulation clock and holds time while paused", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
