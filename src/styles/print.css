@@ -1,0 +1,26 @@
+@page {
+  size: A4 portrait;
+  margin: 12mm;
+}
+
+@media print {
+  :root {
+    color-scheme: light;
+    --bg-0: var(--print-background);
+    --surface-0: var(--print-background);
+    --text-strong: var(--print-text);
+    --text-default: var(--print-text);
+    --text-muted: var(--print-text);
+    --accent-cyan: var(--print-text);
+  }
+
+  nav,
+  button,
+  [role="tooltip"] {
+    display: none;
+  }
+
+  main {
+    width: 100%;
+  }
+}
