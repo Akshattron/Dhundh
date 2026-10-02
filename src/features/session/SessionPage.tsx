@@ -20,6 +20,7 @@ import { EvidenceWaterfall } from "@/features/trainee/EvidenceWaterfall";
 import { FogMeter } from "@/features/trainee/FogMeter";
 import { ReferenceModelDrawer } from "@/features/trainee/ReferenceModelDrawer";
 import { InstructorControls } from "./InstructorControls";
+import { DEMO_SCENARIO_ID } from "@/features/demo/DemoController";
 import type { ProjectedReport, TraineeView } from "@/engine/view";
 import type { SessionClient, SessionCommand } from "@/session/SessionClient";
 import { useSessionStore } from "@/state/useSessionStore";
@@ -161,8 +162,17 @@ const ReportCard = memo(
   },
 );
 
-export default function SessionPage() {
+interface SessionPageProps {
+  demoMode?: boolean;
+  onDemoReset?: () => void;
+}
+
+export default function SessionPage({
+  demoMode = false,
+  onDemoReset,
+}: SessionPageProps) {
   const { id } = useParams();
+  const expectedScenarioId = demoMode ? DEMO_SCENARIO_ID : id;
   const navigate = useNavigate();
   const location = useLocation();
   const client = useSessionStore((store) => store.client);
@@ -193,7 +203,7 @@ export default function SessionPage() {
   >({});
   const presetCooldownsRef = useRef<Record<string, number>>({});
   const controlsAvailable =
-    new URLSearchParams(location.search).get("controls") === "1";
+    demoMode || new URLSearchParams(location.search).get("controls") === "1";
 
   useEffect(() => {
     if (view) setClientView(view);
@@ -242,6 +252,10 @@ export default function SessionPage() {
     [dispatch],
   );
   const resetExercise = useCallback(() => {
+    if (demoMode) {
+      onDemoReset?.();
+      return;
+    }
     if (
       window.confirm("Reset this exercise and clear the accepted-intent log?")
     ) {
@@ -255,7 +269,7 @@ export default function SessionPage() {
       presetCooldownsRef.current = {};
       setPresetCooldowns({});
     }
-  }, [dispatch]);
+  }, [demoMode, dispatch, onDemoReset]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -399,7 +413,7 @@ export default function SessionPage() {
     report?.scrollIntoView?.({ block: "nearest" });
   }, [selectedReportId]);
 
-  if (!client || !view || view.scenario.id !== id) {
+  if (!client || !view || view.scenario.id !== expectedScenarioId) {
     return (
       <section className={styles.unavailable}>
         <CircleHelp size={24} aria-hidden="true" />
@@ -514,6 +528,7 @@ export default function SessionPage() {
               onTruthVisibleChange={setInstructorTruthVisible}
               cooldowns={presetCooldowns}
               onInject={injectPreset}
+              onReset={demoMode ? onDemoReset : undefined}
             />
           )}
           <span
@@ -524,7 +539,7 @@ export default function SessionPage() {
           <span className={styles.clock} data-testid="session-clock">
             <Clock3 size={16} aria-hidden="true" /> {formatClock(view.nowSec)}
           </span>
-          {canPause && (
+          {!demoMode && canPause && (
             <Button
               size="sm"
               onClick={() => dispatch({ type: "PAUSE" })}
@@ -533,7 +548,7 @@ export default function SessionPage() {
               Pause
             </Button>
           )}
-          {canResume && (
+          {!demoMode && canResume && (
             <Button
               size="sm"
               onClick={() => dispatch({ type: "RESUME" })}
@@ -1148,14 +1163,8 @@ export default function SessionPage() {
           authoring assumptions, not doctrine. Only delivered information is
           available to the trainee.
         </span>
-        <Button
-          size="sm"
-          variant="quiet"
-          onClick={() => {
-            resetExercise();
-          }}
-        >
-          <RotateCcw size={13} /> Reset exercise
+        <Button size="sm" variant="quiet" onClick={resetExercise}>
+          <RotateCcw size={13} /> {demoMode ? "Reset demo" : "Reset exercise"}
         </Button>
       </footer>
     </div>

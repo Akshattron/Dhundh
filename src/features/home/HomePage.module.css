@@ -168,6 +168,13 @@
   text-align: center;
 }
 
+.launchError {
+  max-width: 600px;
+  margin: 12px 0 0;
+  color: var(--accent-red);
+  font-size: var(--font-small);
+}
+
 @media (max-width: 900px) {
   .hero {
     grid-template-columns: 1fr;

@@ -19,6 +19,19 @@
   margin: 7px 0 9px;
 }
 
+.headerActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.recoveryError {
+  margin: 0;
+  color: var(--accent-red);
+  font-size: var(--font-small);
+}
+
 .header h1 {
   margin: 4px 0;
   font-size: 28px;
@@ -829,6 +842,10 @@
   .sectionHeading {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .headerActions {
+    justify-content: flex-start;
   }
 
   .scoreGrid {

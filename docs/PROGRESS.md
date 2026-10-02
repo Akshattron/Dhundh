@@ -2,11 +2,60 @@
 
 ## Current Gate
 
-Gate 3 - P1 signature intelligence: **GREEN**, implemented and verified in this
-worktree. Gate 2, Gate 1, and Gate 0 remain **GREEN**.
+Gate 4 - deterministic Demo Mode: **GREEN**, implemented and verified in this
+worktree. Gates 3, 2, 1, and 0 remain **GREEN**.
 
-Gate 1 - Engine foundation: **GREEN**, started and verified locally on 2026-10-02.
-Gate 0 remains **GREEN**.
+## Gate 4 Completed — Deterministic Flagship Demo
+
+- The home `RUN FLAGSHIP DEMO` action creates and starts the exact seed-0,
+  difficulty-3, local, `ALWAYS`-aid preset at two wall seconds per simulated
+  minute, then opens `/demo` without a configuration step.
+- Added presenter start/pause/resume, next-event stepping, skip-to-WOW,
+  skip-to-decision, and skip-to-AAR controls. Paused-state guards remain
+  enforced; skip-to-AAR uses the actual deadline timeout or preserves the
+  presenter's legal decision, then advances the real consequence to COMPLETE.
+- Added the five-step presenter guide, shortcut help, H/D/N/J/A/I/? recovery
+  controls, synthetic disclosure, and a WOW panel tied to the projected
+  degraded channel, delayed evidence, contradiction, belief change, and
+  preceding-event Fog Index.
+- Demo resets and AAR return/reset create a fresh local client and clear
+  transient presenter state. Standard sessions retain their ordinary
+  four-second speed and existing controls.
+- **Files changed:** `src/features/demo/DemoController.ts`,
+  `DemoPage.tsx`/`DemoPage.module.css`, `HomePage.tsx`/`HomePage.module.css`,
+  `SessionPage.tsx`, `InstructorControls.tsx`, `AarPage.tsx`/`AarPage.module.css`,
+  `SessionClient.ts`, `LocalSessionClient.ts`, `useSessionStore.ts`,
+  `tests/ui/demo-controller.test.ts`, `tests/ui/local-journey.test.tsx`,
+  `tests/e2e/flagship-demo.spec.ts`, and this progress record.
+
+### Gate 4 Validation
+
+| Command / check              | Actual result                                                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `npm test`                   | Exit 0; 23 files, 213 tests passed                                                                                        |
+| `npm run test:golden`        | Exit 0; all 18 deterministic flagship regressions passed                                                                  |
+| `npm run typecheck`          | Exit 0; strict `tsc --noEmit`                                                                                             |
+| `npm run validate:scenarios` | Exit 0; flagship hash remains `1f7af0fb`                                                                                  |
+| `npm run e2e`                | Exit 0; Chromium flagship journey, WOW, legal decision, AAR, reduced motion, keyboard recovery, and repeated reset passed |
+| `npm run build`              | Exit 0; scenario prebuild validation, typecheck, and production Vite build passed                                         |
+| Targeted Prettier check      | Exit 0; Gate 4 source and test files                                                                                      |
+| `git diff --check`           | Exit 0; no whitespace errors                                                                                              |
+
+The Playwright run measured demo launch at **1,223.9 ms**, WOW at **44 seconds**,
+AAR at **72 seconds**, reset at **151.2 ms**, and repeated reset at **70.7 ms**.
+WOW/AAR figures are elapsed Demo-preset wall time controlled by the E2E clock;
+startup/reset are local Chromium observations, not cross-device guarantees.
+The scenario file, engine calculations, golden values, and dependency manifests
+were not changed.
+
+### Gate 4 Limitations and Next Phase
+
+- No Gate 4 blocker. The demo remains a single-trainee local flagship path;
+  networked multiplayer, the second scenario, mutation/difficulty, and analytics
+  remain Gate 5/P2 work.
+- **Next unlocked phase: Gate 5 — P2**, with all Gate 0–4 checks retained.
+  Section 58.7's independent-P3 exception remains optional and does not waive
+  P2 acceptance or multiplayer priority.
 
 Gate 0 is GREEN and merged at `3381f01`. Gate 1 work is confined to
 `akshattron-gate-1-foundation`; the initial worktree was clean. The complete

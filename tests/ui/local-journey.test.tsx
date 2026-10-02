@@ -56,20 +56,33 @@ describe("local trainee journey", () => {
     expect(screen.getByText("Opened")).toBeTruthy();
   });
 
-  it("quick-starts the same real local scenario from the deterministic demo entry", () => {
-    renderJourney("/demo");
-    fireEvent.click(screen.getByTestId("demo-start"));
+  it("launches the deterministic demo and presenter in one action from Home", () => {
+    renderJourney("/");
+    fireEvent.click(screen.getByTestId("run-flagship-demo"));
+    expect(screen.getByTestId("demo-presenter-controls")).toBeTruthy();
+    expect(screen.getByTestId("demo-guide")).toBeTruthy();
     expect(screen.getAllByText("Live local exercise · synthetic")).toHaveLength(
       1,
     );
     expect(useSessionStore.getState().client?.getLog()).toMatchObject({
       seed: 0,
+      difficultyLevel: 3,
       mode: "LOCAL",
+      aidMode: "ALWAYS",
       intents: [{ type: "START", t: 0, role: "SOLO" }],
     });
+    expect(useSessionStore.getState().experience).toBe("DEMO");
     expect(useSessionStore.getState().view?.scenario.id).toBe(
       scenarios[0].meta.id,
     );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Dismiss presenter guide" }),
+    );
+    expect(screen.queryByTestId("demo-guide")).toBeNull();
+    fireEvent.click(screen.getByTestId("demo-skip-wow"));
+    expect(useSessionStore.getState().view?.nowSec).toBe(22 * 60);
+    expect(screen.getByTestId("demo-wow")).toBeTruthy();
+    expect(screen.getByText(/^\+\d\.\d{2} since prior event$/)).toBeTruthy();
   });
 
   it("opens an AAR derived from the completed engine run with replay controls", () => {

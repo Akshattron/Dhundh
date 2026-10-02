@@ -129,6 +129,12 @@ export class LocalSessionClient implements SessionClient {
     this.publish();
   }
 
+  getNextScheduledEventAtSec(): number | null {
+    return (
+      this.state.eventTimeline[this.state.processedEventCursor]?.atSec ?? null
+    );
+  }
+
   getLog(): SessionLog {
     return structuredClone(this.log);
   }
