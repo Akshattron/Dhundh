@@ -15,6 +15,7 @@ export function InstructorControls({
   onTruthVisibleChange,
   cooldowns,
   onInject,
+  onReset,
 }: {
   client: SessionClient;
   open: boolean;
@@ -26,6 +27,7 @@ export function InstructorControls({
   onTruthVisibleChange: (visible: boolean) => void;
   cooldowns: Record<string, number>;
   onInject: (presetId: string) => void;
+  onReset?: () => void;
 }) {
   const diagnostics = client.getInstructorDiagnostics(truthVisible);
 
@@ -43,6 +45,10 @@ export function InstructorControls({
   }
 
   const doReset = () => {
+    if (onReset) {
+      onReset();
+      return;
+    }
     if (
       window.confirm("Reset this exercise and clear the accepted-intent log?")
     ) {

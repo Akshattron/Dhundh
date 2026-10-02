@@ -49,6 +49,7 @@ export interface SessionClient {
   subscribe(listener: () => void): () => void;
   dispatch(command: SessionCommand): void;
   advanceToSeconds(tSec: number): void;
+  getNextScheduledEventAtSec(): number | null;
   getLog(): SessionLog;
   getAar(): Aar;
   getInstructorDiagnostics(showTruth?: boolean): InstructorDiagnostics;

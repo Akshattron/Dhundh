@@ -5,7 +5,12 @@ import type { SessionClient } from "../session/SessionClient";
 interface SessionStore {
   client: SessionClient | null;
   view: TraineeView | null;
-  setClient: (client: SessionClient, view: TraineeView) => void;
+  experience: "STANDARD" | "DEMO" | null;
+  setClient: (
+    client: SessionClient,
+    view: TraineeView,
+    experience?: "STANDARD" | "DEMO",
+  ) => void;
   setView: (view: TraineeView) => void;
   clear: () => void;
 }
@@ -13,14 +18,15 @@ interface SessionStore {
 export const useSessionStore = create<SessionStore>((set, get) => ({
   client: null,
   view: null,
-  setClient: (client, view) => {
+  experience: null,
+  setClient: (client, view, experience = "STANDARD") => {
     const previous = get().client;
     if (previous && previous !== client) previous.dispose();
-    set({ client, view });
+    set({ client, view, experience });
   },
   setView: (view) => set({ view }),
   clear: () => {
     get().client?.dispose();
-    set({ client: null, view: null });
+    set({ client: null, view: null, experience: null });
   },
 }));

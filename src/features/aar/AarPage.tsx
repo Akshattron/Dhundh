@@ -9,6 +9,7 @@ import {
   Pause,
   Play,
   Printer,
+  RotateCcw,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
@@ -20,7 +21,13 @@ import {
   exportAarTimelineCsv,
 } from "@/engine/export";
 import { EvidenceWaterfall } from "@/features/trainee/EvidenceWaterfall";
+import {
+  DemoController,
+  DEMO_SCENARIO_ID,
+} from "@/features/demo/DemoController";
+import { ScenarioBadge } from "@/components/ui/ScenarioBadge";
 import type { SessionClient } from "@/session/SessionClient";
+import { scenarios } from "@/scenarios";
 import { useSessionStore } from "@/state/useSessionStore";
 import { formatClock, formatPercent } from "@/utils/format";
 import styles from "./AarPage.module.css";
@@ -65,6 +72,8 @@ export default function AarPage() {
   const navigate = useNavigate();
   const client = useSessionStore((store) => store.client);
   const storedView = useSessionStore((store) => store.view);
+  const experience = useSessionStore((store) => store.experience);
+  const setClient = useSessionStore((store) => store.setClient);
   const view = storedView ?? client?.getSnapshot() ?? null;
   const aar = client && view?.aarReady ? client.getAar() : null;
   const [frameIndex, setFrameIndex] = useState(0);
@@ -72,6 +81,27 @@ export default function AarPage() {
     "KNEW",
   );
   const [playing, setPlaying] = useState(false);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const resetDemo = () => {
+    const scenario = scenarios.find(
+      (candidate) => candidate.meta.id === DEMO_SCENARIO_ID,
+    );
+    if (!scenario) {
+      setRecoveryError("The validated flagship scenario is unavailable.");
+      return;
+    }
+    try {
+      const nextClient = new DemoController(scenario).createSession();
+      setClient(nextClient, nextClient.getSnapshot(), "DEMO");
+      navigate("/demo");
+    } catch (error) {
+      setRecoveryError(
+        error instanceof Error
+          ? error.message
+          : "The deterministic flagship demo could not be restarted.",
+      );
+    }
+  };
 
   useEffect(() => {
     if (!playing) return;
@@ -170,18 +200,33 @@ export default function AarPage() {
             After-action review · synthetic scenario
           </p>
           <h1>{aar.scenario.title}</h1>
+          <ScenarioBadge />
           <p>
             What was known at commitment, what was decided, and what happened
             afterward.
           </p>
         </div>
-        <Button
-          variant="secondary"
-          onClick={() => navigate(`/session/local/${id}`)}
-        >
-          <ArrowLeft size={15} /> Return to exercise
-        </Button>
+        <div className={styles.headerActions}>
+          {experience === "DEMO" && (
+            <Button variant="quiet" onClick={resetDemo}>
+              <RotateCcw size={14} /> Reset demo
+            </Button>
+          )}
+          <Button
+            variant="secondary"
+            onClick={() =>
+              navigate(experience === "DEMO" ? "/demo" : `/session/local/${id}`)
+            }
+          >
+            <ArrowLeft size={15} /> Return to exercise
+          </Button>
+        </div>
       </header>
+      {recoveryError && (
+        <p className={styles.recoveryError} role="alert">
+          {recoveryError}
+        </p>
+      )}
 
       <section className={styles.result}>
         <div className={styles.resultHeadline}>

@@ -6,13 +6,43 @@ import {
   Plus,
   ShieldCheck,
 } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { ScenarioBadge } from "@/components/ui/ScenarioBadge";
+import { scenarios } from "@/scenarios";
+import {
+  DemoController,
+  DEMO_SCENARIO_ID,
+} from "@/features/demo/DemoController";
+import { useSessionStore } from "@/state/useSessionStore";
 import styles from "./HomePage.module.css";
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const setClient = useSessionStore((store) => store.setClient);
+  const [launchError, setLaunchError] = useState<string | null>(null);
+  const runFlagshipDemo = () => {
+    const scenario = scenarios.find(
+      (candidate) => candidate.meta.id === DEMO_SCENARIO_ID,
+    );
+    if (!scenario) {
+      setLaunchError("The validated flagship scenario is unavailable.");
+      return;
+    }
+    try {
+      const client = new DemoController(scenario).createSession();
+      setClient(client, client.getSnapshot(), "DEMO");
+      setLaunchError(null);
+      navigate("/demo");
+    } catch (error) {
+      setLaunchError(
+        error instanceof Error
+          ? error.message
+          : "The deterministic flagship demo could not be started.",
+      );
+    }
+  };
   return (
     <div className={styles.home}>
       <section className={styles.hero}>
@@ -35,10 +65,10 @@ export default function HomePage() {
               variant="primary"
               size="lg"
               icon={<ArrowRight size={17} />}
-              onClick={() => navigate("/demo")}
+              onClick={runFlagshipDemo}
               data-testid="run-flagship-demo"
             >
-              Run flagship demo
+              RUN FLAGSHIP DEMO
             </Button>
             <Button
               variant="secondary"
@@ -57,6 +87,12 @@ export default function HomePage() {
               Create training session
             </Button>
           </div>
+          {launchError && (
+            <p className={styles.launchError} role="alert">
+              {launchError} Reload the page or open the scenario library to
+              recover.
+            </p>
+          )}
           <p className={styles.thesis}>
             “Decide on the information you had — then see what actually
             happened.”
