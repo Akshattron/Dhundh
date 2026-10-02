@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: dhundh
+    runtime: node
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SESSION_TTL_MINUTES
+        value: "360"
+      - key: MAX_SESSIONS
+        value: "50"

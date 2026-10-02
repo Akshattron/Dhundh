@@ -1,0 +1,66 @@
+:root {
+  --bg-0: #081015;
+  --bg-1: #0d161c;
+  --bg-2: #121e25;
+  --bg-3: #18262f;
+
+  --surface-0: #0d161c;
+  --surface-1: #111c23;
+  --surface-2: #16232c;
+  --surface-elevated: #1a2a34;
+
+  --border-subtle: rgba(224, 239, 244, 0.08);
+  --border-default: rgba(224, 239, 244, 0.14);
+  --border-strong: rgba(224, 239, 244, 0.22);
+
+  --text-strong: #eef6f8;
+  --text-default: #d3dfe3;
+  --text-muted: #92a5ad;
+  --text-faint: #667a83;
+
+  --accent-cyan: #4fd1c5;
+  --accent-blue: #64a5ff;
+  --accent-amber: #f2b45d;
+  --accent-red: #ef7474;
+  --accent-green: #70d6a4;
+  --accent-violet: #a78bfa;
+
+  --state-healthy: var(--accent-green);
+  --state-degraded: var(--accent-amber);
+  --state-down: var(--accent-red);
+  --state-info: var(--accent-blue);
+  --state-unknown: var(--text-muted);
+  --state-contradiction: var(--accent-violet);
+
+  --shadow-elevated: 0 12px 32px rgba(0, 0, 0, 0.2);
+
+  --font-sans: "IBM Plex Sans", sans-serif;
+  --font-serif: "IBM Plex Serif", serif;
+  --font-display: 30px;
+  --font-h1: 24px;
+  --font-h2: 18px;
+  --font-h3: 15px;
+  --font-body: 14px;
+  --font-small: 12px;
+  --font-label: 11px;
+  --font-metric: 28px;
+
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-40: 40px;
+  --space-48: 48px;
+  --space-64: 64px;
+
+  --radius-panel: 10px;
+  --radius-card: 8px;
+  --radius-button: 7px;
+  --radius-badge: 999px;
+  --content-width: 48rem;
+  --print-background: #fff;
+  --print-text: #000;
+}
