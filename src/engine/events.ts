@@ -3,12 +3,18 @@ import { scenarioRuntimeSchema } from "./scenarioSchema";
 import type { InternalEvent, ScenarioDef, SimState } from "./types";
 
 const seconds = z.number().int().nonnegative();
+const channelId = z.enum(["LAND", "AIR", "CYBER", "EW"]);
 const decisionEvent = {
   atSec: seconds,
   decisionPointId: z.string().min(1),
 };
 const eventSchema = z.discriminatedUnion("kind", [
   ...scenarioRuntimeSchema.shape.events.element.options,
+  z.strictObject({
+    kind: z.literal("CHANNEL_FORCE_RESTORE"),
+    atSec: seconds,
+    channel: channelId,
+  }),
   z.strictObject({
     kind: z.literal("REPORT_DELIVER"),
     atSec: seconds,
@@ -34,6 +40,7 @@ const priorities: Readonly<Record<InternalEvent["kind"], number>> =
   Object.freeze({
     TRUTH_CHANGE: 0,
     CHANNEL_RESTORE: 1,
+    CHANNEL_FORCE_RESTORE: 1,
     CHANNEL_DEGRADE: 2,
     REPORT_ISSUE: 3,
     REPORT_DELIVER: 4,

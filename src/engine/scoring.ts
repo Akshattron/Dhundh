@@ -16,6 +16,7 @@ export interface VerificationAssessment {
   evsi: number;
   net: number;
   evpi: number;
+  belief: Record<string, number>;
 }
 
 export interface ScoreComponents {
@@ -36,6 +37,7 @@ export interface ScoreComponents {
     netVoi: number;
     evpi: number;
     usedVerificationId: string | null;
+    belief: Record<string, number>;
   };
 }
 
@@ -154,6 +156,7 @@ function verificationEfficiency(
       netVoi: 0,
       evpi: 0,
       usedVerificationId: null,
+      belief: {},
     };
   }
   const firstUsed = verifications.find(
@@ -173,11 +176,22 @@ function verificationEfficiency(
       netVoi: assessment.net,
       evpi: assessment.evpi,
       usedVerificationId: firstUsed.id,
+      belief: assessment.belief,
     };
   }
   const candidates = dp.assets
     .map((assetId) => candidateAssessments.get(assetId))
     .filter((candidate): candidate is VerificationAssessment => !!candidate);
+  if (candidates.length === 0) {
+    return {
+      selectedAssetId: null,
+      evaluationAtSec: decision.atSec,
+      netVoi: 0,
+      evpi: 0,
+      usedVerificationId: null,
+      belief: {},
+    };
+  }
   const selected = candidates.reduce<VerificationAssessment | null>(
     (best, candidate) =>
       best === null || candidate.net > best.net ? candidate : best,
@@ -194,6 +208,7 @@ function verificationEfficiency(
     netVoi: selected.net,
     evpi: selected.evpi,
     usedVerificationId: null,
+    belief: selected.belief,
   };
 }
 

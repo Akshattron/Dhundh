@@ -21,6 +21,11 @@ export * from "./scoring";
 export { projectTraineeView } from "./view";
 export { buildAar } from "./aar";
 export { buildFrames } from "./replay";
+export { buildCounterfactuals, COUNTERFACTUAL_LABEL } from "./counterfactual";
+export type {
+  Counterfactual,
+  CounterfactualPolicyAssumption,
+} from "./counterfactual";
 export {
   exportAarDecisionsCsv,
   exportAarJson,

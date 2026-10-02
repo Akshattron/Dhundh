@@ -22,7 +22,7 @@ export default function DemoPage() {
     });
     client.dispatch({ type: "START" });
     setClient(client, client.getSnapshot());
-    navigate(`/session/local/${scenario.meta.id}`);
+    navigate(`/session/local/${scenario.meta.id}?controls=1`);
   };
 
   if (!scenario) {

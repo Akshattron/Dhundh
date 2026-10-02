@@ -301,6 +301,12 @@
   background: var(--surface-1);
 }
 
+.report[data-selected="true"] {
+  border-color: var(--accent-cyan);
+  outline: 2px solid color-mix(in srgb, var(--accent-cyan) 35%, transparent);
+  outline-offset: 2px;
+}
+
 .opened {
   border-color: rgba(79, 209, 197, 0.22);
 }
@@ -644,6 +650,26 @@
   padding: 10px 12px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
+}
+
+.shortcuts {
+  display: grid;
+  gap: 9px;
+  margin: 12px 0 0;
+  padding-left: 20px;
+  color: var(--text-default);
+  line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .console *,
+  .console *::before,
+  .console *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 .fieldset legend {

@@ -1,0 +1,125 @@
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-button);
+  color: var(--text-default);
+  background: var(--surface-1);
+  cursor: pointer;
+  font-size: var(--font-small);
+}
+
+.trigger:hover,
+.close:hover {
+  border-color: var(--accent-cyan);
+  color: var(--text-strong);
+}
+
+.backdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(0, 0, 0, 0.68);
+}
+
+.drawer {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  width: min(620px, 100%);
+  height: 100%;
+  padding: 22px;
+  border-left: 1px solid var(--border-strong);
+  background: var(--surface-0);
+  box-shadow: var(--shadow-elevated);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.header h2 {
+  margin: 3px 0 0;
+}
+
+.kicker {
+  margin: 0;
+  color: var(--accent-cyan);
+  font-size: var(--font-label);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.close {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-button);
+  color: var(--text-default);
+  background: var(--surface-1);
+  cursor: pointer;
+}
+
+.disclosure {
+  margin: 15px 0;
+  padding: 12px;
+  border-left: 2px solid var(--accent-cyan);
+  color: var(--text-default);
+  background: var(--surface-1);
+  font-size: var(--font-small);
+  line-height: 1.55;
+}
+
+.sections {
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+.sections details {
+  border-top: 1px solid var(--border-subtle);
+  padding: 12px 3px;
+}
+
+.sections summary {
+  color: var(--text-strong);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.sections p,
+.sections li {
+  color: var(--text-muted);
+  font-size: var(--font-small);
+  line-height: 1.55;
+}
+
+.sections code {
+  color: var(--accent-cyan);
+  font-family: var(--font-mono, monospace);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .drawer {
+    animation: drawer-in 180ms ease-out;
+  }
+
+  @keyframes drawer-in {
+    from {
+      transform: translateX(12px);
+      opacity: 0.8;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+}

@@ -1,4 +1,5 @@
 import { computeBelief } from "./belief";
+import { buildCounterfactuals, type Counterfactual } from "./counterfactual";
 import { buildCoachNotes } from "./coach";
 import type { AarCoachNote } from "./coach";
 import { evaluateDecision } from "./decision";
@@ -9,7 +10,8 @@ import { netVoi } from "./voi";
 import { scoreDecision } from "./scoring";
 import type { VerificationAssessment } from "./scoring";
 import { projectTraineeView } from "./view";
-import type { ProjectedReport } from "./view";
+import { projectReferenceModel } from "./view";
+import type { ProjectedReport, ReferenceModelView } from "./view";
 import type {
   ActionId,
   DecisionPointDef,
@@ -24,8 +26,6 @@ import type {
 
 const DATA_PROVENANCE =
   "SYNTHETIC SCENARIO — fictional entities; reliabilities and utilities are authoring assumptions" as const;
-const LIMITATION =
-  "P0: counterfactual and what-if delivery analysis not implemented.";
 
 export interface Aar {
   schemaVersion: 1;
@@ -38,6 +38,7 @@ export interface Aar {
     seed: number;
     difficultyLevel: number;
   };
+  referenceModel: ReferenceModelView;
   participants: Array<{ role: RoleId }>;
   header: {
     completedAtIso: string | null;
@@ -81,7 +82,7 @@ export interface Aar {
     brierUser: number | null;
     brierSystem: number;
   };
-  decisions: Array<{ decision: Aar["decision"]; scores: Aar["scores"] }>;
+  decisions: AarDecision[];
   truth: Record<HypothesisId, boolean>;
   consequence: { headline: string; narrative: string };
   timeline: Array<{
@@ -97,17 +98,35 @@ export interface Aar {
     delivered: ProjectedReport[];
     opened: string[];
     notOpened: Array<{ reportId: string; llr: number }>;
+    waterfall: Array<{
+      id: HypothesisId;
+      label: string;
+      priorLogOdds: number;
+      currentLogOdds: number;
+      contributions: Array<{
+        reportId: string;
+        group: string;
+        channel: string;
+        claim: string;
+        gradeLabel: "A" | "B" | "C" | "D";
+        ageSec: number;
+        effectiveAccuracy: number;
+        llr: number;
+        inspected: boolean;
+      }>;
+    }>;
     dropped: Array<{
       reportId: string;
       issuedAtSec: number;
       claim: string;
-      whatIfBeliefAtDecision: null;
+      whatIfBeliefAtDecision: Record<HypothesisId, number> | null;
     }>;
     lateOrAfterDecision: Array<{
       reportId: string;
       issuedAtSec: number;
-      deliveredAtSec: number;
+      deliveredAtSec: number | null;
       claim: string;
+      whatIfBeliefAtDecision: Record<HypothesisId, number> | null;
     }>;
     contradictions: Array<{
       atSec: number;
@@ -119,13 +138,14 @@ export interface Aar {
   };
   verification: null | {
     used: boolean;
-    assetId: string;
+    assetId: string | null;
     requestedAtSec?: number;
     deliveredAtSec?: number;
     netVoiAtEval: number;
     evsiAtEval: number;
     evpiAtEval: number;
     evalAtSec: number;
+    beliefAtEval: Record<HypothesisId, number>;
     verdict:
       | "WORTH_IT_USED"
       | "WORTH_IT_SKIPPED"
@@ -133,9 +153,14 @@ export interface Aar {
       | "NOT_WORTH_IT_USED"
       | "TOO_LATE_OR_UNAVAILABLE";
   };
-  counterfactuals: [];
+  counterfactuals: Counterfactual[];
   coachNotes: AarCoachNote[];
   limitations: string[];
+}
+
+export interface AarDecision {
+  decision: Aar["decision"];
+  scores: Aar["scores"];
 }
 
 function makeLog(log: SessionLog, intents: SessionLog["intents"]): SessionLog {
@@ -236,6 +261,9 @@ function requestAssessmentsFor(
       evsi: value.evsi,
       net: value.net,
       evpi: evaluation.evpi,
+      belief: Object.fromEntries(
+        Object.entries(belief.perHypothesis).map(([id, item]) => [id, item.p]),
+      ),
     });
   }
   return assessments;
@@ -281,6 +309,9 @@ function candidateAssessmentsFor(
       evsi: value.evsi,
       net: value.net,
       evpi: evaluation.evpi,
+      belief: Object.fromEntries(
+        Object.entries(belief.perHypothesis).map(([id, item]) => [id, item.p]),
+      ),
     });
   }
   return assessments;
@@ -290,6 +321,7 @@ function timelineFor(
   scenario: ScenarioDef,
   state: SimState,
   role: RoleId,
+  log: SessionLog,
 ): Aar["timeline"] {
   const entries: Aar["timeline"] = [];
   const visible = new Set(
@@ -406,6 +438,21 @@ function timelineFor(
         revealedToTrainee: true,
       });
     }
+  }
+  for (const intent of log.intents) {
+    if (intent.type !== "INJECT") continue;
+    const preset = scenario.injectPresets.find(
+      (candidate) => candidate.id === intent.presetId,
+    );
+    entries.push({
+      atSec: intent.t,
+      lane: "INSTRUCTOR",
+      kind: "INJECT_PRESET",
+      summary: preset
+        ? `${preset.label}: ${preset.description}`
+        : `Unknown inject preset ${intent.presetId}`,
+      revealedToTrainee: true,
+    });
   }
   return entries.sort((left, right) => left.atSec - right.atSec);
 }
@@ -525,7 +572,18 @@ export function buildAar(scenario: ScenarioDef, log: SessionLog): Aar {
   const selectedNet = selectedVerification.netVoi;
   const verification: Aar["verification"] =
     selectedVerification.selectedAssetId === null
-      ? null
+      ? dp.assets.length === 0
+        ? null
+        : {
+            used: false,
+            assetId: null,
+            netVoiAtEval: 0,
+            evsiAtEval: 0,
+            evpiAtEval: 0,
+            evalAtSec: selectedVerification.evaluationAtSec,
+            beliefAtEval: {},
+            verdict: "TOO_LATE_OR_UNAVAILABLE",
+          }
       : {
           used: !!usedRecord,
           assetId: selectedVerification.selectedAssetId,
@@ -545,11 +603,12 @@ export function buildAar(scenario: ScenarioDef, log: SessionLog): Aar {
                 ?.evsi ?? selectedNet),
           evpiAtEval: selectedVerification.evpi,
           evalAtSec: selectedVerification.evaluationAtSec,
+          beliefAtEval: selectedVerification.belief,
           verdict: usedRecord
             ? selectedNet >= 0
               ? "WORTH_IT_USED"
               : "NOT_WORTH_IT_USED"
-            : selectedNet > 0
+            : selectedNet >= 0
               ? "WORTH_IT_SKIPPED"
               : "NOT_WORTH_IT_SKIPPED",
         };
@@ -557,12 +616,35 @@ export function buildAar(scenario: ScenarioDef, log: SessionLog): Aar {
   const allReports = Object.values(completed.reports);
   const dropped = allReports
     .filter((report) => report.status === "DROPPED")
-    .map((report) => ({
-      reportId: report.def.id,
-      issuedAtSec: report.def.issuedAtSec,
-      claim: report.def.claim,
-      whatIfBeliefAtDecision: null as null,
-    }));
+    .map((report) => {
+      const eligible = report.def.issuedAtSec <= record.atSec;
+      const whatIf = eligible
+        ? computeBelief(scenario, stateAtCut, record.atSec, {
+            visibleChannels,
+            extraReports: [
+              {
+                ...report,
+                status: "DELIVERED",
+                deliveredAtSec: report.def.issuedAtSec,
+                droppedReason: null,
+              },
+            ],
+          })
+        : null;
+      return {
+        reportId: report.def.id,
+        issuedAtSec: report.def.issuedAtSec,
+        claim: report.def.claim,
+        whatIfBeliefAtDecision: whatIf
+          ? Object.fromEntries(
+              Object.entries(whatIf.perHypothesis).map(([id, item]) => [
+                id,
+                item.p,
+              ]),
+            )
+          : null,
+      };
+    });
   const lateOrAfterDecision = allReports
     .filter(
       (report) =>
@@ -571,13 +653,72 @@ export function buildAar(scenario: ScenarioDef, log: SessionLog): Aar {
           report.deliveredAtSec !== null &&
           report.deliveredAtSec > record.atSec),
     )
-    .map((report) => ({
-      reportId: report.def.id,
-      issuedAtSec: report.def.issuedAtSec,
-      deliveredAtSec: report.deliveredAtSec ?? report.def.issuedAtSec,
-      claim: report.def.claim,
-    }));
+    .map((report) => {
+      const eligible =
+        report.def.issuedAtSec <= record.atSec &&
+        report.deliveredAtSec !== null &&
+        report.deliveredAtSec > record.atSec;
+      const whatIf = eligible
+        ? computeBelief(scenario, stateAtCut, record.atSec, {
+            visibleChannels,
+            extraReports: [
+              {
+                ...report,
+                status: "DELIVERED",
+                deliveredAtSec: report.def.issuedAtSec,
+                droppedReason: null,
+              },
+            ],
+          })
+        : null;
+      return {
+        reportId: report.def.id,
+        issuedAtSec: report.def.issuedAtSec,
+        deliveredAtSec: report.deliveredAtSec,
+        claim: report.def.claim,
+        whatIfBeliefAtDecision: whatIf
+          ? Object.fromEntries(
+              Object.entries(whatIf.perHypothesis).map(([id, item]) => [
+                id,
+                item.p,
+              ]),
+            )
+          : null,
+      };
+    });
   const opened = projected.inspections;
+  const waterfall = scenario.hypotheses.map((hypothesis) => {
+    const beliefItem = belief.perHypothesis[hypothesis.id];
+    const priorLogOdds = Math.log(hypothesis.prior / (1 - hypothesis.prior));
+    const reportsById = new Map(
+      projected.reports.map((report) => [report.id, report]),
+    );
+    return {
+      id: hypothesis.id,
+      label: hypothesis.label,
+      priorLogOdds,
+      currentLogOdds: beliefItem?.logOdds ?? priorLogOdds,
+      contributions: (beliefItem?.contributions ?? []).flatMap(
+        (contribution) => {
+          const report = reportsById.get(contribution.reportId);
+          if (!report) return [];
+          return [
+            {
+              reportId: contribution.reportId,
+              group: contribution.group,
+              channel: contribution.channel,
+              claim: report.claim,
+              gradeLabel: report.gradeLabel,
+              ageSec: contribution.ageSec,
+              effectiveAccuracy: contribution.effectiveAccuracy,
+              llr: contribution.llr,
+              inspected: opened.includes(contribution.reportId),
+            },
+          ];
+        },
+      ),
+    };
+  });
   const notOpened = Object.values(belief.perHypothesis).flatMap((hypothesis) =>
     hypothesis.contributions
       .filter((contribution) => !opened.includes(contribution.reportId))
@@ -622,6 +763,7 @@ export function buildAar(scenario: ScenarioDef, log: SessionLog): Aar {
     ),
     usedResult?.deliveredAtSec ?? null,
     usedResult?.status === "DROPPED",
+    dropped,
   );
   return {
     schemaVersion: 1,
@@ -634,6 +776,7 @@ export function buildAar(scenario: ScenarioDef, log: SessionLog): Aar {
       seed: log.seed,
       difficultyLevel: log.difficultyLevel,
     },
+    referenceModel: projectReferenceModel(scenario),
     participants: [{ role }],
     header: {
       completedAtIso: null,
@@ -649,24 +792,26 @@ export function buildAar(scenario: ScenarioDef, log: SessionLog): Aar {
       headline: consequenceEvent.consequence.headline,
       narrative: consequenceEvent.consequence.narrative,
     },
-    timeline: timelineFor(scenario, completed, role),
+    timeline: timelineFor(scenario, completed, role, log),
     frames: buildFrames(scenario, log),
     information: {
       delivered: deliveredAtCut,
       opened,
       notOpened,
+      waterfall,
       dropped,
       lateOrAfterDecision,
       contradictions,
     },
     verification,
-    counterfactuals: [],
+    counterfactuals: buildCounterfactuals(scenario, log, completed, record),
     coachNotes: notes,
     limitations: [
       "Hypotheses are binary; evidence groups are treated as conditionally independent.",
       "Reliabilities and utilities are synthetic scenario-authoring assumptions, not empirical measurements or doctrine.",
       "Calibration on a single decision is noisy; no training-transfer validation is claimed.",
-      LIMITATION,
+      "The flagship has a single decision point; no learning-transfer validation has been conducted.",
+      "The committed evaluation uses truth and available information at the decision cut; this transparent baseline is not real doctrine and is not universally correct.",
     ],
   };
 }

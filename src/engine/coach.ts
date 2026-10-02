@@ -53,6 +53,10 @@ export function buildCoachNotes(
   reportClaims: ReadonlyMap<string, string>,
   verificationResultArrivedAtSec: number | null,
   verificationResultDropped: boolean,
+  whatIfReports: Array<{
+    reportId: string;
+    whatIfBeliefAtDecision: Record<string, number> | null;
+  }> = [],
 ): AarCoachNote[] {
   const notes: AarCoachNote[] = [];
   const dp = scenario.decisionPoints.find(
@@ -62,6 +66,8 @@ export function buildCoachNotes(
   const time = formatClock(decision.atSec);
   const chosenLabel = actionLabel(scenario, dp.id, decision.actionId);
   const best = bestNumericalAction(scenario, decision);
+  const verificationAsset =
+    verification?.assetId ?? "no-feasible-verification-asset";
   const chosenValue = decision.expectedUtilities[decision.actionId];
   if (chosenValue === undefined) {
     throw new Error("AAR has no expected utility for its chosen action");
@@ -72,28 +78,28 @@ export function buildCoachNotes(
       id: "timeout",
       severity: "ATTENTION",
       text: `The decision window expired. ${actionLabel(scenario, dp.id, dp.timeoutActionId)} was recorded automatically; Timeliness is zero.`,
-      evidence: [],
+      evidence: [dp.id, "DECISION_TIMEOUT"],
     });
   } else if (scores.quadrant === "SOUND_UNLUCKY") {
     notes.push({
       id: "decision-quality",
       severity: "INFO",
       text: `Sound decision, unfavourable outcome. At ${time}, ${chosenLabel} had expected value ${chosenValue.toFixed(2)}; the highest available was ${best.value.toFixed(2)}, with regret ${decision.regret.toFixed(2)}. The hidden truth was ${formatTruth(decision, scenario)}. Judge the decision by what you knew, not by how it ended.`,
-      evidence: [],
+      evidence: [decision.actionId, best.id, `CUT_${decision.atSec}`],
     });
   } else if (scores.quadrant === "LUCKY") {
     notes.push({
       id: "decision-quality",
       severity: "ATTENTION",
       text: `Favourable outcome from a weak decision. ${chosenLabel} had lower expected value (${chosenValue.toFixed(2)}) than ${best.label} (${best.value.toFixed(2)}) given what had arrived. The outcome does not erase that expected-value gap.`,
-      evidence: [],
+      evidence: [decision.actionId, best.id, `CUT_${decision.atSec}`],
     });
   } else if (scores.quadrant === "SOUND_SUCCESS") {
     notes.push({
       id: "decision-quality",
       severity: "GOOD",
       text: `Sound decision and favourable outcome: at ${time}, ${chosenLabel} had expected value ${chosenValue.toFixed(2)}; the highest available was ${best.value.toFixed(2)}, with regret ${decision.regret.toFixed(2)}.`,
-      evidence: [],
+      evidence: [decision.actionId, best.id, `CUT_${decision.atSec}`],
     });
   } else {
     const contradictionIds = Object.entries(belief.perHypothesis)
@@ -119,7 +125,10 @@ export function buildCoachNotes(
       id: "decision-quality",
       severity: "ATTENTION",
       text: `Weak decision and unfavourable outcome. Regret under belief was ${decision.regret.toFixed(2)}. Review the evidence available at ${time}.${evidence ? ` ${evidence}` : ""}`,
-      evidence: [...contradictionIds, ...unopenedIds],
+      evidence:
+        contradictionIds.length + unopenedIds.length > 0
+          ? [...contradictionIds, ...unopenedIds]
+          : [decision.actionId, best.id],
     });
   }
 
@@ -127,8 +136,8 @@ export function buildCoachNotes(
     notes.push({
       id: "verification-skipped",
       severity: "ATTENTION",
-      text: `${verification.assetId} evaluated at ${formatClock(verification.evalAtSec)} was worth +${verification.netVoiAtEval.toFixed(2)} net. You did not use it.`,
-      evidence: [verification.assetId],
+      text: `${verificationAsset} evaluated at ${formatClock(verification.evalAtSec)} was worth +${verification.netVoiAtEval.toFixed(2)} net. You did not use it.`,
+      evidence: [verificationAsset],
     });
   } else if (verification?.used && verification.verdict === "WORTH_IT_USED") {
     const resultTiming = verificationResultDropped
@@ -141,8 +150,8 @@ export function buildCoachNotes(
     notes.push({
       id: "verification-used",
       severity: "GOOD",
-      text: `${verification.assetId} requested at ${formatClock(verification.evalAtSec)} had net value +${verification.netVoiAtEval.toFixed(2)}. ${resultTiming}`,
-      evidence: [verification.assetId],
+      text: `${verificationAsset} requested at ${formatClock(verification.evalAtSec)} had net value +${verification.netVoiAtEval.toFixed(2)}. ${resultTiming}`,
+      evidence: [verificationAsset],
     });
   } else if (verification?.used) {
     const resultTiming = verificationResultDropped
@@ -156,7 +165,36 @@ export function buildCoachNotes(
       id: "verification-used",
       severity: "ATTENTION",
       text: `Verification cost more than its reference information value at ${formatClock(verification.evalAtSec)} (net ${verification.netVoiAtEval.toFixed(2)}). ${resultTiming}`,
-      evidence: [verification.assetId],
+      evidence: [verificationAsset],
+    });
+  }
+
+  const materialWhatIf = whatIfReports
+    .filter((report) => report.whatIfBeliefAtDecision !== null)
+    .flatMap((report) =>
+      Object.entries(report.whatIfBeliefAtDecision ?? {}).map(
+        ([hypothesisId, probability]) => ({
+          report,
+          hypothesisId,
+          probability,
+          change: Math.abs(
+            probability - (decision.belief[hypothesisId] ?? probability),
+          ),
+        }),
+      ),
+    )
+    .sort((left, right) => right.change - left.change)[0];
+  if (materialWhatIf && materialWhatIf.change >= 0.01) {
+    const hypothesis = scenario.hypotheses.find(
+      (item) => item.id === materialWhatIf.hypothesisId,
+    );
+    if (!hypothesis)
+      throw new Error("What-if references an unknown hypothesis");
+    notes.push({
+      id: "dropped-information",
+      severity: "ATTENTION",
+      text: `Had ${materialWhatIf.report.reportId} arrived at its issue time, the reference belief in "${hypothesis.label}" would have been ${formatPercent(materialWhatIf.probability, 1)} instead of ${formatPercent(decision.belief[materialWhatIf.hypothesisId] ?? 0, 1)} at ${time}. This is a simulated what-if, not what happened.`,
+      evidence: [materialWhatIf.report.reportId],
     });
   }
 
@@ -228,14 +266,14 @@ export function buildCoachNotes(
       id: "estimate-revision",
       severity: "INFO",
       text: `You revised your estimate from ${formatPercent(first)} to ${formatPercent(final)}. The reference belief was ${formatPercent(pSys)}.`,
-      evidence: [],
+      evidence: [primary?.id ?? "PRIMARY_HYPOTHESIS", `CUT_${decision.atSec}`],
     });
   }
 
   if (decision.isTie) {
     const recommendation =
       verification?.verdict === "WORTH_IT_SKIPPED"
-        ? ` A feasible verification, ${verification.assetId}, had positive net value at that cut.`
+        ? ` A feasible verification, ${verificationAsset}, had positive net value at that cut.`
         : "";
     notes.push({
       id: "near-tie",
@@ -243,8 +281,8 @@ export function buildCoachNotes(
       text: `The leading actions were within the model's tie threshold at ${time}.${recommendation}`,
       evidence:
         verification?.verdict === "WORTH_IT_SKIPPED"
-          ? [verification.assetId]
-          : [],
+          ? [verificationAsset]
+          : [decision.actionId, best.id, `CUT_${decision.atSec}`],
     });
   }
 

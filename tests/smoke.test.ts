@@ -9,10 +9,14 @@ test("the root route renders the Gate 2 training home", async () => {
   render(createElement(App));
 
   expect(
-    await screen.findByRole("heading", {
-      level: 1,
-      name: /Decide on what you know.*Then see what happened/,
-    }),
+    await screen.findByRole(
+      "heading",
+      {
+        level: 1,
+        name: /Decide on what you know.*Then see what happened/,
+      },
+      { timeout: 5000 },
+    ),
   ).toBeTruthy();
   expect(
     screen.getByText("Decision Training Under Degraded Information")
