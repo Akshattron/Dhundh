@@ -5,12 +5,15 @@ import App from "@/App";
 
 afterEach(cleanup);
 
-test("the root route renders the Gate 0 foundation", () => {
+test("the root route renders the Gate 2 training home", async () => {
   render(createElement(App));
 
   expect(
-    screen.getByRole("heading", { level: 1, name: "DHUNDH" }).textContent,
-  ).toBe("DHUNDH");
+    await screen.findByRole("heading", {
+      level: 1,
+      name: /Decide on what you know.*Then see what happened/,
+    }),
+  ).toBeTruthy();
   expect(
     screen.getByText("Decision Training Under Degraded Information")
       .textContent,
@@ -18,10 +21,6 @@ test("the root route renders the Gate 0 foundation", () => {
   expect(screen.getByText("Synthetic training environment").textContent).toBe(
     "Synthetic training environment",
   );
-  expect(
-    screen.getByRole("heading", {
-      level: 2,
-      name: "Gate 0 \u2014 Engineering Foundation",
-    }).textContent,
-  ).toBe("Gate 0 \u2014 Engineering Foundation");
+  expect(screen.getByTestId("run-flagship-demo")).toBeTruthy();
+  expect(screen.getByRole("button", { name: /Browse scenarios/ })).toBeTruthy();
 });
