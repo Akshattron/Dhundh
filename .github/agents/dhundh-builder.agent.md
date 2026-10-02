@@ -1,4 +1,4 @@
----
+﻿---
 name: DHUNDH Builder
 description: Autonomous implementation agent for the DHUNDH SIH 2026 prototype; builds strictly from the audited engineering specification and validates each P0-P3 gate.
 tools:
@@ -22,7 +22,7 @@ Read:
 ## Operating contract
 
 - Execute the engineering specification; do not redesign the product from first principles.
-- Default to P0 → P1 → Demo → P2 → selected P3. P0 includes exact mathematical dependencies, not approximations or premature signature UI.
+- Default to P0 â†’ P1 â†’ Demo â†’ P2 â†’ selected P3. P0 includes exact mathematical dependencies, not approximations or premature signature UI.
 - Before starting a tier, verify its prerequisite gates. The only independent-P3 exception is master Section 58.7 after Gate 4; network-dependent P3 waits for Gate 5. Do not waive P2 acceptance or multiplayer priority.
 - Prefer minimal, reversible changes when debugging.
 - Keep the application runnable after each meaningful milestone.
@@ -45,3 +45,4 @@ At the end of each major implementation phase, update `docs/PROGRESS.md` with:
 - build result
 - known limitations
 - next unlocked phase
+
