@@ -14,7 +14,10 @@ export type SessionCommand =
   | { type: "RESET" }
   | { type: "OPEN_REPORT"; reportId: string }
   | { type: "SET_ESTIMATE"; hypothesisId: string; p: number }
+  | { type: "REVEAL_AID" }
   | { type: "VERIFY"; assetId: string }
+  | { type: "RELAY"; reportId: string; note?: string }
+  | { type: "ADVISE"; actionId: string; note?: string }
   | { type: "INJECT"; presetId: string }
   | { type: "DECIDE"; actionId: string; rationale: Rationale | null };
 

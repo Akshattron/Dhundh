@@ -117,6 +117,7 @@ export function computeBelief(
   tSec: SimSeconds,
   opts?: {
     visibleChannels?: ChannelId[];
+    visibleReportIds?: string[];
     extraReports?: ReportRuntime[];
     excludeReportIds?: string[];
   },
@@ -132,6 +133,7 @@ export function computeBelief(
   const visible = opts?.visibleChannels
     ? new Set(opts.visibleChannels)
     : undefined;
+  const visibleReportIds = new Set(opts?.visibleReportIds ?? []);
   const excluded = new Set(opts?.excludeReportIds ?? []);
   const reportsById = new Map<string, ReportRuntime>(
     Object.values(state.reports).map((report) => [report.def.id, report]),
@@ -149,7 +151,9 @@ export function computeBelief(
       report.def.issuedAtSec <= tSec &&
       report.def.hypothesisId !== null &&
       report.def.stance !== 0 &&
-      (!visible || visible.has(report.def.channel))
+      (!visible ||
+        visible.has(report.def.channel) ||
+        visibleReportIds.has(report.def.id))
     );
   });
 

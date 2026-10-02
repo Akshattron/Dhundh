@@ -202,7 +202,16 @@ function beliefFor(
   const visibleChannels = scenario.channels
     .filter((channel) => channel.visibleTo.includes(role))
     .map((channel) => channel.id);
-  return computeBelief(scenario, state, nowSec, { visibleChannels });
+  const visibleReportIds =
+    role === "COMMANDER" || role === "INSTRUCTOR"
+      ? state.relays
+          .filter((relay) => relay.fromRole === "ANALYST")
+          .map((relay) => relay.relayReportId)
+      : [];
+  return computeBelief(scenario, state, nowSec, {
+    visibleChannels,
+    visibleReportIds,
+  });
 }
 
 function projectBelief(
@@ -376,7 +385,10 @@ export function projectTraineeView(
         report.status === "DELIVERED" &&
         report.deliveredAtSec !== null &&
         report.deliveredAtSec <= state.nowSec &&
-        visibleChannels.has(report.def.channel),
+        (visibleChannels.has(report.def.channel) ||
+          ((role === "COMMANDER" || role === "INSTRUCTOR") &&
+            report.origin === "RELAY" &&
+            report.relayedFrom?.role === "ANALYST")),
     )
     .sort(
       (left, right) =>

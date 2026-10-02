@@ -1,4 +1,10 @@
-import { Activity, BookOpen, Home } from "lucide-react";
+import {
+  Activity,
+  BookOpen,
+  ChartNoAxesColumnIncreasing,
+  Home,
+  Users,
+} from "lucide-react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import styles from "./AppShell.module.css";
 
@@ -29,6 +35,15 @@ export default function AppShell() {
           </Link>
           <Link className={isActive("/demo") ? styles.active : ""} to="/demo">
             <Activity size={15} aria-hidden="true" /> Flagship demo
+          </Link>
+          <Link className={isActive("/join") ? styles.active : ""} to="/join">
+            <Users size={15} aria-hidden="true" /> Join session
+          </Link>
+          <Link
+            className={isActive("/history") ? styles.active : ""}
+            to="/history"
+          >
+            <ChartNoAxesColumnIncreasing size={15} aria-hidden="true" /> History
           </Link>
         </nav>
         <div className={styles.synthetic}>

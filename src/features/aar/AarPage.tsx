@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowDownToLine,
   ArrowLeft,
@@ -15,6 +15,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import type { Aar } from "@/engine/aar";
 import { COUNTERFACTUAL_LABEL } from "@/engine/counterfactual";
+import { nextDifficulty } from "@/engine/difficulty";
 import {
   exportAarDecisionsCsv,
   exportAarJson,
@@ -27,6 +28,12 @@ import {
 } from "@/features/demo/DemoController";
 import { ScenarioBadge } from "@/components/ui/ScenarioBadge";
 import type { SessionClient } from "@/session/SessionClient";
+import { RemoteSessionClient } from "@/session/RemoteSessionClient";
+import {
+  createHistoryEntry,
+  fingerprintSessionLog,
+  recordSessionHistory,
+} from "@/session/history";
 import { scenarios } from "@/scenarios";
 import { useSessionStore } from "@/state/useSessionStore";
 import { formatClock, formatPercent } from "@/utils/format";
@@ -75,13 +82,75 @@ export default function AarPage() {
   const experience = useSessionStore((store) => store.experience);
   const setClient = useSessionStore((store) => store.setClient);
   const view = storedView ?? client?.getSnapshot() ?? null;
-  const aar = client && view?.aarReady ? client.getAar() : null;
+  const localAar =
+    client && !(client instanceof RemoteSessionClient) && view?.aarReady
+      ? client.getAar()
+      : null;
+  const networkClient = client instanceof RemoteSessionClient ? client : null;
+  const [networkAar, setNetworkAar] = useState<Aar | null>(null);
+  const [networkAarError, setNetworkAarError] = useState<string | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const historyAttempts = useRef(new Set<string>());
   const [frameIndex, setFrameIndex] = useState(0);
   const [replayTab, setReplayTab] = useState<"KNEW" | "TRUTH" | "NEVER_SAW">(
     "KNEW",
   );
   const [playing, setPlaying] = useState(false);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!networkClient || view?.phase !== "COMPLETE") {
+      setNetworkAar(null);
+      setNetworkAarError(null);
+      return;
+    }
+    let active = true;
+    setNetworkAarError(null);
+    void networkClient
+      .fetchAar()
+      .then((result) => {
+        if (active) setNetworkAar(result);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setNetworkAarError(
+            error instanceof Error
+              ? error.message
+              : "The team AAR could not be loaded.",
+          );
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [networkClient, view?.phase]);
+  const displayedAar = networkClient ? networkAar : localAar;
+  const aar = displayedAar;
+  const historyId =
+    networkClient && view
+      ? `network:${networkClient.code}:${networkClient.getSnapshot().seq}`
+      : client && !(client instanceof RemoteSessionClient)
+        ? `local:${fingerprintSessionLog(client.getLog())}`
+        : null;
+  useEffect(() => {
+    if (!aar || !historyId || historyAttempts.current.has(historyId)) return;
+    historyAttempts.current.add(historyId);
+    try {
+      recordSessionHistory(
+        createHistoryEntry(
+          aar,
+          historyId,
+          networkClient ? "NETWORKED" : "LOCAL",
+        ),
+      );
+      setHistoryError(null);
+    } catch (error) {
+      setHistoryError(
+        error instanceof Error
+          ? error.message
+          : "This completed session could not be saved to local history.",
+      );
+    }
+  }, [aar, historyId, networkClient]);
   const resetDemo = () => {
     const scenario = scenarios.find(
       (candidate) => candidate.meta.id === DEMO_SCENARIO_ID,
@@ -127,6 +196,14 @@ export default function AarPage() {
           The review unlocks after the simulated consequence is revealed. Active
           sessions are held in this browser tab.
         </p>
+        {networkClient && !networkAarError && view?.phase === "COMPLETE" && (
+          <p role="status">Preparing the authorized team AAR…</p>
+        )}
+        {networkAarError && (
+          <p className={styles.recoveryError} role="alert">
+            {networkAarError}
+          </p>
+        )}
         <Button onClick={() => navigate("/scenarios")}>
           Start an exercise
         </Button>
@@ -136,6 +213,11 @@ export default function AarPage() {
 
   const frame = aar.frames[Math.min(frameIndex, aar.frames.length - 1)];
   if (!frame) throw new Error("Completed AAR has no replay frames");
+  const progression = nextDifficulty(aar.scenario.difficultyLevel, {
+    dq: aar.scores.dq,
+    infoUtil: aar.scores.infoUtil,
+    quadrant: aar.scores.quadrant,
+  });
   const decisionFrame = aar.frames.find(
     (candidate) =>
       candidate.atSec === aar.decision.atSec && candidate.cut === "DECISION",
@@ -215,7 +297,15 @@ export default function AarPage() {
           <Button
             variant="secondary"
             onClick={() =>
-              navigate(experience === "DEMO" ? "/demo" : `/session/local/${id}`)
+              navigate(
+                networkClient
+                  ? networkClient.role === "INSTRUCTOR"
+                    ? `/instructor/${networkClient.code}`
+                    : `/session/network/${id}`
+                  : experience === "DEMO"
+                    ? "/demo"
+                    : `/session/local/${id}`,
+              )
             }
           >
             <ArrowLeft size={15} /> Return to exercise
@@ -225,6 +315,11 @@ export default function AarPage() {
       {recoveryError && (
         <p className={styles.recoveryError} role="alert">
           {recoveryError}
+        </p>
+      )}
+      {historyError && (
+        <p className={styles.recoveryError} role="status">
+          {historyError}
         </p>
       )}
 
@@ -339,6 +434,90 @@ export default function AarPage() {
           <span className={styles.xAxis}>Decision quality · sound ←</span>
         </div>
       </section>
+
+      <section className={styles.panel} data-testid="difficulty-recommendation">
+        <p className={styles.kicker}>Adaptive practice recommendation</p>
+        <h2>Next run: difficulty level {progression.level}</h2>
+        <p>{progression.reason}</p>
+        <p>
+          Profile changes:{" "}
+          {progression.changes.length
+            ? progression.changes.join(" · ")
+            : "No profile change"}
+        </p>
+        <p className={styles.scoreNote}>
+          Deterministic score-based recommendation only; no automatic difficulty
+          change is applied.
+        </p>
+      </section>
+
+      {aar.team && (
+        <section className={`${styles.panel} ${styles.timelineSection}`}>
+          <div className={styles.sectionHeading}>
+            <div>
+              <p className={styles.kicker}>
+                Post-completion team reconstruction
+              </p>
+              <h2>Shared work, separate roles</h2>
+            </div>
+            <span>
+              Private trainee activity is revealed only after completion
+            </span>
+          </div>
+          <div className={styles.scoreGrid}>
+            {aar.team.participants.map((participant) => (
+              <article className={styles.score} key={participant.role}>
+                <span>
+                  {participant.role} · {participant.name}
+                </span>
+                <strong>
+                  {participant.openedReportIds.length} reports opened ·{" "}
+                  {participant.verificationCount} verifications ·{" "}
+                  {participant.decisions.length} decisions
+                </strong>
+                {participant.estimates.map((estimate, index) => (
+                  <small key={`${estimate.hypothesisId}-${index}`}>
+                    {formatClock(estimate.atSec)} · {estimate.hypothesisId}:{" "}
+                    {formatPercent(estimate.p, 1)}
+                  </small>
+                ))}
+              </article>
+            ))}
+          </div>
+          <div className={styles.reportGroups}>
+            <h3>Analyst handoffs</h3>
+            {aar.team.relays.length === 0 && aar.team.advice.length === 0 ? (
+              <p className={styles.muted}>
+                No relays or structured advice were recorded.
+              </p>
+            ) : (
+              <>
+                {aar.team.relays.map((relay) => (
+                  <div key={relay.relayReportId}>
+                    <strong>
+                      {relay.reportId} → {relay.relayReportId}
+                    </strong>
+                    <span>
+                      Relayed {formatClock(relay.atSec)} · delivered{" "}
+                      {formatClock(relay.deliveredAtSec)}
+                      {relay.note ? ` · ${relay.note}` : ""}
+                    </span>
+                  </div>
+                ))}
+                {aar.team.advice.map((item, index) => (
+                  <div key={`${item.atSec}-${index}`}>
+                    <strong>Action advice: {item.actionId}</strong>
+                    <span>
+                      Sent {formatClock(item.atSec)}
+                      {item.note ? ` · ${item.note}` : ""}
+                    </span>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        </section>
+      )}
 
       <div className={styles.columns}>
         <section className={styles.panel}>

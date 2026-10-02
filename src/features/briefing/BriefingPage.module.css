@@ -145,6 +145,37 @@
   margin-top: 12px;
 }
 
+.variantFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.variantFields label {
+  display: grid;
+  gap: 6px;
+  color: var(--text-strong);
+  font-size: var(--font-small);
+}
+
+.variantFields input,
+.variantFields select {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-button);
+  color: var(--text-strong);
+  background: var(--surface-1);
+}
+
+.variantNote {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-small);
+}
+
 .bottom {
   display: flex;
   justify-content: space-between;
@@ -152,6 +183,18 @@
   gap: 16px;
   margin-top: 18px;
   color: var(--text-muted);
+  font-size: var(--font-small);
+}
+
+.startAction {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.configurationError {
+  margin: 0;
+  color: var(--accent-red);
   font-size: var(--font-small);
 }
 
@@ -177,5 +220,19 @@
   .bottom {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .startAction {
+    justify-items: stretch;
+  }
+}
+
+@media (max-width: 520px) {
+  .variantFields {
+    grid-template-columns: 1fr;
+  }
+
+  .variantNote {
+    grid-column: auto;
   }
 }

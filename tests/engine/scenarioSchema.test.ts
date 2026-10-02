@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import kestrel from "../../src/scenarios/kestrel-relief-corridor.json";
+import harbour from "../../src/scenarios/harbour-flood-response.json";
 import { scenarios } from "../../src/scenarios";
 import {
   enumerateStates,
@@ -359,11 +360,11 @@ describe("scenario contract", () => {
     expect(kestrel).toEqual(JSON.parse(json!));
   });
 
-  it("validates and registers only the implemented flagship through the loader", () => {
+  it("registers the validated flagship first and the implemented P2 harbour scenario second", () => {
     const scenario = loadScenario(kestrel);
     expect(scenarioAuthoringSchema.safeParse(kestrel).success).toBe(true);
     expect(scenarioRuntimeSchema.safeParse(scenario).success).toBe(true);
-    expect(scenarios).toEqual([scenario]);
+    expect(scenarios).toEqual([scenario, loadScenario(harbour)]);
     expect(scenario.meta).toMatchObject({
       id: "kestrel-relief-corridor",
       synthetic: true,

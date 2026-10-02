@@ -6,6 +6,8 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import kestrel from "../../src/scenarios/kestrel-relief-corridor.json";
+import harbour from "../../src/scenarios/harbour-flood-response.json";
+import { loadScenario, scenarioHash } from "../../src/engine/scenarioLoader";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const script = fileURLToPath(
@@ -65,9 +67,10 @@ describe("production scenario validation CLI", () => {
     const second = run();
     expect(first.status).toBe(0);
     expect(first.stderr).toBe("");
-    expect(first.stdout.trim()).toBe(
+    expect(first.stdout.trim().split(/\r?\n/)).toEqual([
+      `OK harbour-flood-response v1 hash=${scenarioHash(loadScenario(harbour))}`,
       "OK kestrel-relief-corridor v1 hash=1f7af0fb",
-    );
+    ]);
     expect(second.stdout).toBe(first.stdout);
   });
 

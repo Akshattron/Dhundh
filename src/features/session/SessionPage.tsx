@@ -23,6 +23,10 @@ import { InstructorControls } from "./InstructorControls";
 import { DEMO_SCENARIO_ID } from "@/features/demo/DemoController";
 import type { ProjectedReport, TraineeView } from "@/engine/view";
 import type { SessionClient, SessionCommand } from "@/session/SessionClient";
+import { RemoteSessionClient } from "@/session/RemoteSessionClient";
+import type { NetworkSessionView } from "@/session/protocol";
+import { createLocalSession } from "@/session/LocalSessionClient";
+import { scenarios } from "@/scenarios";
 import { useSessionStore } from "@/state/useSessionStore";
 import { formatAge, formatClock, formatPercent } from "@/utils/format";
 import styles from "./SessionPage.module.css";
@@ -48,6 +52,25 @@ function useLiveSession(
     return client.subscribe(update);
   }, [client]);
   return view;
+}
+
+function useRemoteStatus(client: RemoteSessionClient | null) {
+  const [status, setStatus] = useState(client?.status ?? null);
+  const [message, setMessage] = useState(client?.statusMessage ?? "");
+  useEffect(() => {
+    if (!client) {
+      setStatus(null);
+      setMessage("");
+      return;
+    }
+    const update = () => {
+      setStatus(client.status);
+      setMessage(client.statusMessage);
+    };
+    update();
+    return client.subscribeStatus(update);
+  }, [client]);
+  return { status, message };
 }
 
 interface ReportCardProps {
@@ -177,8 +200,16 @@ export default function SessionPage({
   const location = useLocation();
   const client = useSessionStore((store) => store.client);
   const initial = useSessionStore((store) => store.view);
+  const setClient = useSessionStore((store) => store.setClient);
   const setClientView = useSessionStore((store) => store.setView);
   const view = useLiveSession(client, initial);
+  const networkClient = client instanceof RemoteSessionClient ? client : null;
+  const networkInstructor = networkClient?.role === "INSTRUCTOR";
+  const canMakeDecision = !networkClient || networkClient.role === "COMMANDER";
+  const networkView: NetworkSessionView | null = networkClient
+    ? networkClient.getSnapshot()
+    : null;
+  const remoteStatus = useRemoteStatus(networkClient);
   const [estimateDrafts, setEstimateDrafts] = useState<Record<string, string>>(
     {},
   );
@@ -201,9 +232,11 @@ export default function SessionPage({
   const [presetCooldowns, setPresetCooldowns] = useState<
     Record<string, number>
   >({});
+  const [relayNote, setRelayNote] = useState("");
   const presetCooldownsRef = useRef<Record<string, number>>({});
   const controlsAvailable =
-    demoMode || new URLSearchParams(location.search).get("controls") === "1";
+    !networkClient &&
+    (demoMode || new URLSearchParams(location.search).get("controls") === "1");
 
   useEffect(() => {
     if (view) setClientView(view);
@@ -217,6 +250,22 @@ export default function SessionPage({
     },
     [client, setClientView],
   );
+  const continueLocally = () => {
+    if (!networkClient || !view) return;
+    const scenario = scenarios.find(
+      (item) => item.meta.id === view.scenario.id,
+    );
+    if (!scenario) return;
+    const credential = networkClient.getCredential();
+    const local = createLocalSession(scenario, {
+      seed: credential.seed,
+      difficultyLevel: credential.difficultyLevel,
+      aidMode: view.aidMode,
+      speedSecPerMin: 4,
+    });
+    setClient(local, local.getSnapshot());
+    navigate(`/session/local/${scenario.meta.id}`);
+  };
   const openReport = useCallback(
     (reportId: string) => {
       dispatch({ type: "OPEN_REPORT", reportId });
@@ -312,13 +361,21 @@ export default function SessionPage({
         setInstructorTruthVisible((visible) => !visible);
         setDiagnosticsOpen(true);
         setInstructorOpen(true);
-      } else if (key === "r") {
+      } else if (key === "r" && (!networkClient || networkInstructor)) {
         event.preventDefault();
         resetExercise();
-      } else if (key === " " && view.phase === "RUNNING") {
+      } else if (
+        key === " " &&
+        view.phase === "RUNNING" &&
+        (!networkClient || networkInstructor)
+      ) {
         event.preventDefault();
         dispatch({ type: "PAUSE" });
-      } else if (key === " " && view.phase === "PAUSED") {
+      } else if (
+        key === " " &&
+        view.phase === "PAUSED" &&
+        (!networkClient || networkInstructor)
+      ) {
         event.preventDefault();
         dispatch({ type: "RESUME" });
       } else if (controlsAvailable && /^[1-5]$/.test(event.key)) {
@@ -370,7 +427,7 @@ export default function SessionPage({
             p: value / 100,
           });
         }
-      } else if (key === "v") {
+      } else if (key === "v" && canMakeDecision) {
         const asset = view.decisionPoint?.assets.find(
           (candidate) => candidate.feasible,
         );
@@ -381,7 +438,8 @@ export default function SessionPage({
       } else if (
         key === "d" &&
         view.phase === "RUNNING" &&
-        view.decisionPoint?.status === "OPEN"
+        view.decisionPoint?.status === "OPEN" &&
+        canMakeDecision
       ) {
         event.preventDefault();
         setShowDecision(true);
@@ -403,6 +461,9 @@ export default function SessionPage({
     showShortcuts,
     toggleReportDetails,
     view,
+    networkClient,
+    networkInstructor,
+    canMakeDecision,
   ]);
   const selectedReportId = view?.reports[selectedReportIndex]?.id;
   useEffect(() => {
@@ -417,13 +478,19 @@ export default function SessionPage({
     return (
       <section className={styles.unavailable}>
         <CircleHelp size={24} aria-hidden="true" />
-        <h1>Local session unavailable</h1>
+        <h1>
+          {networkClient
+            ? "Network session unavailable"
+            : "Local session unavailable"}
+        </h1>
         <p>
-          This browser session is no longer active. Start a new exercise from
-          the scenario library.
+          This browser session is no longer active. Return to the lobby or start
+          a fresh exercise.
         </p>
-        <Button onClick={() => navigate("/scenarios")}>
-          Open scenario library
+        <Button
+          onClick={() => navigate(networkClient ? "/join" : "/scenarios")}
+        >
+          {networkClient ? "Join a session" : "Open scenario library"}
         </Button>
       </section>
     );
@@ -455,8 +522,10 @@ export default function SessionPage({
     .sort((left, right) => left.atSec - right.atSec)
     .slice(-8)
     .reverse();
-  const canPause = view.phase === "RUNNING";
-  const canResume = view.phase === "PAUSED";
+  const canPause =
+    view.phase === "RUNNING" && (!networkClient || networkInstructor);
+  const canResume =
+    view.phase === "PAUSED" && (!networkClient || networkInstructor);
   const tagsAvailable: RationaleTag[] = [
     "RELIED_ON_FRESH_REPORT",
     "DISCOUNTED_STALE_REPORT",
@@ -511,11 +580,23 @@ export default function SessionPage({
     <div className={styles.console} data-mobile-section={mobileSection}>
       <header className={styles.topbar}>
         <div>
-          <p className={styles.kicker}>Live local exercise · synthetic</p>
+          <p className={styles.kicker}>
+            Live{" "}
+            {networkClient
+              ? `network exercise · ${view.role}`
+              : "local exercise"}{" "}
+            · synthetic
+          </p>
           <h1>{view.scenario.title}</h1>
         </div>
         <div className={styles.status}>
-          <ReferenceModelDrawer model={view.referenceModel} />
+          {view.aidRevealed ? (
+            <ReferenceModelDrawer model={view.referenceModel} />
+          ) : (
+            <span className={styles.muted} role="status">
+              Reference aid unlocks after your first probability estimate.
+            </span>
+          )}
           {controlsAvailable && (
             <InstructorControls
               client={client}
@@ -539,6 +620,15 @@ export default function SessionPage({
           <span className={styles.clock} data-testid="session-clock">
             <Clock3 size={16} aria-hidden="true" /> {formatClock(view.nowSec)}
           </span>
+          {networkClient && (
+            <span
+              className={styles.phase}
+              data-testid="network-connection-status"
+              role="status"
+            >
+              {remoteStatus.status}: {remoteStatus.message}
+            </span>
+          )}
           {!demoMode && canPause && (
             <Button
               size="sm"
@@ -568,6 +658,26 @@ export default function SessionPage({
           )}
         </div>
       </header>
+
+      {networkClient && remoteStatus.status === "FALLBACK_AVAILABLE" && (
+        <section className={styles.error} role="alert">
+          <span>
+            A local fallback starts a fresh exercise with the same scenario,
+            seed, and difficulty. Server progress will not be recovered.
+          </span>
+          <Button size="sm" onClick={continueLocally}>
+            Continue locally
+          </Button>
+        </section>
+      )}
+
+      {view.scenario.briefing
+        .filter((paragraph) => paragraph.startsWith("Warning: Seed "))
+        .map((warning) => (
+          <section className={styles.error} role="status" key={warning}>
+            {warning}
+          </section>
+        ))}
 
       {view.engineError && (
         <div className={styles.error} role="alert">
@@ -604,12 +714,19 @@ export default function SessionPage({
           <div>
             <h2>Exercise ready</h2>
             <p>
-              Start the deterministic scenario clock to begin receiving reports.
+              {networkClient && !networkInstructor
+                ? "Waiting for the instructor to start the authoritative clock."
+                : "Start the deterministic scenario clock to begin receiving reports."}
             </p>
           </div>
-          <Button variant="primary" onClick={() => dispatch({ type: "START" })}>
-            Start clock
-          </Button>
+          {(!networkClient || networkInstructor) && (
+            <Button
+              variant="primary"
+              onClick={() => dispatch({ type: "START" })}
+            >
+              Start clock
+            </Button>
+          )}
         </section>
       )}
       {view.phase === "PAUSED" && (
@@ -699,6 +816,85 @@ export default function SessionPage({
               ))
             )}
           </div>
+          {networkClient?.role === "ANALYST" && networkView && (
+            <section className={styles.panel}>
+              <div className={styles.panelHeader}>
+                <div>
+                  <p className={styles.kicker}>Structured team action</p>
+                  <h2>Relay to Commander</h2>
+                </div>
+                <span className={styles.count}>
+                  {networkView.relayCapacityLeft} relays remaining
+                </span>
+              </div>
+              <label className={styles.rationale}>
+                Optional relay note (80 characters maximum)
+                <input
+                  value={relayNote}
+                  maxLength={80}
+                  onChange={(event) => setRelayNote(event.target.value)}
+                />
+              </label>
+              <div className={styles.reportList}>
+                {view.reports.map((report) => (
+                  <div className={styles.verify} key={report.id}>
+                    <span>
+                      <strong>{report.id}</strong> · {report.claim}
+                    </span>
+                    <Button
+                      size="sm"
+                      disabled={
+                        view.phase !== "RUNNING" ||
+                        networkView.relayCapacityLeft <= 0
+                      }
+                      onClick={() =>
+                        dispatch({
+                          type: "RELAY",
+                          reportId: report.id,
+                          ...(relayNote.trim()
+                            ? { note: relayNote.trim() }
+                            : {}),
+                        })
+                      }
+                      data-testid={`relay-report-${report.id}`}
+                    >
+                      Relay
+                    </Button>
+                  </div>
+                ))}
+                {view.reports.length === 0 && (
+                  <p className={styles.muted}>
+                    No delivered Analyst-visible reports are available to relay.
+                  </p>
+                )}
+              </div>
+              <label className={styles.rationale}>
+                Advice for the current choice
+                <select
+                  defaultValue=""
+                  onChange={(event) => {
+                    if (event.target.value) {
+                      dispatch({
+                        type: "ADVISE",
+                        actionId: event.target.value,
+                        ...(relayNote.trim() ? { note: relayNote.trim() } : {}),
+                      });
+                      event.target.value = "";
+                    }
+                  }}
+                >
+                  <option value="" disabled>
+                    Select an action to advise
+                  </option>
+                  {view.decisionPoint?.actions.map((action) => (
+                    <option key={action.id} value={action.id}>
+                      {action.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </section>
+          )}
         </section>
 
         <div className={styles.centerColumn}>
@@ -909,6 +1105,29 @@ export default function SessionPage({
               </ol>
             )}
           </section>
+          {networkClient?.role === "COMMANDER" &&
+            networkView?.advice &&
+            networkView.advice.length > 0 && (
+              <section className={styles.panel}>
+                <div className={styles.panelHeader}>
+                  <div>
+                    <p className={styles.kicker}>Analyst relay</p>
+                    <h2>Structured advice</h2>
+                  </div>
+                </div>
+                <ul className={styles.sessionTimeline}>
+                  {networkView.advice.map((item, index) => (
+                    <li key={`${item.atSec}-${index}`}>
+                      <time>{formatClock(item.atSec)}</time>
+                      <span>
+                        Analyst advises {item.actionId}
+                        {item.note ? ` · ${item.note}` : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
         </div>
 
         <aside
@@ -930,42 +1149,50 @@ export default function SessionPage({
                 <div className={styles.deadline}>
                   <Clock3 size={15} /> Closes at {formatClock(dp.closeSec)}
                 </div>
-                <div className={styles.verifications}>
-                  <h3>Verification options</h3>
-                  {dp.assets.map((asset) => (
-                    <div className={styles.verify} key={asset.id}>
-                      <div>
-                        <strong>{asset.label}</strong>
-                        <span>
-                          {formatClock(asset.delaySec)} delay ·{" "}
-                          {asset.costUnits} cost · Grade {asset.gradeLabel}{" "}
-                          source · {asset.usesLeft} uses
-                        </span>
+                {!canMakeDecision ? (
+                  <p className={styles.muted}>
+                    The Commander owns verification and decision actions.
+                  </p>
+                ) : (
+                  <div className={styles.verifications}>
+                    <h3>Verification options</h3>
+                    {dp.assets.map((asset) => (
+                      <div className={styles.verify} key={asset.id}>
+                        <div>
+                          <strong>{asset.label}</strong>
+                          <span>
+                            {formatClock(asset.delaySec)} delay ·{" "}
+                            {asset.costUnits} cost · Grade {asset.gradeLabel}{" "}
+                            source · {asset.usesLeft} uses
+                          </span>
+                        </div>
+                        <Button
+                          size="sm"
+                          disabled={!asset.feasible || view.phase !== "RUNNING"}
+                          title={asset.reasonDisabled}
+                          onClick={() =>
+                            dispatch({ type: "VERIFY", assetId: asset.id })
+                          }
+                          data-testid={`verify-${asset.id}`}
+                        >
+                          Request
+                        </Button>
                       </div>
-                      <Button
-                        size="sm"
-                        disabled={!asset.feasible || view.phase !== "RUNNING"}
-                        title={asset.reasonDisabled}
-                        onClick={() =>
-                          dispatch({ type: "VERIFY", assetId: asset.id })
-                        }
-                        data-testid={`verify-${asset.id}`}
-                      >
-                        Request
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-                {dp.status === "OPEN" && view.phase === "RUNNING" && (
-                  <Button
-                    variant="primary"
-                    className={styles.decideButton}
-                    onClick={() => setShowDecision(true)}
-                    data-testid="open-decision"
-                  >
-                    Make decision
-                  </Button>
+                    ))}
+                  </div>
                 )}
+                {dp.status === "OPEN" &&
+                  view.phase === "RUNNING" &&
+                  (!canMakeDecision ? null : (
+                    <Button
+                      variant="primary"
+                      className={styles.decideButton}
+                      onClick={() => setShowDecision(true)}
+                      data-testid="open-decision"
+                    >
+                      Make decision
+                    </Button>
+                  ))}
               </>
             ) : (
               <p className={styles.muted}>No active decision window.</p>
@@ -1096,8 +1323,11 @@ export default function SessionPage({
                       <li>J / K — next / previous report</li>
                       <li>Enter — open the selected report</li>
                       <li>E — focus estimate; L — log estimate</li>
-                      <li>V — request the first feasible verification</li>
-                      <li>D — open decision; Space — pause / resume</li>
+                      {canMakeDecision && (
+                        <li>V — request the first feasible verification</li>
+                      )}
+                      {canMakeDecision && <li>D — open decision</li>}
+                      <li>Space — pause / resume</li>
                       <li>R — reset with confirmation; Esc — close dialog</li>
                       {controlsAvailable && (
                         <>
@@ -1163,9 +1393,11 @@ export default function SessionPage({
           authoring assumptions, not doctrine. Only delivered information is
           available to the trainee.
         </span>
-        <Button size="sm" variant="quiet" onClick={resetExercise}>
-          <RotateCcw size={13} /> {demoMode ? "Reset demo" : "Reset exercise"}
-        </Button>
+        {(!networkClient || networkInstructor) && (
+          <Button size="sm" variant="quiet" onClick={resetExercise}>
+            <RotateCcw size={13} /> {demoMode ? "Reset demo" : "Reset exercise"}
+          </Button>
+        )}
       </footer>
     </div>
   );
