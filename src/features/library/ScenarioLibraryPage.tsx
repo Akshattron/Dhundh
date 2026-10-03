@@ -18,7 +18,12 @@ export default function ScenarioLibraryPage() {
             Choose a deterministic exercise built around incomplete information.
           </p>
         </div>
-        <ScenarioBadge />
+        <div>
+          <ScenarioBadge />
+          <Button onClick={() => navigate("/authoring")}>
+            Author a synthetic scenario
+          </Button>
+        </div>
       </div>
       <div className={styles.list}>
         {scenarios.map((scenario) => (

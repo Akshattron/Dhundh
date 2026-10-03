@@ -2,8 +2,136 @@
 
 ## Current Gate
 
-Gate 5 - authoritative multiplayer and remaining P2: **GREEN**, implemented and
-verified in this worktree. Gates 4, 3, 2, 1, and 0 remain **GREEN**.
+Gate 6 selected P3: **GREEN**. Team metrics, scenario authoring, live
+presentation, and replay speed/annotations are implemented and verified.
+**FR-P3-03 optional LLM-written AAR narration is deliberately omitted.**
+Gates 0-5, including the required Gate 2-5 regressions, remain **GREEN**.
+Gate 7 deployment and Gate 8 submission readiness are **NOT VERIFIED**.
+
+Branch: `akshattron-gate-6-advanced-features`.
+Baseline: current `main` at worktree creation,
+`5fff5c38ef0027abc1c2721d5527af57c326b6eb` (Gate 5 merge).
+
+Implementation commit: `8b5a96ec780f1dccd6ff1df66c1631f6c1affbd5`.
+
+## Gate 6 Completed - Selected P3 Advanced Features
+
+| Requirement            | Status and implementation                                                                                                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| FR-P3-05 Replay        | 0.5x/1x/2x/4x presentation-only playback, real source-identified annotations, exact retained-frame jumps, causal decision cuts, and explicit sampling omissions.                     |
+| FR-P3-01 Team metrics  | Completed network AAR sharing rate, paired-estimate convergence and trajectory, median original-to-relay delay, and separate receipt-to-response coordination latency.               |
+| FR-P3-02 Authoring     | Bounded minute-JSON editor, syntax/schema/invariant/coverage/readiness gates, actionable errors, templates/import/reset/copy/export, and an isolated real local preview.             |
+| FR-P3-04 Presentation  | Live role-projected metrics and events, decision/pending-consequence context, real DemoController actions, fullscreen/recovery/focus handling, and authorized completed AAR summary. |
+| FR-P3-03 LLM narration | Intentionally not implemented; no model, external API, or network dependency was added to the local critical demo.                                                                   |
+
+### Gate 6 Implementation and Files
+
+- Replay uses the existing engine reconstruction, advancing scheduled work
+  before accepted actions. It preserves actual completion, the 80-frame bound,
+  role/inspection/aid gates, and counterfactual labels. Files:
+  `src/engine/replay.ts`, `src/features/aar/ReplayScrubber.tsx`, AAR page/styles,
+  protocol, and replay engine/UI tests.
+- Team calculations are pure and server-authoritative. Missing opportunities
+  and unobserved responses remain null/censored; duplicate relays do not inflate
+  sharing. Actual relay receipt is distinct from scheduled receipt. Files:
+  `src/engine/team.ts`, `server/teamAar.ts`, `server/index.ts`, engine AAR/exports,
+  protocol, `TeamMetricsPanel.tsx`, and engine/server/UI tests.
+- Authoring reuses the existing schema/loader and extracts the unchanged
+  mutation readiness search into `src/engine/scenarioReadiness.ts`.
+  `src/engine/authoring.ts` bounds untrusted drafts. The authoring feature,
+  guarded LocalSessionClient preview option, library/routes, download helper,
+  and engine/session/UI tests complete the workbench. Preview preserves authored
+  difficulty/timings and never replaces the active exercise or writes history.
+- Presentation consumes the actual client, not a second simulation. Files:
+  `src/features/presentation/`, `src/session/useSessionView.ts`,
+  `useCompletedAar.ts`, `visibleTimeline.ts`, AppShell, demo/session/AAR entry
+  points, and presentation UI tests. Remote AAR caching includes authoritative
+  sequence identity and ignores stale responses across reset/recompletion.
+- `tests/e2e/flagship-demo.spec.ts` and `network-session.spec.ts` now cover
+  replay/team integration; `p3-workbench.spec.ts` covers authoring, presentation,
+  computed contrast, responsive layout, and fully visible keyboard navigation.
+  README documents formulas, routes, controls, bounds, privacy, and limitations.
+
+### Gate 6 Validation
+
+| Command / check     | Actual result                                                                                                                                                                                               |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Full `npm test`     | Exit 0; **37 files, 329 tests passed**, 0 failed; 58 more tests than the 271-test Gate 5 baseline.                                                                                                          |
+| Golden regressions  | **18/18 passed** within the full suite; expected values and golden files unchanged.                                                                                                                         |
+| UI tests            | **7 files, 43 tests passed** within the full suite; not additional to the 329 total.                                                                                                                        |
+| `npm run typecheck` | Exit 0; strict `tsc --noEmit`.                                                                                                                                                                              |
+| Scenario validation | Exit 0 through `npm run build` prebuild; flagship `1f7af0fb`, harbour `cdcc6039`.                                                                                                                           |
+| Full `npm run e2e`  | Exit 0; **4/4 Chromium flows passed** in approximately 1.6 minutes.                                                                                                                                         |
+| Network E2E         | Instructor creation/monitoring, Commander/Analyst joins, role-private evidence, relay, reconnect, unauthorized AAR rejection, role-safe presentation, completion, and team metrics passed.                  |
+| Local P3 E2E        | All replay rates and exact annotation focus/order, unchanged 88.5 score, authoring validation/recovery/export/preview, offline live presentation, fullscreen, return focus, and real demo shortcuts passed. |
+| `npm run build`     | Exit 0; validated scenarios, typecheck, and final production Vite build passed.                                                                                                                             |
+
+The final demo E2E observed startup at **1,076.5 ms**, WOW at **44 seconds**,
+AAR at **72 seconds**, reset at **142.7 ms**, and repeated reset at **160.7 ms**.
+WOW/AAR are elapsed demo-preset wall time controlled by the browser test clock;
+startup/reset are local observations.
+
+### Gate 6 Performance and Accessibility
+
+Flagship engine measurements used Node 24.21.0, one first call, ten warmups,
+and thirty measured calls. No scoring, golden, or budget values were relaxed.
+
+| Operation                            | First call | Warm p95  | Budget                                                     |
+| ------------------------------------ | ---------- | --------- | ---------------------------------------------------------- |
+| `advanceTo` through terminal timeout | 1.845 ms   | 0.202 ms  | 15 ms                                                      |
+| Full accepted-history replay         | 8.387 ms   | 2.422 ms  | 100 ms                                                     |
+| Annotated replay-frame construction  | 9.774 ms   | 6.685 ms  | 100 ms                                                     |
+| Complete AAR generation              | 43.891 ms  | 34.709 ms | 150 ms                                                     |
+| Authoring validation/readiness       | 5.304 ms   | 2.481 ms  | Bounded workbench input; no separate specified time budget |
+
+The final production build reached the home demo action in a fresh desktop
+Chromium context in **398.6 ms**, below 2.5 seconds. All 37 JavaScript chunks,
+including lazy routes, total **228,975 bytes gzip**, below 450,000 bytes.
+
+Three live presentation windows sampled **180 frames each** after short
+settling periods: median **16.7 ms**, maximum **16.8 ms**, and **zero intervals
+over 25 ms** across all 540 samples. The real client advanced from **22:03 to
+27:03** without a fake clock. Frame measurements were taken after the parallel
+E2E workers exited; an earlier contended capture had two missed intervals.
+These are local observations, not cross-device or concurrent-load guarantees.
+
+Production authoring and presentation were checked at **1920, 1024, 768, and
+390 px**: no horizontal page overflow, and critical controls remained in
+bounds. Long authored labels wrap. The reused compact header now wraps its
+navigation rather than clipping links or the synthetic disclosure. Browser
+regressions require each keyboard-focused navigation link to be fully visible.
+
+Computed-color checks enforce at least **3:1** editor-boundary contrast and
+**4.5:1** editor/provenance text contrast. Existing higher-contrast tokens repair
+the measured failures; no palette redesign was introduced. Keyboard controls,
+visible focus, reduced motion, fullscreen denial/unsupported recovery, stale
+session handling, and projection redaction have focused coverage. Production
+browser checks reported no runtime errors. This is not a comprehensive
+cross-browser or WCAG certification.
+
+### Gate 6 Limitations and Next Phase
+
+- Replay is explicitly sampled to 80 retained frames. Speeds are retained
+  frames per wall-clock second, not a change to simulation time. Omitted
+  annotations are counted rather than shifted to an invented timestamp.
+- Team diagnostics require authorized completion and actual recorded
+  opportunities/responses. Agreement is not correctness, matched responses
+  do not prove causation, and no metric is a scientifically validated
+  learning-transfer measure or a composite team score.
+- Drafts are in memory and subject to the documented editor limits; export
+  before leaving. Readiness uses the existing whole-minute search, not an
+  invented continuous-time guarantee. No canonical scenario is overwritten.
+- Presentation requires the matching active client. Fullscreen depends on
+  browser support/permission. A disconnected network view remains a labelled
+  last authoritative snapshot. Live instructor diagnostics are not a judge
+  projection; instructor presentation is restricted to completed AAR.
+- Network state remains bounded/in-memory as at Gate 5. No database,
+  authentication system, external service, dependency change, or LLM narration
+  was introduced. Canonical scenarios, goldens, and authority files are unchanged.
+- **Next unlocked phase: Gate 7 deployment/prototype verification.**
+  Tomorrow's full visual redesign remains separate. PPT, video, and final
+  submission QA still need their own work and evidence; neither deployment nor
+  submission readiness is claimed here.
 
 ## Gate 5 Completed — Authoritative Multiplayer and P2
 

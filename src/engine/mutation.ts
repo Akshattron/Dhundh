@@ -1,14 +1,12 @@
 import { z } from "zod";
-import { computeBelief } from "./belief";
 import { PROFILES, type DifficultyLevel } from "./difficulty";
 import { hashString, rng } from "./rng";
 import {
   ScenarioValidationError,
   validateRuntimeScenario,
 } from "./scenarioLoader";
-import { advanceTo, applyIntent, createSession } from "./simulation";
+import { assessScenarioReadiness } from "./scenarioReadiness";
 import type { ScenarioDef } from "./types";
-import { netVoi } from "./voi";
 
 const mutationInput = z.strictObject({
   seed: z.number().refine(Number.isSafeInteger, "Seed must be a safe integer"),
@@ -160,63 +158,10 @@ function variant(
 
 function validateVariant(candidate: ScenarioDef): ScenarioDef {
   const scenario = validateRuntimeScenario(candidate);
-  const primary = scenario.hypotheses.find((hypothesis) => hypothesis.primary)!;
-  const initial = createSession(scenario, {
-    seed: 0,
-    difficultyLevel: scenario.meta.difficulty,
-    mode: "LOCAL",
-    aidMode: "ALWAYS",
-  });
-  const started = applyIntent(initial, scenario, {
-    type: "START",
-    t: 0,
-    role: "SOLO",
-  });
-  if (!started.result.ok) throw new Error(started.result.message);
-  let state = started.state;
-  const contradiction = scenario.decisionPoints.map(() => false);
-  const verification = scenario.decisionPoints.map(() => false);
-  const horizon = Math.max(...scenario.decisionPoints.map((dp) => dp.closeSec));
-  for (let t = 0; t <= horizon; t += 60) {
-    const advanced = advanceTo(state, scenario, t);
-    if (advanced.error) throw new Error(advanced.error.message);
-    state = advanced.state;
-    const belief = computeBelief(scenario, state, t);
-    scenario.decisionPoints.forEach((dp, index) => {
-      if (t <= dp.closeSec && belief.perHypothesis[primary.id]!.contradicted) {
-        contradiction[index] = true;
-      }
-      if (verification[index] || t < dp.openSec || t >= dp.closeSec) return;
-      verification[index] = dp.assets.some((id) => {
-        const asset = scenario.assets.find((item) => item.id === id)!;
-        const value = netVoi(dp, belief, t, asset, scenario.hypotheses);
-        return value.feasible && value.net >= 0;
-      });
-    });
-    if (contradiction.every(Boolean) && verification.every(Boolean))
-      return scenario;
-  }
-  const issues = scenario.decisionPoints.flatMap((dp, index) => [
-    ...(!contradiction[index]
-      ? [
-          {
-            path: ["decisionPoints", index],
-            code: "custom",
-            message: `${dp.id}: no reachable primary-hypothesis contradiction on the minute grid before close`,
-          },
-        ]
-      : []),
-    ...(!verification[index]
-      ? [
-          {
-            path: ["decisionPoints", index, "assets"],
-            code: "custom",
-            message: `${dp.id}: no feasible nonnegative-net verification on the minute grid before close`,
-          },
-        ]
-      : []),
-  ]);
-  throw new ScenarioValidationError(issues);
+  const readiness = assessScenarioReadiness(scenario);
+  if (readiness.issues.length)
+    throw new ScenarioValidationError(readiness.issues);
+  return scenario;
 }
 
 export function mutateScenario(

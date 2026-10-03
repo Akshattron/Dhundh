@@ -19,6 +19,6 @@
 }
 
 .provenance {
-  color: var(--text-faint);
+  color: var(--text-muted);
   font-size: var(--font-small);
 }

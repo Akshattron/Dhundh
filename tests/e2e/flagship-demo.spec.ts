@@ -66,7 +66,7 @@ test("flagship demo reaches the real consequence, AAR, and reset", async ({
 
   await page.keyboard.press("a");
   await expect(page.getByText("Decision-quality profile")).toBeVisible();
-  await expect(page.getByText("Timed out")).toBeVisible();
+  await expect(page.getByText("Timed out", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: /Reset demo/ }).click();
   await expect(page.getByTestId("session-clock")).toHaveText("0:00");
 
@@ -138,6 +138,44 @@ test("flagship demo reaches the real consequence, AAR, and reset", async ({
   console.info(
     `Gate 4 measured AAR arrival: ${elapsedDemoMs} ms simulated wall time`,
   );
+
+  const annotationOrder = await page
+    .getByTestId("replay-annotation")
+    .evaluateAll((items) =>
+      items.map((item) => item.getAttribute("data-source-id")),
+    );
+  const replaySlider = page.getByRole("slider");
+  for (const speed of [0.5, 1, 2, 4]) {
+    await page
+      .getByRole("combobox", { name: "Replay speed" })
+      .selectOption(String(speed));
+    await replaySlider.focus();
+    await replaySlider.press("Home");
+    await page
+      .getByRole("button", { name: `Play replay at ${speed}x` })
+      .click();
+    await page.clock.fastForward(1000 / speed);
+    await expect(replaySlider).toHaveValue("1");
+    await page.getByRole("button", { name: "Pause replay" }).click();
+  }
+  await page
+    .getByRole("button", { name: /Jump to decision at 29:00: Decision cut/ })
+    .click();
+  await expect(page.getByTestId("replay-position")).toContainText(
+    "before commitment",
+  );
+  await expect(replaySlider).toBeFocused();
+  expect(
+    await page
+      .getByTestId("replay-annotation")
+      .evaluateAll((items) =>
+        items.map((item) => item.getAttribute("data-source-id")),
+      ),
+  ).toEqual(annotationOrder);
+  await expect(page.getByText("88.5", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("COUNTERFACTUAL — simulated, not what happened").first(),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: /Return to exercise/ }).click();
   const resetStartedAt = performance.now();

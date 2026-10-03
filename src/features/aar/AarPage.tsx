@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownToLine,
   ArrowLeft,
@@ -6,8 +6,6 @@ import {
   Clock3,
   FileText,
   Info,
-  Pause,
-  Play,
   Printer,
   RotateCcw,
 } from "lucide-react";
@@ -29,6 +27,12 @@ import {
 import { ScenarioBadge } from "@/components/ui/ScenarioBadge";
 import type { SessionClient } from "@/session/SessionClient";
 import { RemoteSessionClient } from "@/session/RemoteSessionClient";
+import { useSessionView } from "@/session/useSessionView";
+import { useCompletedAar } from "@/session/useCompletedAar";
+import { ReplayScrubber } from "./ReplayScrubber";
+import { TeamMetricsPanel } from "./TeamMetricsPanel";
+import { downloadFile } from "@/utils/download";
+import { PresentationEntry } from "@/features/presentation/PresentationEntry";
 import {
   createHistoryEntry,
   fingerprintSessionLog,
@@ -63,74 +67,34 @@ const scoreTooltips: Partial<Record<keyof Aar["scores"], string>> = {
     "How close your stated probability was to the reference model's probability. Noisy for a single decision.",
 };
 
-function downloadFile(filename: string, content: string, mimeType: string) {
-  const url = URL.createObjectURL(new Blob([content], { type: mimeType }));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
-}
-
 export default function AarPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const client = useSessionStore((store) => store.client);
-  const storedView = useSessionStore((store) => store.view);
   const experience = useSessionStore((store) => store.experience);
   const setClient = useSessionStore((store) => store.setClient);
-  const view = storedView ?? client?.getSnapshot() ?? null;
-  const localAar =
-    client && !(client instanceof RemoteSessionClient) && view?.aarReady
-      ? client.getAar()
-      : null;
+  const view = useSessionView(client);
+  const {
+    aar,
+    error: aarError,
+    retry,
+    loading,
+  } = useCompletedAar(client, view);
   const networkClient = client instanceof RemoteSessionClient ? client : null;
-  const [networkAar, setNetworkAar] = useState<Aar | null>(null);
-  const [networkAarError, setNetworkAarError] = useState<string | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const historyAttempts = useRef(new Set<string>());
-  const [frameIndex, setFrameIndex] = useState(0);
-  const [replayTab, setReplayTab] = useState<"KNEW" | "TRUTH" | "NEVER_SAW">(
-    "KNEW",
-  );
-  const [playing, setPlaying] = useState(false);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
-  useEffect(() => {
-    if (!networkClient || view?.phase !== "COMPLETE") {
-      setNetworkAar(null);
-      setNetworkAarError(null);
-      return;
-    }
-    let active = true;
-    setNetworkAarError(null);
-    void networkClient
-      .fetchAar()
-      .then((result) => {
-        if (active) setNetworkAar(result);
-      })
-      .catch((error: unknown) => {
-        if (active) {
-          setNetworkAarError(
-            error instanceof Error
-              ? error.message
-              : "The team AAR could not be loaded.",
-          );
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [networkClient, view?.phase]);
-  const displayedAar = networkClient ? networkAar : localAar;
-  const aar = displayedAar;
-  const historyId =
-    networkClient && view
-      ? `network:${networkClient.code}:${networkClient.getSnapshot().seq}`
-      : client && !(client instanceof RemoteSessionClient)
-        ? `local:${fingerprintSessionLog(client.getLog())}`
-        : null;
+  const historyId = useMemo(
+    () =>
+      !aar
+        ? null
+        : networkClient && view
+          ? `network:${networkClient.code}:${networkClient.getSnapshot().seq}`
+          : client && !(client instanceof RemoteSessionClient)
+            ? `local:${fingerprintSessionLog(client.getLog())}`
+            : null,
+    [aar, client, networkClient],
+  );
   useEffect(() => {
     if (!aar || !historyId || historyAttempts.current.has(historyId)) return;
     historyAttempts.current.add(historyId);
@@ -172,21 +136,6 @@ export default function AarPage() {
     }
   };
 
-  useEffect(() => {
-    if (!playing) return;
-    const timer = window.setInterval(() => {
-      setFrameIndex((index) => {
-        const last = Math.max(0, (aar?.frames.length ?? 1) - 1);
-        return Math.min(last, index + 1);
-      });
-    }, 250);
-    return () => window.clearInterval(timer);
-  }, [aar?.frames.length, playing]);
-  useEffect(() => {
-    if (aar && playing && frameIndex >= aar.frames.length - 1)
-      setPlaying(false);
-  }, [aar, frameIndex, playing]);
-
   if (!client || !view || view.scenario.id !== id || !aar) {
     return (
       <section className={styles.unavailable}>
@@ -196,13 +145,29 @@ export default function AarPage() {
           The review unlocks after the simulated consequence is revealed. Active
           sessions are held in this browser tab.
         </p>
-        {networkClient && !networkAarError && view?.phase === "COMPLETE" && (
-          <p role="status">Preparing the authorized team AAR…</p>
-        )}
-        {networkAarError && (
+        {loading && <p role="status">Preparing the authorized team AAR…</p>}
+        {aarError && (
           <p className={styles.recoveryError} role="alert">
-            {networkAarError}
+            {aarError}
           </p>
+        )}
+        {aarError && <Button onClick={retry}>Retry AAR</Button>}
+        {client && view?.scenario.id === id && (
+          <Button
+            onClick={() =>
+              navigate(
+                networkClient
+                  ? networkClient.role === "INSTRUCTOR"
+                    ? `/instructor/${networkClient.code}`
+                    : `/session/network/${id}`
+                  : experience === "DEMO"
+                    ? "/demo"
+                    : `/session/local/${id}`,
+              )
+            }
+          >
+            Return to exercise
+          </Button>
         )}
         <Button onClick={() => navigate("/scenarios")}>
           Start an exercise
@@ -211,8 +176,6 @@ export default function AarPage() {
     );
   }
 
-  const frame = aar.frames[Math.min(frameIndex, aar.frames.length - 1)];
-  if (!frame) throw new Error("Completed AAR has no replay frames");
   const progression = nextDifficulty(aar.scenario.difficultyLevel, {
     dq: aar.scores.dq,
     infoUtil: aar.scores.infoUtil,
@@ -223,56 +186,6 @@ export default function AarPage() {
       candidate.atSec === aar.decision.atSec && candidate.cut === "DECISION",
   );
   const selectedAction = aar.decision.actionLabel;
-  const allKnownReports = new Map<
-    string,
-    {
-      id: string;
-      claim: string;
-      issuedAtSec: number;
-      deliveredAtSec: number | null;
-    }
-  >();
-  for (const report of aar.information.delivered) {
-    allKnownReports.set(report.id, {
-      id: report.id,
-      claim: report.claim,
-      issuedAtSec: report.issuedAtSec,
-      deliveredAtSec: report.deliveredAtSec,
-    });
-  }
-  for (const report of aar.information.lateOrAfterDecision) {
-    allKnownReports.set(report.reportId, {
-      id: report.reportId,
-      claim: report.claim,
-      issuedAtSec: report.issuedAtSec,
-      deliveredAtSec: report.deliveredAtSec,
-    });
-  }
-  for (const report of aar.information.dropped) {
-    allKnownReports.set(report.reportId, {
-      id: report.reportId,
-      claim: report.claim,
-      issuedAtSec: report.issuedAtSec,
-      deliveredAtSec: null,
-    });
-  }
-  const neverSaw = [
-    ...[...allKnownReports.values()].filter(
-      (report) => !frame.deliveredIds.includes(report.id),
-    ),
-    ...aar.information.delivered
-      .filter(
-        (report) =>
-          frame.deliveredIds.includes(report.id) &&
-          !frame.openedIds.includes(report.id),
-      )
-      .map((report) => ({
-        id: report.id,
-        claim: report.claim,
-        issuedAtSec: report.issuedAtSec,
-        deliveredAtSec: report.deliveredAtSec,
-      })),
-  ];
 
   return (
     <article className={styles.page}>
@@ -289,6 +202,13 @@ export default function AarPage() {
           </p>
         </div>
         <div className={styles.headerActions}>
+          {client && view && (
+            <PresentationEntry
+              client={client}
+              view={view}
+              demo={experience === "DEMO"}
+            />
+          )}
           {experience === "DEMO" && (
             <Button variant="quiet" onClick={resetDemo}>
               <RotateCcw size={14} /> Reset demo
@@ -451,6 +371,7 @@ export default function AarPage() {
         </p>
       </section>
 
+      {aar.team && <TeamMetricsPanel report={aar.team} />}
       {aar.team && (
         <section className={`${styles.panel} ${styles.timelineSection}`}>
           <div className={styles.sectionHeading}>
@@ -498,8 +419,10 @@ export default function AarPage() {
                       {relay.reportId} → {relay.relayReportId}
                     </strong>
                     <span>
-                      Relayed {formatClock(relay.atSec)} · delivered{" "}
-                      {formatClock(relay.deliveredAtSec)}
+                      Relayed {formatClock(relay.atSec)} ·{" "}
+                      {relay.deliveredAtSec === null
+                        ? "not delivered before completion"
+                        : `delivered ${formatClock(relay.deliveredAtSec)}`}
                       {relay.note ? ` · ${relay.note}` : ""}
                     </span>
                   </div>
@@ -708,201 +631,7 @@ export default function AarPage() {
           </div>
           <span>{aar.frames.length} recorded frames</span>
         </div>
-        {frame && (
-          <>
-            <div className={styles.replayControls}>
-              <Button
-                size="sm"
-                variant="quiet"
-                aria-label="Previous replay frame"
-                onClick={() => {
-                  setPlaying(false);
-                  setFrameIndex((index) => Math.max(0, index - 1));
-                }}
-              >
-                ←
-              </Button>
-              <Button
-                size="sm"
-                variant="quiet"
-                aria-label={playing ? "Pause replay" : "Play replay at 4x"}
-                onClick={() => {
-                  if (frameIndex >= aar.frames.length - 1) setFrameIndex(0);
-                  setPlaying((current) => !current);
-                }}
-              >
-                {playing ? <Pause size={14} /> : <Play size={14} />}
-                {playing ? "Pause" : "Play 4×"}
-              </Button>
-              <Button
-                size="sm"
-                variant="quiet"
-                aria-label="Next replay frame"
-                onClick={() => {
-                  setPlaying(false);
-                  setFrameIndex((index) =>
-                    Math.min(aar.frames.length - 1, index + 1),
-                  );
-                }}
-              >
-                →
-              </Button>
-              <Button
-                size="sm"
-                variant="quiet"
-                onClick={() => {
-                  setPlaying(false);
-                  setFrameIndex(0);
-                }}
-              >
-                Home
-              </Button>
-              <Button
-                size="sm"
-                variant="quiet"
-                onClick={() => {
-                  setPlaying(false);
-                  setFrameIndex(aar.frames.length - 1);
-                }}
-              >
-                End
-              </Button>
-            </div>
-            <div className={styles.scrubber}>
-              <label htmlFor="aar-scrubber">Simulation time</label>
-              <input
-                id="aar-scrubber"
-                type="range"
-                min={0}
-                max={Math.max(0, aar.frames.length - 1)}
-                value={frameIndex}
-                onChange={(event) => {
-                  setPlaying(false);
-                  setFrameIndex(Number(event.target.value));
-                }}
-                data-testid="aar-scrubber"
-              />
-              <strong>
-                {formatClock(frame.atSec)} ·{" "}
-                {frame.cut === "DECISION"
-                  ? "At decision, before commitment"
-                  : frame.phase}
-              </strong>
-            </div>
-            <div
-              className={styles.replayTabs}
-              role="tablist"
-              aria-label="Replay information view"
-            >
-              {(
-                [
-                  ["KNEW", "Knew"],
-                  ["TRUTH", "Truth"],
-                  ["NEVER_SAW", "Never saw"],
-                ] as const
-              ).map(([tab, label]) => (
-                <button
-                  key={tab}
-                  type="button"
-                  role="tab"
-                  aria-selected={replayTab === tab}
-                  onClick={() => setReplayTab(tab)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className={styles.replayView} role="tabpanel">
-              {replayTab === "KNEW" && (
-                <>
-                  <h3>Available by {formatClock(frame.atSec)}</h3>
-                  <p>
-                    Knew uses only information delivered by this frame.{" "}
-                    {frame.deliveredIds.length} delivered ·{" "}
-                    {frame.openedIds.length} opened · {frame.droppedIds.length}{" "}
-                    dropped.
-                  </p>
-                  {frame.belief ? (
-                    <div className={styles.facts}>
-                      {Object.entries(frame.belief.perHypothesis).map(
-                        ([hypothesisId, belief]) => (
-                          <div key={hypothesisId}>
-                            <span>{hypothesisId.replaceAll("_", " ")}</span>
-                            <strong>{formatPercent(belief.p, 1)}</strong>
-                          </div>
-                        ),
-                      )}
-                    </div>
-                  ) : (
-                    <p className={styles.muted}>
-                      Reference aid not available at this frame.
-                    </p>
-                  )}
-                  {frame.deliveredIds.length > 0 && (
-                    <p>Delivered: {frame.deliveredIds.join(", ")}</p>
-                  )}
-                </>
-              )}
-              {replayTab === "TRUTH" && (
-                <>
-                  <h3>Post-mortem truth at {formatClock(frame.atSec)}</h3>
-                  <p>
-                    Truth is shown only in this authorized post-completion view.
-                  </p>
-                  <div className={styles.facts}>
-                    {Object.entries(frame.truth).map(
-                      ([hypothesisId, truth]) => (
-                        <div key={hypothesisId}>
-                          <span>{hypothesisId.replaceAll("_", " ")}</span>
-                          <strong>{truth ? "True" : "False"}</strong>
-                        </div>
-                      ),
-                    )}
-                  </div>
-                </>
-              )}
-              {replayTab === "NEVER_SAW" && (
-                <>
-                  <h3>
-                    Information not available by {formatClock(frame.atSec)}
-                  </h3>
-                  <p>
-                    Dropped, delayed, or delivered-but-unopened information at
-                    this frame.
-                  </p>
-                  {neverSaw.length === 0 ? (
-                    <p className={styles.muted}>
-                      No unseen information identified at this frame.
-                    </p>
-                  ) : (
-                    <ul>
-                      {neverSaw.map((report) => (
-                        <li key={report.id}>
-                          <strong>{report.id}</strong> · {report.claim} · issued{" "}
-                          {formatClock(report.issuedAtSec)}
-                          {report.deliveredAtSec === null
-                            ? " · not delivered"
-                            : ` · arrived ${formatClock(report.deliveredAtSec)}`}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </>
-              )}
-            </div>
-            <div className={styles.frameSummary}>
-              <span>{frame.deliveredIds.length} delivered reports</span>
-              <span>
-                {frame.trainee.decided ? "1 decision" : "No decision yet"}
-              </span>
-              <span>
-                {frame.trainee.verifyPending
-                  ? "Verification pending"
-                  : "No verification pending"}
-              </span>
-            </div>
-          </>
-        )}
+        <ReplayScrubber aar={aar} />
         <ol className={styles.timeline}>
           {aar.timeline.map((event, index) => (
             <li key={`${event.atSec}-${event.kind}-${index}`}>
@@ -1150,8 +879,8 @@ export default function AarPage() {
           </article>
         ))}
         <p className={styles.muted}>
-          Team analysis remains a later-phase placeholder; no network or team
-          scoring is implemented here.
+          Team coordination diagnostics use completed authoritative network
+          history when available. No composite team score is calculated.
         </p>
       </section>
       <p className={styles.limitations}>

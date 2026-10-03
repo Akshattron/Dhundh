@@ -22,12 +22,18 @@ import { ReferenceModelDrawer } from "@/features/trainee/ReferenceModelDrawer";
 import { InstructorControls } from "./InstructorControls";
 import { DEMO_SCENARIO_ID } from "@/features/demo/DemoController";
 import type { ProjectedReport, TraineeView } from "@/engine/view";
-import type { SessionClient, SessionCommand } from "@/session/SessionClient";
+import type { SessionCommand } from "@/session/SessionClient";
 import { RemoteSessionClient } from "@/session/RemoteSessionClient";
+import { useRemoteStatus, useSessionView } from "@/session/useSessionView";
 import type { NetworkSessionView } from "@/session/protocol";
 import { createLocalSession } from "@/session/LocalSessionClient";
 import { scenarios } from "@/scenarios";
 import { useSessionStore } from "@/state/useSessionStore";
+import { visibleTimeline } from "@/session/visibleTimeline";
+import {
+  PresentationEntry,
+  presentationNavigationSchema,
+} from "@/features/presentation/PresentationEntry";
 import { formatAge, formatClock, formatPercent } from "@/utils/format";
 import styles from "./SessionPage.module.css";
 
@@ -36,42 +42,6 @@ const healthLabel: Record<string, string> = {
   DEGRADED: "Degraded",
   DOWN: "Unavailable",
 };
-
-function useLiveSession(
-  client: SessionClient | null,
-  initial: TraineeView | null,
-) {
-  const [view, setView] = useState(initial);
-  useEffect(() => {
-    if (!client) {
-      setView(null);
-      return;
-    }
-    const update = () => setView(client.getSnapshot());
-    update();
-    return client.subscribe(update);
-  }, [client]);
-  return view;
-}
-
-function useRemoteStatus(client: RemoteSessionClient | null) {
-  const [status, setStatus] = useState(client?.status ?? null);
-  const [message, setMessage] = useState(client?.statusMessage ?? "");
-  useEffect(() => {
-    if (!client) {
-      setStatus(null);
-      setMessage("");
-      return;
-    }
-    const update = () => {
-      setStatus(client.status);
-      setMessage(client.statusMessage);
-    };
-    update();
-    return client.subscribeStatus(update);
-  }, [client]);
-  return { status, message };
-}
 
 interface ReportCardProps {
   report: ProjectedReport;
@@ -199,10 +169,9 @@ export default function SessionPage({
   const navigate = useNavigate();
   const location = useLocation();
   const client = useSessionStore((store) => store.client);
-  const initial = useSessionStore((store) => store.view);
   const setClient = useSessionStore((store) => store.setClient);
   const setClientView = useSessionStore((store) => store.setView);
-  const view = useLiveSession(client, initial);
+  const view = useSessionView(client);
   const networkClient = client instanceof RemoteSessionClient ? client : null;
   const networkInstructor = networkClient?.role === "INSTRUCTOR";
   const canMakeDecision = !networkClient || networkClient.role === "COMMANDER";
@@ -241,6 +210,25 @@ export default function SessionPage({
   useEffect(() => {
     if (view) setClientView(view);
   }, [setClientView, view]);
+
+  useEffect(() => {
+    const state = presentationNavigationSchema.safeParse(location.state);
+    if (!state.success) return;
+    if (
+      state.data.openConsole === "decision" &&
+      canMakeDecision &&
+      view?.decisionPoint?.status === "OPEN"
+    )
+      setShowDecision(true);
+    if (state.data.openConsole === "instructor" && controlsAvailable)
+      setInstructorOpen(true);
+  }, [
+    location.key,
+    location.state,
+    canMakeDecision,
+    controlsAvailable,
+    view?.decisionPoint?.status,
+  ]);
 
   const dispatch = useCallback(
     (command: SessionCommand) => {
@@ -501,27 +489,7 @@ export default function SessionPage({
     reportChannel === "ALL"
       ? view.reports
       : view.reports.filter((report) => report.channel === reportChannel);
-  const recentTimeline = [
-    ...view.reports.map((report) => ({
-      atSec: report.deliveredAtSec,
-      label: `${report.channel} report ${report.id} delivered`,
-    })),
-    ...view.verifications.map((verification) => ({
-      atSec: verification.requestedAtSec,
-      label: `Verification requested: ${verification.assetId}`,
-    })),
-    ...view.estimates.map((estimate) => ({
-      atSec: estimate.atSec,
-      label: `Estimate recorded: ${view.hypotheses.find((item) => item.id === estimate.hypothesisId)?.label ?? estimate.hypothesisId}`,
-    })),
-    ...view.decisions.map((decision) => ({
-      atSec: decision.atSec,
-      label: `Decision committed: ${decision.actionId}`,
-    })),
-  ]
-    .sort((left, right) => left.atSec - right.atSec)
-    .slice(-8)
-    .reverse();
+  const recentTimeline = visibleTimeline(view);
   const canPause =
     view.phase === "RUNNING" && (!networkClient || networkInstructor);
   const canResume =
@@ -590,6 +558,7 @@ export default function SessionPage({
           <h1>{view.scenario.title}</h1>
         </div>
         <div className={styles.status}>
+          {!demoMode && <PresentationEntry client={client} view={view} />}
           {view.aidRevealed ? (
             <ReferenceModelDrawer model={view.referenceModel} />
           ) : (
