@@ -64,9 +64,13 @@ test("flagship demo reaches the real consequence, AAR, and reset", async ({
   ).toHaveCount(0);
 
   await page.locator("body").press("i");
-  await expect(page.getByText("Control drawer")).toBeVisible();
+  await expect(
+    page.getByRole("dialog", { name: "Local instructor controls" }),
+  ).toBeVisible();
   await page.locator("body").press("i");
-  await expect(page.getByText("Control drawer")).toHaveCount(0);
+  await expect(
+    page.getByRole("dialog", { name: "Local instructor controls" }),
+  ).toHaveCount(0);
 
   await page.keyboard.press("n");
   await expect(page.getByTestId("session-clock")).toHaveText("3:00");
@@ -117,7 +121,9 @@ test("flagship demo reaches the real consequence, AAR, and reset", async ({
   await expect(page.getByTestId("demo-wow")).toContainText(
     "Delayed evidence now conflicts",
   );
-  await expect(page.getByText(/^\+\d\.\d{2} since prior event$/)).toBeVisible();
+  await expect(
+    page.getByText(/^\+\d+\.\d pp since pre-conflict$/),
+  ).toBeVisible();
   expect(elapsedDemoMs).toBeLessThanOrEqual(60_000);
   console.info(
     `Gate 4 measured WOW arrival: ${elapsedDemoMs} ms simulated wall time`,
@@ -144,6 +150,7 @@ test("flagship demo reaches the real consequence, AAR, and reset", async ({
   await expect(page.getByTestId("consequence-reveal")).toBeVisible();
   await page.getByTestId("open-aar").click();
   await expect(page.getByText("Decision-quality profile")).toBeVisible();
+  await page.locator("#aar-decision-details > summary").click();
   await expect(
     page.getByText("Truth at decision · revealed after completion"),
   ).toBeVisible();
@@ -179,11 +186,13 @@ test("flagship demo reaches the real consequence, AAR, and reset", async ({
   await page.emulateMedia({ media: "print" });
   const pdf = await page.pdf();
   expect(pdf.subarray(0, 5).toString("ascii")).toBe("%PDF-");
+  await page.emulateMedia({ media: "screen" });
   expect(elapsedDemoMs).toBeLessThanOrEqual(180_000);
   console.info(
     `Gate 4 measured AAR arrival: ${elapsedDemoMs} ms simulated wall time`,
   );
 
+  await page.getByText(/^Recorded event annotations/).click();
   const annotationOrder = await page
     .getByTestId("replay-annotation")
     .evaluateAll((items) =>
@@ -218,8 +227,12 @@ test("flagship demo reaches the real consequence, AAR, and reset", async ({
       ),
   ).toEqual(annotationOrder);
   await expect(page.getByText("88.5", { exact: true })).toBeVisible();
+  await page.locator("#aar-counterfactuals > summary").click();
   await expect(
-    page.getByText("COUNTERFACTUAL — simulated, not what happened").first(),
+    page
+      .locator("#aar-counterfactuals")
+      .getByText("COUNTERFACTUAL — simulated, not what happened")
+      .first(),
   ).toBeVisible();
 
   await page.getByRole("button", { name: /Return to exercise/ }).click();

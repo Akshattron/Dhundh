@@ -67,6 +67,7 @@ describe("replay presentation controls", () => {
   it("jumps to actual annotation cuts, pauses playback, and focuses the scrubber", () => {
     vi.useFakeTimers();
     render(<ReplayScrubber aar={aar} />);
+    fireEvent.click(screen.getByText(/^Recorded event annotations/));
     const originalOrder = screen
       .getAllByTestId("replay-annotation")
       .map((element) => element.getAttribute("data-source-id"));

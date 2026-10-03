@@ -1,7 +1,6 @@
 import {
   ArrowRight,
   BookOpen,
-  Clock3,
   GitBranch,
   Plus,
   ShieldCheck,
@@ -11,6 +10,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { ScenarioBadge } from "@/components/ui/ScenarioBadge";
+import { ChannelIcon } from "@/features/trainee/ChannelHealthStrip";
 import { scenarios } from "@/scenarios";
 import {
   DemoController,
@@ -19,6 +19,8 @@ import {
 import { useSessionStore } from "@/state/useSessionStore";
 import { LOCAL_ONLY_BUILD } from "@/utils/deployment";
 import styles from "./HomePage.module.css";
+
+const channels = ["LAND", "AIR", "CYBER", "EW"] as const;
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -49,7 +51,6 @@ export default function HomePage() {
     <div className={styles.home}>
       <section className={styles.hero}>
         <div className={styles.heroCopy}>
-          <ScenarioBadge />
           <p className={styles.eyebrow}>
             Decision Training Under Degraded Information
           </p>
@@ -108,40 +109,59 @@ export default function HomePage() {
             </p>
           )}
           <p className={styles.thesis}>
-            “Decide on the information you had — then see what actually
-            happened.”
+            A good decision can still have a bad outcome. Learn to separate the
+            two.
           </p>
+          <ScenarioBadge />
         </div>
-        <div className={styles.heroSignal} aria-label="Training sequence">
+        <figure className={styles.heroSignal} aria-label="Training sequence">
           <div className={styles.signalHead}>
-            <span>Decision sequence</span>
-            <span className={styles.signalDot} />
+            <span>01 / Information</span>
+            <span>Four sources. One evolving picture.</span>
           </div>
-          <div className={styles.signalSequence}>
-            {[
-              "State",
-              "Intelligence",
-              "Change",
-              "Decision",
-              "Consequence",
-              "Explanation",
-            ].map((step, index) => (
-              <div className={styles.signalStep} key={step}>
-                <span className={styles.stepIndex}>
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <span>{step}</span>
-                {index < 5 && (
-                  <span className={styles.connector} aria-hidden="true" />
-                )}
-              </div>
+          <div className={styles.channels}>
+            {channels.map((channel) => (
+              <span key={channel} data-channel={channel}>
+                <ChannelIcon channel={channel} size={20} />
+                {channel}
+              </span>
             ))}
           </div>
-          <div className={styles.signalFoot}>
-            <Clock3 size={15} aria-hidden="true" />
-            <span>Information-conditioned evaluation</span>
-          </div>
-        </div>
+          <svg
+            className={styles.signalRoutes}
+            viewBox="0 0 400 96"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            {channels.map((channel, index) => (
+              <path
+                key={channel}
+                data-channel={channel}
+                d={`M ${50 + index * 100} 0 V 16 Q ${50 + index * 100} 48 200 48 V 96`}
+              />
+            ))}
+          </svg>
+          <ol className={styles.signalSequence}>
+            <li>
+              <span className={styles.stepIndex}>02</span>
+              <h2>Fog</h2>
+              <p>Delay, gaps and conflicting evidence.</p>
+            </li>
+            <li>
+              <span className={styles.stepIndex}>03</span>
+              <h2>Belief</h2>
+              <p>What the available information supports.</p>
+            </li>
+            <li>
+              <span className={styles.stepIndex}>04</span>
+              <h2>Decision</h2>
+              <p>Commit. Reveal the outcome. Reconstruct.</p>
+            </li>
+          </ol>
+          <figcaption className={styles.signalFoot}>
+            Conceptual training sequence, not a live session.
+          </figcaption>
+        </figure>
       </section>
 
       <section className={styles.principles} aria-label="Product principles">

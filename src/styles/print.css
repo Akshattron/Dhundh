@@ -12,6 +12,8 @@
     --text-muted: var(--print-text);
     --text-faint: var(--print-text);
     --accent-cyan: var(--print-text);
+    --accent-blue: var(--print-text);
+    --accent-red: var(--print-text);
     --accent-green: var(--print-text);
     --accent-amber: var(--print-text);
     --accent-violet: var(--print-text);

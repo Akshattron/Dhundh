@@ -98,6 +98,38 @@ describe("P1 signature visualizations", () => {
     );
     expect(screen.getByText(/The evidence is split/)).toBeTruthy();
     expect(screen.getByText(/Supports true: 0.80 nats/)).toBeTruthy();
-    expect(screen.getByText("Evidence conflicts")).toBeTruthy();
+    expect(screen.getByText("Evidence is split")).toBeTruthy();
+  });
+
+  it("withholds uninspected values and never advertises unavailable historical inspection", () => {
+    const hypotheses: WaterfallHypothesis[] = [
+      {
+        id: "withheld",
+        label: "Restricted evidence",
+        priorLogOdds: 0,
+        currentLogOdds: 0.4,
+        contributions: [
+          {
+            reportId: "R01",
+            group: "G1",
+            channel: "LAND",
+            claim: "Fictional report",
+            gradeLabel: "B",
+            ageSec: 60,
+            effectiveAccuracy: 0.91,
+            llr: 3.717,
+            inspected: false,
+          },
+        ],
+      },
+    ];
+    const { container } = render(<EvidenceWaterfall hypotheses={hypotheses} />);
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.getByText("Not inspected")).toBeTruthy();
+    expect(container.textContent).not.toContain("3.717");
+    expect(container.textContent).not.toContain("91.0");
+    expect(
+      screen.getByRole("img", { name: /signed contribution withheld/ }),
+    ).toBeTruthy();
   });
 });

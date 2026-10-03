@@ -23,6 +23,7 @@
 .value {
   stroke: var(--accent-amber);
   stroke-linecap: round;
+  transition: stroke-dasharray var(--motion-belief) var(--ease-out);
 }
 
 .root span {
@@ -31,8 +32,8 @@
 }
 
 .root strong {
-  color: var(--text-default);
-  font-size: var(--font-small);
+  color: var(--text-strong);
+  font-size: var(--font-h3);
 }
 
 .root small {

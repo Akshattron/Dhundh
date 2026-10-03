@@ -7,6 +7,8 @@ import { RemoteSessionClient } from "@/session/RemoteSessionClient";
 import { scenarios } from "@/scenarios";
 import { useSessionStore } from "@/state/useSessionStore";
 import { formatClock } from "@/utils/format";
+import { LockKeyhole } from "lucide-react";
+import { TeamRoster } from "./TeamRoster";
 import styles from "./NetworkPages.module.css";
 
 export default function InstructorPage() {
@@ -117,7 +119,10 @@ export default function InstructorPage() {
     <section className={styles.page}>
       <header className={styles.heading}>
         <div>
-          <p className={styles.kicker}>Instructor-only live monitor</p>
+          <p className={styles.kicker}>
+            <LockKeyhole size={14} aria-hidden="true" /> Instructor-only ·
+            synthetic exercise
+          </p>
           <h1>Session control room</h1>
           <p>Authoritative state and role-specific activity from the server.</p>
         </div>
@@ -150,9 +155,19 @@ export default function InstructorPage() {
             <p>
               {view.scenario.title} · Difficulty {view.scenario.difficulty}/5
             </p>
-            <p className={styles.muted}>
-              {view.phase} · {formatClock(view.nowSec)} · {view.speedSecPerMin}s
-              per simulated minute
+            <div className={styles.liveState}>
+              <div>
+                <span>Simulation time</span>
+                <strong>{formatClock(view.nowSec)}</strong>
+              </div>
+              <div>
+                <span>Phase</span>
+                <strong className={styles.phase}>{view.phase}</strong>
+              </div>
+            </div>
+            <p className={styles.caption}>
+              {view.speedSecPerMin}s per simulated minute · server-controlled
+              clock
             </p>
             <p>
               Join link: <a href={`/join?code=${code}`}>/join?code={code}</a>
@@ -209,8 +224,11 @@ export default function InstructorPage() {
               )}
             </div>
             {scenario && view.phase !== "IDLE" && (
-              <section>
-                <h3>Instructor injects</h3>
+              <details className={styles.injects}>
+                <summary>
+                  <h3>Instructor injects</h3>
+                  <span>{scenario.injectPresets.length} presets</span>
+                </summary>
                 <div className={styles.controlList}>
                   {scenario.injectPresets.map((preset) => (
                     <Button
@@ -222,11 +240,14 @@ export default function InstructorPage() {
                         dispatch({ type: "INJECT", presetId: preset.id })
                       }
                     >
-                      {preset.label}
+                      <span className={styles.injectContent}>
+                        <strong>{preset.label}</strong>
+                        <small>{preset.description}</small>
+                      </span>
                     </Button>
                   ))}
                 </div>
-              </section>
+              </details>
             )}
           </aside>
 
@@ -238,6 +259,7 @@ export default function InstructorPage() {
                   Instructor only — not visible to trainees
                 </span>
               </div>
+              <TeamRoster roster={view.roster} currentRole={view.role} />
               {trainees.length === 0 ? (
                 <p className={styles.muted}>
                   Waiting for Commander and Analyst to join.
@@ -247,7 +269,7 @@ export default function InstructorPage() {
                   {trainees.map((trainee) => (
                     <article className={styles.monitorCard} key={trainee.role}>
                       <span className={styles.role}>{trainee.role}</span>
-                      <strong>
+                      <strong className={styles.monitorValue}>
                         {trainee.opened} / {trainee.delivered} reports opened
                       </strong>
                       <span>
@@ -268,28 +290,13 @@ export default function InstructorPage() {
                   ))}
                 </div>
               )}
-              <ul className={styles.roster}>
-                {view.roster.map((participant) => (
-                  <li className={styles.participant} key={participant.role}>
-                    <div>
-                      <span className={styles.role}>{participant.role}</span>
-                      <strong>{participant.name}</strong>
-                    </div>
-                    <span
-                      className={
-                        participant.connected
-                          ? styles.connected
-                          : styles.disconnected
-                      }
-                    >
-                      {participant.connected ? "Connected" : "Disconnected"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
             </section>
-            <section className={styles.panel}>
-              <h2>Instructor diagnostics</h2>
+            <details className={`${styles.panel} ${styles.privateDiagnostics}`}>
+              <summary>
+                <LockKeyhole size={16} aria-hidden="true" />
+                <h2>Instructor diagnostics</h2>
+                <span>Authorized connection only</span>
+              </summary>
               <p>
                 Current simulation state: {view.phase} ·{" "}
                 {formatClock(view.nowSec)}
@@ -305,11 +312,15 @@ export default function InstructorPage() {
                 Truth and event diagnostics are authorized for this instructor
                 connection only.
               </p>
-            </section>
+            </details>
             <section className={styles.panel}>
               <h2>Recent session events</h2>
               {view.instructor?.eventLog.length ? (
-                <ol className={styles.events}>
+                <ol
+                  className={styles.events}
+                  tabIndex={0}
+                  aria-label="Recent instructor event history"
+                >
                   {view.instructor.eventLog.map((event, index) => (
                     <li key={`${event.atSec}-${index}`}>
                       <time>{formatClock(event.atSec)}</time>

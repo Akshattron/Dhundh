@@ -3,6 +3,7 @@ import {
   Activity,
   ArrowRight,
   CircleHelp,
+  ChevronDown,
   FileText,
   Home,
   Pause,
@@ -14,7 +15,6 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
-import { ScenarioBadge } from "@/components/ui/ScenarioBadge";
 import { DemoController, DEMO_SCENARIO_ID } from "./DemoController";
 import SessionPage from "@/features/session/SessionPage";
 import { scenarios } from "@/scenarios";
@@ -22,7 +22,6 @@ import type { SessionClient } from "@/session/SessionClient";
 import type { TraineeView } from "@/engine/view";
 import { useSessionStore } from "@/state/useSessionStore";
 import { useSessionView } from "@/session/useSessionView";
-import { PresentationEntry } from "@/features/presentation/PresentationEntry";
 import styles from "./DemoPage.module.css";
 
 export default function DemoPage() {
@@ -44,6 +43,7 @@ export default function DemoPage() {
   const [runKey, setRunKey] = useState(0);
   const [guideOpen, setGuideOpen] = useState(true);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [presenterExpanded, setPresenterExpanded] = useState(false);
   const [status, setStatus] = useState("Preparing deterministic demo…");
   const [error, setError] = useState<string | null>(null);
   const [wowAtSec, setWowAtSec] = useState<number | null>(null);
@@ -323,234 +323,242 @@ export default function DemoPage() {
   ];
 
   return (
-    <div className={styles.page}>
-      <header className={styles.heading}>
-        <div>
-          <p className={styles.kicker}>
-            Presenter mode · deterministic local run
-          </p>
-          <h1>Flagship demo</h1>
-        </div>
-        <div className={styles.controlActions}>
-          <ScenarioBadge />
-          <PresentationEntry client={client} view={view} demo />
-        </div>
-      </header>
-
-      <section
-        className={styles.controls}
-        aria-label="Presenter controls"
-        data-testid="demo-presenter-controls"
-      >
-        <div className={styles.controlTitle}>
-          <span className={styles.liveMark} aria-hidden="true" />
-          <div>
-            <strong>Presenter controls</strong>
-            <span>
-              {view.phase} · {Math.floor(view.nowSec / 60)}:
-              {String(view.nowSec % 60).padStart(2, "0")} simulation time
-            </span>
-          </div>
-        </div>
-        <div className={styles.controlActions}>
-          <button
-            type="button"
-            onClick={start}
-            aria-label="Run or resume demo"
-            data-testid="demo-run"
+    <SessionPage
+      key={runKey}
+      demoMode
+      onDemoReset={installFreshSession}
+      presenter={
+        <>
+          <section
+            className={styles.controls}
+            aria-label="Presenter controls"
+            data-testid="demo-presenter-controls"
+            data-expanded={presenterExpanded}
           >
-            <Play size={15} aria-hidden="true" /> Run
-          </button>
-          <button
-            type="button"
-            onClick={pause}
-            disabled={view.phase !== "RUNNING"}
-            data-testid="demo-pause"
-          >
-            <Pause size={15} aria-hidden="true" /> Pause
-          </button>
-          <button
-            type="button"
-            onClick={resume}
-            disabled={view.phase !== "PAUSED"}
-            data-testid="demo-resume"
-          >
-            <Play size={15} aria-hidden="true" /> Resume
-          </button>
-          <button
-            type="button"
-            onClick={installFreshSession}
-            data-testid="demo-reset"
-          >
-            <RotateCcw size={15} aria-hidden="true" /> Reset
-          </button>
-          <button
-            type="button"
-            onClick={step}
-            disabled={view.phase !== "RUNNING" && view.phase !== "CONSEQUENCE"}
-            data-testid="demo-step"
-          >
-            <SkipForward size={15} aria-hidden="true" /> Step
-          </button>
-          <button
-            type="button"
-            onClick={skipToWow}
-            disabled={view.phase !== "RUNNING" || wowAtSec !== null}
-            data-testid="demo-skip-wow"
-          >
-            <Sparkles size={15} aria-hidden="true" /> WOW
-          </button>
-          <button
-            type="button"
-            onClick={skipToDecision}
-            disabled={view.phase !== "RUNNING"}
-            data-testid="demo-skip-decision"
-          >
-            <ArrowRight size={15} aria-hidden="true" /> Decide
-          </button>
-          <button
-            type="button"
-            onClick={skipToAar}
-            disabled={view.phase === "PAUSED"}
-            data-testid="demo-skip-aar"
-          >
-            <FileText size={15} aria-hidden="true" /> AAR
-          </button>
-        </div>
-        <p className={styles.controlStatus} role="status" aria-live="polite">
-          {status}
-        </p>
-        <button
-          className={styles.shortcutsButton}
-          type="button"
-          aria-expanded={shortcutsOpen}
-          onClick={() => setShortcutsOpen((open) => !open)}
-        >
-          <CircleHelp size={15} aria-hidden="true" /> Shortcuts
-        </button>
-      </section>
-
-      {shortcutsOpen && (
-        <aside
-          className={styles.shortcutPanel}
-          aria-label="Presenter shortcuts"
-        >
-          <div>
-            <strong>Presenter shortcuts</strong>
             <button
               type="button"
-              aria-label="Close presenter shortcuts"
-              onClick={() => setShortcutsOpen(false)}
+              className={styles.compactSummary}
+              aria-expanded={presenterExpanded}
+              aria-controls="demo-control-actions"
+              onClick={() => setPresenterExpanded((open) => !open)}
             >
-              <X size={15} aria-hidden="true" />
+              Presenter controls <ChevronDown size={14} aria-hidden="true" />
             </button>
-          </div>
-          <ul>
-            <li>
-              <kbd>H</kbd> Home
-            </li>
-            <li>
-              <kbd>D</kbd> Reset demo
-            </li>
-            <li>
-              <kbd>N</kbd> Step to next engine event
-            </li>
-            <li>
-              <kbd>J</kbd> Jump to decision window
-            </li>
-            <li>
-              <kbd>A</kbd> Complete the real path and open AAR
-            </li>
-            <li>
-              <kbd>I</kbd> Toggle instructor drawer
-            </li>
-            <li>
-              <kbd>?</kbd> Show or hide shortcuts
-            </li>
-          </ul>
-        </aside>
-      )}
-
-      {guideOpen && (
-        <aside
-          className={styles.guide}
-          aria-label="Demo presenter guide"
-          data-testid="demo-guide"
-        >
-          <div className={styles.guideHeading}>
-            <div>
-              <p className={styles.kicker}>Live demo sequence</p>
-              <strong>Follow the information to the decision.</strong>
+            <div className={styles.controlTitle}>
+              <strong>Presenter controls</strong>
             </div>
-            <button
-              type="button"
-              aria-label="Dismiss presenter guide"
-              onClick={() => setGuideOpen(false)}
-            >
-              <X size={16} aria-hidden="true" />
-            </button>
-          </div>
-          <ol>
-            {guideSteps.map((step, index) => (
-              <li
-                className={step.complete ? styles.stepComplete : ""}
-                key={step.label}
+            <div className={styles.controlActions} id="demo-control-actions">
+              <button
+                type="button"
+                onClick={start}
+                aria-label="Run or resume demo"
+                data-testid="demo-run"
               >
-                <span>{String(index + 1).padStart(2, "0")}</span>
-                {step.label}
-              </li>
-            ))}
-          </ol>
-        </aside>
-      )}
-
-      {wowAtSec !== null && (
-        <section
-          className={styles.wow}
-          data-testid="demo-wow"
-          aria-live="polite"
-          aria-label="Information environment changed"
-        >
-          <div className={styles.wowIcon}>
-            <Sparkles size={18} aria-hidden="true" />
-          </div>
-          <div className={styles.wowCopy}>
-            <p className={styles.kicker}>
-              Information environment changed · {Math.floor(wowAtSec / 60)}:
-              {String(wowAtSec % 60).padStart(2, "0")}
-            </p>
-            <h2>Delayed evidence now conflicts with the earlier picture.</h2>
-            <p>
-              {degradedChannels.length > 0
-                ? `${degradedChannels.join(" / ")} communication is degraded. `
-                : "Communication degradation has occurred. "}
-              {delayedReport?.claim ??
-                "A delayed report is now part of the evidence."}
-            </p>
-          </div>
-          <div className={styles.wowMetrics}>
-            <span>FOG INDEX</span>
-            <strong>{view.belief?.fogIndex.toFixed(2) ?? "—"}</strong>
-            {fogDelta !== null && (
-              <small>
-                {fogDelta >= 0 ? "+" : ""}
-                {fogDelta.toFixed(2)} since prior event
-              </small>
-            )}
-          </div>
-          {primary && primaryBelief && (
-            <div className={styles.wowMetrics}>
-              <span>REFERENCE BELIEF</span>
-              <strong>{Math.round(primaryBelief.p * 100)}%</strong>
-              <small>
-                {primary.label}: {Math.round(primary.prior * 100)}% prior
-              </small>
+                <Play size={15} aria-hidden="true" /> Run
+              </button>
+              <button
+                type="button"
+                onClick={pause}
+                disabled={view.phase !== "RUNNING"}
+                data-testid="demo-pause"
+              >
+                <Pause size={15} aria-hidden="true" /> Pause
+              </button>
+              <button
+                type="button"
+                onClick={resume}
+                disabled={view.phase !== "PAUSED"}
+                data-testid="demo-resume"
+              >
+                <Play size={15} aria-hidden="true" /> Resume
+              </button>
+              <button
+                type="button"
+                onClick={installFreshSession}
+                data-testid="demo-reset"
+              >
+                <RotateCcw size={15} aria-hidden="true" /> Reset
+              </button>
+              <button
+                type="button"
+                onClick={step}
+                disabled={
+                  view.phase !== "RUNNING" && view.phase !== "CONSEQUENCE"
+                }
+                data-testid="demo-step"
+              >
+                <SkipForward size={15} aria-hidden="true" /> Step
+              </button>
+              <button
+                type="button"
+                onClick={skipToWow}
+                disabled={view.phase !== "RUNNING" || wowAtSec !== null}
+                data-testid="demo-skip-wow"
+              >
+                <Sparkles size={15} aria-hidden="true" /> WOW
+              </button>
+              <button
+                type="button"
+                onClick={skipToDecision}
+                disabled={view.phase !== "RUNNING"}
+                data-testid="demo-skip-decision"
+              >
+                <ArrowRight size={15} aria-hidden="true" /> Decide
+              </button>
+              <button
+                type="button"
+                onClick={skipToAar}
+                disabled={view.phase === "PAUSED"}
+                data-testid="demo-skip-aar"
+              >
+                <FileText size={15} aria-hidden="true" /> AAR
+              </button>
             </div>
-          )}
-        </section>
-      )}
+            <p
+              className={styles.controlStatus}
+              role="status"
+              aria-live="polite"
+            >
+              {status}
+            </p>
+            <button
+              className={styles.shortcutsButton}
+              type="button"
+              aria-expanded={shortcutsOpen}
+              onClick={() => setShortcutsOpen((open) => !open)}
+            >
+              <CircleHelp size={15} aria-hidden="true" /> Shortcuts
+            </button>
+          </section>
 
-      <SessionPage key={runKey} demoMode onDemoReset={installFreshSession} />
-    </div>
+          {shortcutsOpen && (
+            <aside
+              className={styles.shortcutPanel}
+              aria-label="Presenter shortcuts"
+            >
+              <div>
+                <strong>Presenter shortcuts</strong>
+                <button
+                  type="button"
+                  aria-label="Close presenter shortcuts"
+                  onClick={() => setShortcutsOpen(false)}
+                >
+                  <X size={15} aria-hidden="true" />
+                </button>
+              </div>
+              <ul>
+                <li>
+                  <kbd>H</kbd> Home
+                </li>
+                <li>
+                  <kbd>D</kbd> Reset demo
+                </li>
+                <li>
+                  <kbd>N</kbd> Step to next engine event
+                </li>
+                <li>
+                  <kbd>J</kbd> Jump to decision window
+                </li>
+                <li>
+                  <kbd>A</kbd> Complete the real path and open AAR
+                </li>
+                <li>
+                  <kbd>I</kbd> Toggle instructor drawer
+                </li>
+                <li>
+                  <kbd>?</kbd> Show or hide shortcuts
+                </li>
+              </ul>
+            </aside>
+          )}
+
+          {guideOpen && (
+            <aside
+              className={styles.guide}
+              aria-label="Demo presenter guide"
+              data-testid="demo-guide"
+            >
+              <details>
+                <summary>
+                  Presenter guide{" "}
+                  <span>
+                    {guideSteps.find((item) => !item.complete)?.label ??
+                      "Review the completed exercise"}
+                  </span>
+                </summary>
+                <ol>
+                  {guideSteps.map((step, index) => (
+                    <li
+                      className={step.complete ? styles.stepComplete : ""}
+                      key={step.label}
+                    >
+                      <span>{String(index + 1).padStart(2, "0")}</span>
+                      {step.label}
+                    </li>
+                  ))}
+                </ol>
+              </details>
+              <button
+                type="button"
+                aria-label="Dismiss presenter guide"
+                onClick={() => setGuideOpen(false)}
+              >
+                <X size={16} aria-hidden="true" />
+              </button>
+            </aside>
+          )}
+
+          {wowAtSec !== null && (
+            <section
+              className={styles.wow}
+              data-testid="demo-wow"
+              aria-live="polite"
+              aria-label="Information environment changed"
+            >
+              <div className={styles.wowCopy}>
+                <p className={styles.kicker}>
+                  Information environment changed · {Math.floor(wowAtSec / 60)}:
+                  {String(wowAtSec % 60).padStart(2, "0")}
+                </p>
+                <h2>
+                  Delayed evidence now conflicts with the earlier picture.
+                </h2>
+                <p>
+                  {degradedChannels.length > 0
+                    ? `${degradedChannels.join(" / ")} channels affected. `
+                    : "Communication degradation has occurred. "}
+                  {delayedReport
+                    ? `${delayedReport.id} arrived ${Math.floor(delayedReport.delaySec / 60)} minutes late.`
+                    : "A delayed report is now part of the evidence."}
+                </p>
+              </div>
+              <div className={styles.wowMetrics}>
+                <span>FOG INDEX</span>
+                <strong>
+                  {view.belief
+                    ? `${Math.round(view.belief.fogIndex * 100)}%`
+                    : "—"}
+                </strong>
+                {fogDelta !== null && (
+                  <small>
+                    {fogDelta >= 0 ? "+" : ""}
+                    {(fogDelta * 100).toFixed(1)} pp since pre-conflict
+                  </small>
+                )}
+              </div>
+              {primary && primaryBelief && (
+                <div className={styles.wowMetrics}>
+                  <span>REFERENCE BELIEF</span>
+                  <strong>{Math.round(primaryBelief.p * 100)}%</strong>
+                  <small>
+                    {primary.label}: {Math.round(primary.prior * 100)}% prior
+                  </small>
+                </div>
+              )}
+            </section>
+          )}
+        </>
+      }
+    />
   );
 }

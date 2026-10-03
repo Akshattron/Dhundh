@@ -9,6 +9,8 @@ async function expectResponsiveLayout(page: Page): Promise<void> {
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
       .toBeLessThanOrEqual(width);
+    const menu = page.getByRole("button", { name: "Menu", exact: true });
+    if (await menu.isVisible()) await menu.click();
     const links = await page
       .getByRole("navigation", { name: "Primary navigation" })
       .getByRole("link")
@@ -17,6 +19,7 @@ async function expectResponsiveLayout(page: Page): Promise<void> {
       await link.focus();
       await expect(link).toBeInViewport({ ratio: 1 });
     }
+    if (await menu.isVisible()) await menu.click();
   }
   await page.setViewportSize(originalViewport);
 }
@@ -67,6 +70,7 @@ test("authoring validates, recovers, exports minute JSON and previews an isolate
   await expect(page.getByTestId("authoring-validation-status")).toHaveText(
     "Ready for isolated preview.",
   );
+  await page.getByText("Validated draft summary", { exact: true }).click();
   await expect(page.getByText(draft.meta.title, { exact: true })).toBeVisible();
   const colors = await page
     .getByLabel("Scenario JSON draft")

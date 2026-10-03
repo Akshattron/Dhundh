@@ -2,19 +2,19 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 9px 14px;
+  gap: 8px 12px;
 }
 
 .badge {
   display: inline-flex;
-  padding: 5px 9px;
-  border: 1px solid rgba(79, 209, 197, 0.32);
+  padding: 4px 8px;
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-badge);
-  color: var(--accent-cyan);
-  background: rgba(79, 209, 197, 0.08);
+  color: var(--text-default);
+  background: var(--surface-1);
   font-size: var(--font-label);
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 

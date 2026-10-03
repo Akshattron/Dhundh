@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowRight, LockKeyhole } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { scenarios } from "@/scenarios";
 import { useSessionStore } from "@/state/useSessionStore";
@@ -54,96 +55,136 @@ export default function CreateSessionPage() {
     <section className={styles.page}>
       <header className={styles.heading}>
         <div>
-          <p className={styles.kicker}>Authoritative training session</p>
+          <p className={styles.kicker}>Instructor setup · synthetic training</p>
           <h1>Create a session</h1>
           <p>Start a fictional exercise and invite a Commander and Analyst.</p>
         </div>
       </header>
-      <form className={`${styles.panel} ${styles.form}`} onSubmit={create}>
-        <label className={styles.field}>
-          Scenario
-          <select
-            value={scenarioId}
-            onChange={(event) => {
-              const nextId = event.target.value;
-              setScenarioId(nextId);
-              const nextScenario = scenarios.find(
-                (item) => item.meta.id === nextId,
-              );
-              if (nextScenario)
-                setDifficultyLevel(nextScenario.meta.difficulty);
-            }}
-            required
-          >
-            {scenarios.map((scenario) => (
-              <option key={scenario.meta.id} value={scenario.meta.id}>
-                {scenario.meta.title} · synthetic
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={styles.field}>
-          Difficulty profile
-          <select
-            value={difficultyLevel}
-            onChange={(event) => setDifficultyLevel(Number(event.target.value))}
-          >
-            {[1, 2, 3, 4, 5].map((level) => (
-              <option key={level} value={level}>
-                Level {level}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={styles.field}>
-          Deterministic variant seed
-          <input
-            type="number"
-            min={0}
-            max={Number.MAX_SAFE_INTEGER}
-            step={1}
-            value={seed}
-            onChange={(event) => setSeed(event.target.value)}
-            required
-          />
-        </label>
-        <label className={styles.field}>
-          Instructor display name
-          <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            minLength={2}
-            maxLength={40}
-            required
-          />
-        </label>
-        <label className={styles.field}>
-          Estimate aid
-          <select
-            value={aidMode}
-            onChange={(event) =>
-              setAidMode(event.target.value as "ALWAYS" | "AFTER_ESTIMATE")
-            }
-          >
-            <option value="ALWAYS">Available from start</option>
-            <option value="AFTER_ESTIMATE">Reveal after own estimate</option>
-          </select>
-        </label>
-        <p className={styles.caption}>
-          Difficulty controls timing and information degradation. A nonzero seed
-          creates a repeatable synthetic variant. Network actions are
-          authoritative on the project-owned service; no account or password is
-          used.
-        </p>
-        {error && (
-          <p className={styles.error} role="alert">
-            {error}
+      <div className={styles.entryLayout}>
+        <form className={`${styles.panel} ${styles.form}`} onSubmit={create}>
+          <label className={styles.field}>
+            Scenario
+            <select
+              value={scenarioId}
+              onChange={(event) => {
+                const nextId = event.target.value;
+                setScenarioId(nextId);
+                const nextScenario = scenarios.find(
+                  (item) => item.meta.id === nextId,
+                );
+                if (nextScenario)
+                  setDifficultyLevel(nextScenario.meta.difficulty);
+              }}
+              required
+            >
+              {scenarios.map((scenario) => (
+                <option key={scenario.meta.id} value={scenario.meta.id}>
+                  {scenario.meta.title} · synthetic
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.field}>
+            Difficulty profile
+            <select
+              value={difficultyLevel}
+              onChange={(event) =>
+                setDifficultyLevel(Number(event.target.value))
+              }
+            >
+              {[1, 2, 3, 4, 5].map((level) => (
+                <option key={level} value={level}>
+                  Level {level}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.field}>
+            Deterministic variant seed
+            <input
+              type="number"
+              min={0}
+              max={Number.MAX_SAFE_INTEGER}
+              step={1}
+              value={seed}
+              onChange={(event) => setSeed(event.target.value)}
+              required
+            />
+          </label>
+          <label className={styles.field}>
+            Instructor display name
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              minLength={2}
+              maxLength={40}
+              required
+            />
+          </label>
+          <label className={styles.field}>
+            Estimate aid
+            <select
+              value={aidMode}
+              onChange={(event) =>
+                setAidMode(event.target.value as "ALWAYS" | "AFTER_ESTIMATE")
+              }
+            >
+              <option value="ALWAYS">Available from start</option>
+              <option value="AFTER_ESTIMATE">Reveal after own estimate</option>
+            </select>
+          </label>
+          <p className={styles.caption}>
+            Difficulty controls timing and information degradation. A nonzero
+            seed creates a repeatable synthetic variant. Network actions are
+            authoritative on the project-owned service; no account or password
+            is used.
           </p>
-        )}
-        <Button variant="primary" type="submit" disabled={busy || !scenarioId}>
-          {busy ? "Creating session…" : "Create instructor session"}
-        </Button>
-      </form>
+          {error && (
+            <p className={styles.error} role="alert">
+              {error}
+            </p>
+          )}
+          <Button
+            variant="primary"
+            type="submit"
+            loading={busy}
+            disabled={busy || !scenarioId}
+          >
+            {busy ? "Creating session…" : "Create instructor session"}
+          </Button>
+        </form>
+        <aside
+          className={styles.entryGuide}
+          aria-label="Instructor session setup"
+        >
+          <LockKeyhole size={20} aria-hidden="true" />
+          <h2>Facilitate the exercise.</h2>
+          <p>
+            Create the room, share its code, and start when the trainees are
+            ready. At least one trainee must join before starting.
+          </p>
+          <dl className={styles.guideDefinitions}>
+            <div>
+              <dt>Instructor</dt>
+              <dd>
+                Control the clock and injects. Authorized diagnostics stay
+                separate from trainee views.
+              </dd>
+            </div>
+            <div>
+              <dt>Commander</dt>
+              <dd>Make estimates and commit the team's decisions.</dd>
+            </div>
+            <div>
+              <dt>Analyst</dt>
+              <dd>Inspect evidence and send reports or structured advice.</dd>
+            </div>
+          </dl>
+          <Link to="/join">
+            Join an existing session <ArrowRight size={14} aria-hidden="true" />
+          </Link>
+        </aside>
+      </div>
     </section>
   );
 }

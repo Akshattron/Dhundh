@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, type RefObject } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { Button } from "@/components/ui/Button";
+import { isElementVisible } from "@/components/ui/useDialogFocus";
 import type { TraineeView } from "@/engine/view";
 import { RemoteSessionClient } from "@/session/RemoteSessionClient";
 import type { SessionClient } from "@/session/SessionClient";
@@ -16,19 +17,26 @@ export function PresentationEntry({
   client,
   view,
   demo = false,
+  focusFallback,
 }: {
   client: SessionClient;
   view: TraineeView;
   demo?: boolean;
+  focusFallback?: RefObject<HTMLElement | null>;
 }) {
   const navigate = useNavigate();
   const location = useLocation();
   const network = client instanceof RemoteSessionClient ? client : null;
   useEffect(() => {
     const state = presentationNavigationSchema.safeParse(location.state);
-    if (state.success && state.data.restoreFocus)
-      document.getElementById("presentation-entry")?.focus();
-  }, [location.key, location.state]);
+    if (state.success && state.data.restoreFocus) {
+      const entry = document.getElementById("presentation-entry");
+      (entry && isElementVisible(entry)
+        ? entry
+        : focusFallback?.current
+      )?.focus();
+    }
+  }, [location.key, location.state, focusFallback]);
   if (network?.role === "INSTRUCTOR" && view.phase !== "COMPLETE") return null;
   const mode = network ? "network" : demo ? "demo" : "local";
   const id = network?.code ?? view.scenario.id;

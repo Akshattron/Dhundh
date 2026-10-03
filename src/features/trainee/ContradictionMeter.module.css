@@ -1,53 +1,66 @@
 .root {
-  padding: 11px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-card);
-  background: var(--surface-1);
+  margin-top: var(--space-16);
+  padding-top: var(--space-12);
+  border-top: 1px solid var(--border-default);
 }
 
 .heading {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 7px;
+  gap: var(--space-4) var(--space-8);
   color: var(--text-default);
   font-size: var(--font-small);
 }
 
 .heading svg {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+
+.heading strong {
+  flex: 1;
+}
+
+.heading > span {
+  flex-basis: 100%;
+  color: var(--text-muted);
+}
+
+.root[data-conflicted="true"] .heading > span,
+.root[data-conflicted="true"] .heading svg {
   color: var(--state-contradiction);
 }
 
-.heading span {
-  margin-left: auto;
+.masses {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: var(--space-8);
   color: var(--text-muted);
-  font-size: var(--font-label);
+  font-size: var(--font-small);
 }
 
-.root[data-conflicted="true"] .heading {
-  color: var(--accent-violet);
+.masses > span {
+  display: grid;
+  gap: var(--space-4);
 }
 
-.root svg[role="img"] {
+.masses > span:last-child {
+  text-align: right;
+}
+
+.masses strong {
+  color: var(--text-default);
+}
+
+.root > svg {
   display: block;
-  width: min(100%, 440px);
-  margin: 5px auto 0;
-}
-
-.label {
-  fill: var(--text-muted);
-  font-size: 9px;
-  font-weight: 600;
-}
-
-.mass {
-  fill: var(--text-default);
-  font-size: 9px;
-  text-anchor: end;
+  width: 100%;
+  height: 28px;
 }
 
 .spine {
   stroke: var(--border-strong);
-  stroke-width: 1;
 }
 
 .positive {
@@ -56,13 +69,20 @@
 
 .negative {
   stroke: var(--accent-violet);
-  stroke-width: 1;
 }
 
-.description,
-.textSummary {
-  margin: 5px 0 0;
+.positive,
+.negative {
+  transition:
+    width var(--motion-belief),
+    x var(--motion-belief);
+}
+
+.interpretation {
   color: var(--text-muted);
-  font-size: var(--font-label);
-  line-height: 1.45;
+  font-size: var(--font-small);
+}
+
+.description {
+  margin: var(--space-8) 0 0;
 }

@@ -1,4 +1,11 @@
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   Activity,
   ArrowRight,
@@ -6,6 +13,7 @@ import {
   CircleHelp,
   Clock3,
   FileText,
+  GitCompareArrows,
   Pause,
   Play,
   RotateCcw,
@@ -14,7 +22,13 @@ import {
 } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
+import { Tabs } from "@/components/ui/Tabs";
+import { useDialogFocus } from "@/components/ui/useDialogFocus";
 import type { RationaleTag } from "@/engine";
+import {
+  ChannelHealthStrip,
+  ChannelIcon,
+} from "@/features/trainee/ChannelHealthStrip";
 import { ContradictionMeter } from "@/features/trainee/ContradictionMeter";
 import { EvidenceWaterfall } from "@/features/trainee/EvidenceWaterfall";
 import { FogMeter } from "@/features/trainee/FogMeter";
@@ -34,17 +48,18 @@ import {
   PresentationEntry,
   presentationNavigationSchema,
 } from "@/features/presentation/PresentationEntry";
-import { formatAge, formatClock, formatPercent } from "@/utils/format";
+import {
+  decisionWindowLabel,
+  formatAge,
+  formatClock,
+  formatPercent,
+} from "@/utils/format";
 import styles from "./SessionPage.module.css";
-
-const healthLabel: Record<string, string> = {
-  HEALTHY: "Healthy",
-  DEGRADED: "Degraded",
-  DOWN: "Unavailable",
-};
 
 interface ReportCardProps {
   report: ProjectedReport;
+  sourceLabel: string | undefined;
+  arrivedRecently: boolean;
   phase: TraineeView["phase"];
   selected: boolean;
   expanded: boolean;
@@ -55,6 +70,8 @@ interface ReportCardProps {
 const ReportCard = memo(
   function ReportCard({
     report,
+    sourceLabel,
+    arrivedRecently,
     phase,
     selected,
     expanded,
@@ -64,28 +81,67 @@ const ReportCard = memo(
     const ageAtDisplayedMinute = Math.floor(report.ageSec / 60) * 60;
     return (
       <article
-        className={`${styles.report} ${report.opened ? styles.opened : ""}`}
+        className={`${styles.report} ${arrivedRecently ? styles.arrival : ""}`}
         data-report-id={report.id}
+        data-channel={report.channel}
+        data-inspected={report.opened}
         data-selected={selected}
         tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" || event.target !== event.currentTarget)
+            return;
+          event.preventDefault();
+          event.stopPropagation();
+          if (report.opened) onToggleDetails(report.id);
+          else if (phase === "RUNNING") onOpen(report.id);
+        }}
         style={{
-          opacity:
+          backgroundColor:
             report.weight === null
-              ? 1
-              : 0.72 + (0.28 * Math.round(report.weight * 100)) / 100,
+              ? undefined
+              : `color-mix(in srgb, var(--surface-2) ${Math.round(report.weight * 100)}%, var(--bg-1))`,
         }}
       >
         <div className={styles.reportMeta}>
-          <span>{report.channel}</span>
-          <span>{formatAge(ageAtDisplayedMinute)}</span>
-          <span className={styles.grade}>Grade {report.gradeLabel}</span>
+          <span className={styles.reportIdentity}>
+            <ChannelIcon channel={report.channel} size={14} />
+            <strong>{report.id}</strong> · {report.channel}
+          </span>
+          <span>Grade {report.gradeLabel}</span>
           {report.badges.map((badge) => (
             <span className={styles.badge} key={badge}>
               {badge}
             </span>
           ))}
         </div>
+        {sourceLabel && <p className={styles.source}>{sourceLabel}</p>}
         <p className={styles.claim}>{report.claim}</p>
+        <div className={styles.reportTiming}>
+          <span>
+            Issued <time>{formatClock(report.issuedAtSec)}</time>
+          </span>
+          <span>
+            Received <time>{formatClock(report.deliveredAtSec)}</time>
+          </span>
+          <span>{formatAge(ageAtDisplayedMinute)}</span>
+          {report.delaySec > 0 && (
+            <span className={styles.delayed}>
+              <Clock3 size={12} aria-hidden="true" /> Delayed{" "}
+              {formatClock(report.delaySec)}
+            </span>
+          )}
+        </div>
+        <p className={styles.evidenceGroup}>
+          Group <span>{report.evidenceGroup}</span>
+        </p>
+        {report.opened &&
+          report.effectiveAccuracy !== null &&
+          report.contradicts.length > 0 && (
+            <p className={styles.reportConflict}>
+              <GitCompareArrows size={14} aria-hidden="true" /> Conflicts with{" "}
+              {report.contradicts.join(", ")}
+            </p>
+          )}
         {report.opened && expanded && report.detail && (
           <p className={styles.detail}>{report.detail}</p>
         )}
@@ -93,9 +149,6 @@ const ReportCard = memo(
           <div className={styles.reportMath}>
             Reliability now {formatPercent(report.effectiveAccuracy)} · evidence
             contribution {report.contributionNats?.toFixed(2) ?? "—"} nats
-            {report.contradicts.length > 0 && (
-              <span> · conflicts with {report.contradicts.join(", ")}</span>
-            )}
           </div>
         )}
         {!report.opened && phase === "RUNNING" && (
@@ -107,6 +160,14 @@ const ReportCard = memo(
           >
             <FileText size={14} /> Open report
           </Button>
+        )}
+        {!report.opened && phase !== "RUNNING" && (
+          <p className={styles.inspectionHeld}>
+            Not inspected ·{" "}
+            {phase === "PAUSED"
+              ? "resume the clock to inspect"
+              : "inspection unavailable"}
+          </p>
         )}
         {report.opened && (
           <div className={styles.openLabel}>
@@ -133,6 +194,9 @@ const ReportCard = memo(
       left.channel === right.channel &&
       left.claim === right.claim &&
       left.detail === right.detail &&
+      left.evidenceGroup === right.evidenceGroup &&
+      left.issuedAtSec === right.issuedAtSec &&
+      left.deliveredAtSec === right.deliveredAtSec &&
       left.gradeLabel === right.gradeLabel &&
       Math.floor(left.ageSec / 60) === Math.floor(right.ageSec / 60) &&
       left.delaySec === right.delaySec &&
@@ -147,6 +211,8 @@ const ReportCard = memo(
       left.contradicts.join("|") === right.contradicts.join("|") &&
       left.opened === right.opened &&
       previous.phase === next.phase &&
+      previous.sourceLabel === next.sourceLabel &&
+      previous.arrivedRecently === next.arrivedRecently &&
       previous.selected === next.selected &&
       previous.expanded === next.expanded &&
       previous.onOpen === next.onOpen &&
@@ -158,11 +224,13 @@ const ReportCard = memo(
 interface SessionPageProps {
   demoMode?: boolean;
   onDemoReset?: () => void;
+  presenter?: ReactNode;
 }
 
 export default function SessionPage({
   demoMode = false,
   onDemoReset,
+  presenter,
 }: SessionPageProps) {
   const { id } = useParams();
   const expectedScenarioId = demoMode ? DEMO_SCENARIO_ID : id;
@@ -194,6 +262,20 @@ export default function SessionPage({
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [instructorTruthVisible, setInstructorTruthVisible] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const toolsTrigger = useRef<HTMLButtonElement>(null);
+  const consoleElement = useRef<HTMLDivElement>(null);
+  const decisionDialog = useDialogFocus(
+    showDecision,
+    () => setShowDecision(false),
+    consoleElement,
+  );
+  const shortcutsDialog = useDialogFocus(
+    showShortcuts,
+    () => setShowShortcuts(false),
+    consoleElement,
+  );
+  const scrollSelection = useRef(false);
   const [selectedReportIndex, setSelectedReportIndex] = useState(0);
   const [expandedReportIds, setExpandedReportIds] = useState<Set<string>>(
     () => new Set(),
@@ -322,18 +404,22 @@ export default function SessionPage({
         if (showShortcuts) setShowShortcuts(false);
         else if (showDecision) setShowDecision(false);
         else if (instructorOpen) setInstructorOpen(false);
+        else if (toolsOpen) {
+          setToolsOpen(false);
+          toolsTrigger.current?.focus();
+        }
         return;
       }
+      const key = event.key.toLowerCase();
       if (
         typing ||
-        (interactive && event.key !== "?") ||
+        (interactive && key !== "?" && !(instructorOpen && key === "i")) ||
         showDecision ||
         showShortcuts ||
         !view
       ) {
         return;
       }
-      const key = event.key.toLowerCase();
       if (key === "?") {
         event.preventDefault();
         setShowShortcuts(true);
@@ -374,6 +460,9 @@ export default function SessionPage({
           injectPreset(preset.id);
         }
       } else if (key === "j" || key === "k") {
+        event.preventDefault();
+        scrollSelection.current = true;
+        setMobileSection("evidence");
         const direction = key === "j" ? 1 : -1;
         setReportChannel("ALL");
         setSelectedReportIndex((index) => {
@@ -393,11 +482,14 @@ export default function SessionPage({
         }
       } else if (key === "e") {
         event.preventDefault();
-        document
-          .querySelector<HTMLInputElement>(
-            'input[aria-label$="estimate percentage"]',
-          )
-          ?.focus();
+        setMobileSection("decision");
+        window.requestAnimationFrame(() => {
+          document
+            .querySelector<HTMLInputElement>(
+              'input[aria-label$="estimate percentage"]',
+            )
+            ?.focus();
+        });
       } else if (key === "l") {
         const hypothesisId = view.decisionPoint?.requiredEstimates[0];
         const raw = hypothesisId ? estimateDrafts[hypothesisId] : undefined;
@@ -447,6 +539,7 @@ export default function SessionPage({
     selectedReportIndex,
     showDecision,
     showShortcuts,
+    toolsOpen,
     toggleReportDetails,
     view,
     networkClient,
@@ -455,10 +548,12 @@ export default function SessionPage({
   ]);
   const selectedReportId = view?.reports[selectedReportIndex]?.id;
   useEffect(() => {
-    if (!selectedReportId) return;
+    if (!selectedReportId || !scrollSelection.current) return;
+    scrollSelection.current = false;
     const report = [
       ...document.querySelectorAll<HTMLElement>("[data-report-id]"),
     ].find((element) => element.dataset.reportId === selectedReportId);
+    report?.focus({ preventScroll: true });
     report?.scrollIntoView?.({ block: "nearest" });
   }, [selectedReportId]);
 
@@ -485,6 +580,7 @@ export default function SessionPage({
   }
 
   const dp = view.decisionPoint;
+  const windowState = decisionWindowLabel(view);
   const filteredReports =
     reportChannel === "ALL"
       ? view.reports
@@ -545,7 +641,22 @@ export default function SessionPage({
     : [];
 
   return (
-    <div className={styles.console} data-mobile-section={mobileSection}>
+    <div
+      className={styles.console}
+      data-mobile-section={mobileSection}
+      ref={consoleElement}
+      tabIndex={-1}
+      onFocusCapture={(event) => {
+        const reportId =
+          event.target.closest<HTMLElement>("[data-report-id]")?.dataset
+            .reportId;
+        if (!reportId) return;
+        const index = view.reports.findIndex(
+          (report) => report.id === reportId,
+        );
+        if (index >= 0) setSelectedReportIndex(index);
+      }}
+    >
       <header className={styles.topbar}>
         <div>
           <p className={styles.kicker}>
@@ -557,10 +668,59 @@ export default function SessionPage({
           </p>
           <h1>{view.scenario.title}</h1>
         </div>
-        <div className={styles.status}>
-          {!demoMode && <PresentationEntry client={client} view={view} />}
+        <div className={styles.context}>
+          {demoMode && <span className={styles.modeLabel}>Flagship demo</span>}
+          <span
+            className={`${styles.phase} ${styles[view.phase.toLowerCase()]}`}
+          >
+            {view.phase === "PAUSED" ? (
+              <Pause size={12} aria-hidden="true" />
+            ) : (
+              <Activity size={12} aria-hidden="true" />
+            )}
+            {view.phase}
+          </span>
+          <span className={styles.clock} data-testid="session-clock">
+            <Clock3 size={16} aria-hidden="true" /> {formatClock(view.nowSec)}
+          </span>
+          {dp && (
+            <span className={styles.windowContext}>
+              {windowState === "OPEN"
+                ? "Window open"
+                : windowState === "CLOSED"
+                  ? "Window closed"
+                  : "Window upcoming"}{" "}
+              · {formatClock(dp.openSec)}–{formatClock(dp.closeSec)}
+            </span>
+          )}
+          <Button
+            ref={toolsTrigger}
+            size="sm"
+            variant="quiet"
+            className={styles.toolsTrigger}
+            aria-controls="console-tools"
+            aria-expanded={toolsOpen}
+            onClick={() => setToolsOpen((open) => !open)}
+          >
+            Tools
+          </Button>
+        </div>
+        <div
+          className={styles.status}
+          id="console-tools"
+          data-expanded={toolsOpen}
+        >
+          <PresentationEntry
+            client={client}
+            view={view}
+            demo={demoMode}
+            focusFallback={toolsTrigger}
+          />
           {view.aidRevealed ? (
-            <ReferenceModelDrawer model={view.referenceModel} />
+            <ReferenceModelDrawer
+              model={view.referenceModel}
+              focusFallback={toolsTrigger}
+            />
           ) : (
             <span className={styles.muted} role="status">
               Reference aid unlocks after your first probability estimate.
@@ -579,16 +739,9 @@ export default function SessionPage({
               cooldowns={presetCooldowns}
               onInject={injectPreset}
               onReset={demoMode ? onDemoReset : undefined}
+              focusFallback={toolsTrigger}
             />
           )}
-          <span
-            className={`${styles.phase} ${styles[view.phase.toLowerCase()]}`}
-          >
-            {view.phase}
-          </span>
-          <span className={styles.clock} data-testid="session-clock">
-            <Clock3 size={16} aria-hidden="true" /> {formatClock(view.nowSec)}
-          </span>
           {networkClient && (
             <span
               className={styles.phase}
@@ -627,6 +780,7 @@ export default function SessionPage({
           )}
         </div>
       </header>
+      {presenter}
 
       {networkClient && remoteStatus.status === "FALLBACK_AVAILABLE" && (
         <section className={styles.error} role="alert">
@@ -655,27 +809,7 @@ export default function SessionPage({
         </div>
       )}
 
-      <section
-        className={styles.channelStrip}
-        aria-label="Information channels"
-      >
-        {view.channels
-          .filter((channel) => channel.visible)
-          .map((channel) => (
-            <div className={styles.channel} key={channel.id}>
-              <span
-                className={`${styles.healthDot} ${styles[channel.health.toLowerCase()]}`}
-              />
-              <div>
-                <strong>{channel.label}</strong>
-                <span>{channel.sourceLabel}</span>
-              </div>
-              <span className={styles.channelHealth}>
-                {healthLabel[channel.health]}
-              </span>
-            </div>
-          ))}
-      </section>
+      <ChannelHealthStrip channels={view.channels} nowSec={view.nowSec} />
 
       {view.phase === "IDLE" && (
         <section className={styles.startPanel}>
@@ -699,43 +833,48 @@ export default function SessionPage({
         </section>
       )}
       {view.phase === "PAUSED" && (
-        <div className={styles.paused} role="status">
+        <div className="sr-only" role="status">
           Clock paused · simulation time and event delivery are held.
         </div>
       )}
 
-      <div
+      <Tabs
         className={styles.mobileTabs}
-        role="tablist"
-        aria-label="Exercise console panels"
-      >
-        {(
-          [
-            ["evidence", "Evidence"],
-            ["situation", "Situation"],
-            ["decision", "Decision"],
-          ] as const
-        ).map(([section, label]) => (
-          <button
-            key={section}
-            type="button"
-            role="tab"
-            aria-selected={mobileSection === section}
-            onClick={() => setMobileSection(section)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+        id="console-tabs"
+        label="Exercise console panels"
+        value={mobileSection}
+        onChange={setMobileSection}
+        tabs={[
+          {
+            value: "evidence",
+            label: "Evidence",
+            controls: "console-evidence console-waterfall",
+          },
+          {
+            value: "situation",
+            label: "Situation",
+            controls: "console-situation console-timeline",
+          },
+          {
+            value: "decision",
+            label: "Decision",
+            controls: "console-decision",
+          },
+        ]}
+      />
       <div className={styles.mainGrid}>
         <section
           className={styles.panel}
+          id="console-evidence"
+          role="tabpanel"
+          aria-labelledby="console-tabs-evidence"
+          tabIndex={0}
           data-panel="evidence"
           data-mobile-active={mobileSection === "evidence"}
         >
           <div className={styles.panelHeader}>
             <div>
-              <p className={styles.kicker}>Intelligence</p>
+              <p className={styles.kicker}>What changed?</p>
               <h2>Incoming reports</h2>
             </div>
             <div className={styles.reportControls}>
@@ -776,6 +915,12 @@ export default function SessionPage({
                 <ReportCard
                   key={report.id}
                   report={report}
+                  sourceLabel={
+                    view.channels.find(
+                      (channel) => channel.id === report.channel,
+                    )?.sourceLabel
+                  }
+                  arrivedRecently={view.nowSec - report.deliveredAtSec < 60}
                   phase={view.phase}
                   selected={view.reports[selectedReportIndex]?.id === report.id}
                   expanded={expandedReportIds.has(report.id)}
@@ -869,12 +1014,16 @@ export default function SessionPage({
         <div className={styles.centerColumn}>
           <section
             className={styles.panel}
+            id="console-situation"
+            role="tabpanel"
+            aria-labelledby="console-tabs-situation"
+            tabIndex={0}
             data-panel="situation"
             data-mobile-active={mobileSection === "situation"}
           >
             <div className={styles.panelHeader}>
               <div>
-                <p className={styles.kicker}>Current belief</p>
+                <p className={styles.kicker}>What do I know?</p>
                 <h2>Assessment</h2>
               </div>
               {view.belief && <FogMeter value={view.belief.fogIndex} />}
@@ -889,24 +1038,41 @@ export default function SessionPage({
                   const assessment = view.belief?.perHypothesis[hypothesis.id];
                   if (!assessment) return null;
                   return (
-                    <div className={styles.hypothesis} key={hypothesis.id}>
+                    <div
+                      className={styles.hypothesis}
+                      key={hypothesis.id}
+                      data-conflicted={assessment.contradicted}
+                    >
                       <div className={styles.hypothesisHeading}>
                         <strong>{hypothesis.label}</strong>
-                        <span>{formatPercent(assessment.p, 1)}</span>
+                        <span
+                          className={styles.beliefValue}
+                          key={assessment.contributions
+                            .map((item) => item.reportId)
+                            .join("|")}
+                        >
+                          {formatPercent(assessment.p, 1)}
+                        </span>
                       </div>
                       <div
                         className={styles.track}
+                        role="img"
                         aria-label={`${hypothesis.label} belief`}
                       >
                         <span style={{ width: `${assessment.p * 100}%` }} />
+                        <i
+                          style={{ left: `${hypothesis.prior * 100}%` }}
+                          aria-hidden="true"
+                        />
                       </div>
                       <div className={styles.beliefFoot}>
                         <span>
-                          Entropy {assessment.entropyBits.toFixed(2)} bits
+                          Prior {formatPercent(hypothesis.prior)} · Entropy{" "}
+                          {assessment.entropyBits.toFixed(2)} bits
                         </span>
                         <span>
                           {assessment.contradicted
-                            ? "Contradiction"
+                            ? "Evidence split"
                             : "No contradiction"}
                         </span>
                       </div>
@@ -942,70 +1108,6 @@ export default function SessionPage({
                   />
                 );
               })}
-            {dp?.status === "OPEN" && dp.requiredEstimates.length > 0 && (
-              <div className={styles.estimateBox}>
-                <h3>Record your estimate</h3>
-                <p>
-                  This is your own probability assessment, recorded separately
-                  from the reference model.
-                </p>
-                {dp.requiredEstimates.map((hypothesisId) => {
-                  const hypothesis = view.hypotheses.find(
-                    (item) => item.id === hypothesisId,
-                  );
-                  if (!hypothesis) return null;
-                  const recorded = view.estimates
-                    .filter((item) => item.hypothesisId === hypothesisId)
-                    .at(-1);
-                  return (
-                    <label className={styles.estimateInput} key={hypothesisId}>
-                      <span>{hypothesis.label}</span>
-                      <input
-                        aria-label={`${hypothesis.label} estimate percentage`}
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="1"
-                        value={
-                          estimateDrafts[hypothesisId] ??
-                          (recorded ? String(Math.round(recorded.p * 100)) : "")
-                        }
-                        onChange={(event) =>
-                          setEstimateDrafts((previous) => ({
-                            ...previous,
-                            [hypothesisId]: event.target.value,
-                          }))
-                        }
-                      />
-                      <span>%</span>
-                      <Button
-                        size="sm"
-                        disabled={!estimateDrafts[hypothesisId] && !recorded}
-                        onClick={() => {
-                          const value = Number(
-                            estimateDrafts[hypothesisId] ??
-                              (recorded ? recorded.p * 100 : NaN),
-                          );
-                          if (
-                            !Number.isFinite(value) ||
-                            value < 0 ||
-                            value > 100
-                          )
-                            return;
-                          dispatch({
-                            type: "SET_ESTIMATE",
-                            hypothesisId,
-                            p: value / 100,
-                          });
-                        }}
-                      >
-                        Record
-                      </Button>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
             <details className={styles.method}>
               <summary>Reference model and limitations</summary>
               <p>
@@ -1021,7 +1123,12 @@ export default function SessionPage({
             </details>
           </section>
 
-          <section className={styles.panel} data-mobile-linked="evidence">
+          <section
+            className={styles.panel}
+            id="console-waterfall"
+            data-mobile-linked="evidence"
+            aria-label="Evidence analysis"
+          >
             <div className={styles.panelHeader}>
               <div>
                 <p className={styles.kicker}>Evidence analysis</p>
@@ -1045,14 +1152,18 @@ export default function SessionPage({
             ) : (
               <EvidenceWaterfall
                 hypotheses={waterfallHypotheses}
-                onOpen={(reportId) =>
-                  dispatch({ type: "OPEN_REPORT", reportId })
-                }
+                onOpen={openReport}
+                inspectionEnabled={view.phase === "RUNNING"}
               />
             )}
           </section>
 
-          <section className={styles.panel} data-mobile-linked="situation">
+          <section
+            className={styles.panel}
+            id="console-timeline"
+            data-mobile-linked="situation"
+            aria-label="Session chronology"
+          >
             <div className={styles.panelHeader}>
               <div>
                 <p className={styles.kicker}>Session chronology</p>
@@ -1101,30 +1212,112 @@ export default function SessionPage({
 
         <aside
           className={`${styles.panel} ${styles.decisionPanel}`}
+          id="console-decision"
+          role="tabpanel"
+          aria-labelledby="console-tabs-decision"
+          tabIndex={0}
+          data-actionable={
+            canMakeDecision && dp?.status === "OPEN" && view.phase === "RUNNING"
+          }
           data-panel="decision"
           data-mobile-active={mobileSection === "decision"}
         >
           <section>
             <div className={styles.panelHeader}>
               <div>
-                <p className={styles.kicker}>Change</p>
+                <p className={styles.kicker}>When must I decide?</p>
                 <h2>Decision window</h2>
               </div>
-              {dp && <span className={styles.window}>{dp.status}</span>}
+              {dp && (
+                <span className={styles.window} data-status={windowState}>
+                  {windowState}
+                </span>
+              )}
             </div>
             {dp ? (
               <>
                 <p className={styles.prompt}>{dp.prompt}</p>
                 <div className={styles.deadline}>
-                  <Clock3 size={15} /> Closes at {formatClock(dp.closeSec)}
+                  <Clock3 size={15} aria-hidden="true" />
+                  <span>
+                    {view.nowSec < dp.openSec ? "Opens" : "Closes"} at{" "}
+                    <strong>
+                      {formatClock(
+                        view.nowSec < dp.openSec ? dp.openSec : dp.closeSec,
+                      )}
+                    </strong>
+                    {view.phase === "PAUSED" && " · clock paused"}
+                  </span>
                 </div>
+                {dp.status === "OPEN" && dp.requiredEstimates.length > 0 && (
+                  <div className={styles.estimateBox}>
+                    <h3>Record your estimate</h3>
+                    <p>Your assessment, separate from the reference model.</p>
+                    {dp.requiredEstimates.map((hypothesisId) => {
+                      const hypothesis = view.hypotheses.find(
+                        (item) => item.id === hypothesisId,
+                      );
+                      if (!hypothesis) return null;
+                      const recorded = view.estimates
+                        .filter((item) => item.hypothesisId === hypothesisId)
+                        .at(-1);
+                      const draft =
+                        estimateDrafts[hypothesisId] ??
+                        (recorded ? String(Math.round(recorded.p * 100)) : "");
+                      const value = draft.trim() === "" ? NaN : Number(draft);
+                      return (
+                        <div
+                          className={styles.estimateInput}
+                          key={hypothesisId}
+                        >
+                          <label htmlFor={`estimate-${hypothesisId}`}>
+                            {hypothesis.label}
+                          </label>
+                          <input
+                            id={`estimate-${hypothesisId}`}
+                            aria-label={`${hypothesis.label} estimate percentage`}
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value={draft}
+                            onChange={(event) =>
+                              setEstimateDrafts((previous) => ({
+                                ...previous,
+                                [hypothesisId]: event.target.value,
+                              }))
+                            }
+                          />
+                          <span>%</span>
+                          <Button
+                            size="sm"
+                            disabled={
+                              !Number.isFinite(value) ||
+                              value < 0 ||
+                              value > 100
+                            }
+                            onClick={() =>
+                              dispatch({
+                                type: "SET_ESTIMATE",
+                                hypothesisId,
+                                p: value / 100,
+                              })
+                            }
+                          >
+                            Record
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                 {!canMakeDecision ? (
                   <p className={styles.muted}>
                     The Commander owns verification and decision actions.
                   </p>
                 ) : (
                   <div className={styles.verifications}>
-                    <h3>Verification options</h3>
+                    <h3>Verify the information</h3>
                     {dp.assets.map((asset) => (
                       <div className={styles.verify} key={asset.id}>
                         <div>
@@ -1134,6 +1327,23 @@ export default function SessionPage({
                             {asset.costUnits} cost · Grade {asset.gradeLabel}{" "}
                             source · {asset.usesLeft} uses
                           </span>
+                          {view.verifications
+                            .filter((item) => item.assetId === asset.id)
+                            .map((item) => (
+                              <span
+                                className={styles.verificationStatus}
+                                key={item.requestedAtSec}
+                              >
+                                {item.resultDelivered ? (
+                                  <Check size={12} aria-hidden="true" />
+                                ) : (
+                                  <Clock3 size={12} aria-hidden="true" />
+                                )}
+                                Requested {formatClock(item.requestedAtSec)} ·{" "}
+                                {item.resultDelivered ? "received" : "due"}{" "}
+                                {formatClock(item.deliversAtSec)}
+                              </span>
+                            ))}
                         </div>
                         <Button
                           size="sm"
@@ -1148,6 +1358,20 @@ export default function SessionPage({
                         </Button>
                       </div>
                     ))}
+                    {canMakeDecision &&
+                      view.phase === "PAUSED" &&
+                      windowState === "OPEN" && (
+                        <Button
+                          variant="primary"
+                          fullWidth
+                          disabled
+                          className={styles.decideButton}
+                        >
+                          {networkClient
+                            ? "Awaiting instructor resume"
+                            : "Resume to decide"}
+                        </Button>
+                      )}
                   </div>
                 )}
                 {dp.status === "OPEN" &&
@@ -1209,6 +1433,7 @@ export default function SessionPage({
           }}
         >
           <section
+            ref={decisionDialog}
             className={styles.dialog}
             role="dialog"
             aria-modal="true"
@@ -1260,56 +1485,6 @@ export default function SessionPage({
               {view.reports.every((report) => !report.opened) && (
                 <p className={styles.muted}>Open reports first to cite them.</p>
               )}
-              {showShortcuts && (
-                <div
-                  className={styles.modalBackdrop}
-                  role="presentation"
-                  onMouseDown={(event) => {
-                    if (event.target === event.currentTarget)
-                      setShowShortcuts(false);
-                  }}
-                >
-                  <section
-                    className={styles.dialog}
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="shortcuts-title"
-                  >
-                    <div className={styles.panelHeader}>
-                      <div>
-                        <p className={styles.kicker}>Keyboard help</p>
-                        <h2 id="shortcuts-title">Shortcuts</h2>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="quiet"
-                        onClick={() => setShowShortcuts(false)}
-                      >
-                        Close
-                      </Button>
-                    </div>
-                    <ul className={styles.shortcuts}>
-                      <li>J / K — next / previous report</li>
-                      <li>Enter — open the selected report</li>
-                      <li>E — focus estimate; L — log estimate</li>
-                      {canMakeDecision && (
-                        <li>V — request the first feasible verification</li>
-                      )}
-                      {canMakeDecision && <li>D — open decision</li>}
-                      <li>Space — pause / resume</li>
-                      <li>R — reset with confirmation; Esc — close dialog</li>
-                      {controlsAvailable && (
-                        <>
-                          <li>I — open / close instructor drawer</li>
-                          <li>1–5 — inject scenario preset by index</li>
-                          <li>M — toggle diagnostics; T — toggle truth</li>
-                        </>
-                      )}
-                      <li>? — show / hide this help</li>
-                    </ul>
-                  </section>
-                </div>
-              )}
             </fieldset>
             <fieldset className={styles.fieldset}>
               <legend>Reasoning tags</legend>
@@ -1353,6 +1528,56 @@ export default function SessionPage({
                 </button>
               ))}
             </div>
+          </section>
+        </div>
+      )}
+      {showShortcuts && (
+        <div
+          className={styles.modalBackdrop}
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setShowShortcuts(false);
+          }}
+        >
+          <section
+            ref={shortcutsDialog}
+            className={styles.dialog}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="shortcuts-title"
+          >
+            <div className={styles.panelHeader}>
+              <div>
+                <p className={styles.kicker}>Keyboard help</p>
+                <h2 id="shortcuts-title">Shortcuts</h2>
+              </div>
+              <Button
+                size="sm"
+                variant="quiet"
+                onClick={() => setShowShortcuts(false)}
+              >
+                Close
+              </Button>
+            </div>
+            <ul className={styles.shortcuts}>
+              <li>J / K — next / previous report</li>
+              <li>Enter — open the selected report</li>
+              <li>E — focus estimate; L — log estimate</li>
+              {canMakeDecision && (
+                <li>V — request the first feasible verification</li>
+              )}
+              {canMakeDecision && <li>D — open decision</li>}
+              <li>Space — pause / resume</li>
+              <li>R — reset with confirmation; Esc — close dialog</li>
+              {controlsAvailable && (
+                <>
+                  <li>I — open / close instructor drawer</li>
+                  <li>1–5 — inject scenario preset by index</li>
+                  <li>M — toggle diagnostics; T — toggle truth</li>
+                </>
+              )}
+              <li>? — show / hide this help</li>
+            </ul>
           </section>
         </div>
       )}

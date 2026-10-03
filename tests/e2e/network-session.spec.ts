@@ -106,6 +106,7 @@ test("authoritative session partitions reports, relays analyst evidence, reconne
       timeout: 100_000,
     });
     await commander.getByTestId("open-aar").click();
+    await commander.locator("#aar-team > summary").click();
     await expect(
       commander.getByRole("heading", { name: "Shared work, separate roles" }),
     ).toBeVisible({ timeout: 15_000 });

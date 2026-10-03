@@ -1,17 +1,36 @@
 .button {
-  min-height: 38px;
+  position: relative;
+  min-height: 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 8px 13px;
+  padding: 8px 12px;
   border: 1px solid transparent;
   border-radius: var(--radius-button);
   cursor: pointer;
   font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
   transition:
-    background-color 160ms ease,
-    border-color 160ms ease;
+    background-color var(--motion-micro) ease,
+    border-color var(--motion-micro) ease,
+    transform var(--motion-micro) ease;
+}
+
+.content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+}
+
+.content svg {
+  flex-shrink: 0;
+}
+
+.button:not(:disabled):active {
+  transform: translateY(1px);
 }
 
 .button:disabled {
@@ -21,12 +40,16 @@
 
 .primary {
   border-color: var(--accent-cyan);
-  color: #071211;
+  color: var(--bg-0);
   background: var(--accent-cyan);
 }
 
 .primary:not(:disabled):hover {
-  background: #70e0d4;
+  background: color-mix(in srgb, var(--accent-cyan) 84%, var(--text-strong));
+}
+
+.primary:not(:disabled):active {
+  background: color-mix(in srgb, var(--accent-cyan) 80%, var(--bg-0));
 }
 
 .secondary {
@@ -36,7 +59,12 @@
 }
 
 .secondary:not(:disabled):hover {
-  border-color: var(--accent-cyan);
+  border-color: var(--text-muted);
+  background: var(--surface-elevated);
+}
+
+.secondary:not(:disabled):active {
+  background: var(--surface-0);
 }
 
 .ghost,
@@ -51,14 +79,19 @@
 }
 
 .danger {
-  border-color: rgba(239, 116, 116, 0.5);
-  color: #ffdede;
-  background: rgba(239, 116, 116, 0.12);
+  border-color: color-mix(in srgb, var(--accent-red) 50%, transparent);
+  color: var(--accent-red);
+  background: color-mix(in srgb, var(--accent-red) 10%, var(--surface-0));
+}
+
+.danger:not(:disabled):hover {
+  border-color: var(--accent-red);
+  background: color-mix(in srgb, var(--accent-red) 18%, var(--surface-0));
 }
 
 .sm {
-  min-height: 30px;
-  padding: 5px 9px;
+  min-height: 32px;
+  padding: 8px 12px;
   font-size: var(--font-small);
 }
 
@@ -67,7 +100,26 @@
 }
 
 .lg {
-  min-height: 46px;
-  padding: 11px 18px;
+  min-height: 44px;
+  padding: 12px 20px;
   font-size: var(--font-body);
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+.button[data-loading] .content {
+  opacity: 0;
+}
+
+.spinner {
+  position: absolute;
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

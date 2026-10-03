@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import {
+  GitCompareArrows,
+  Maximize2,
+  Minimize2,
+  ArrowLeft,
+  Play,
+  Pause,
+} from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ScenarioBadge } from "@/components/ui/ScenarioBadge";
 import {
@@ -13,7 +21,11 @@ import { useSessionView, useRemoteStatus } from "@/session/useSessionView";
 import { useCompletedAar } from "@/session/useCompletedAar";
 import { visibleTimeline } from "@/session/visibleTimeline";
 import { useSessionStore } from "@/state/useSessionStore";
-import { formatClock, formatPercent } from "@/utils/format";
+import {
+  decisionWindowLabel,
+  formatClock,
+  formatPercent,
+} from "@/utils/format";
 import { presentationNavigationSchema } from "./PresentationEntry";
 import styles from "./PresentationPage.module.css";
 
@@ -269,12 +281,24 @@ export default function PresentationPage() {
         </div>
         <div className={styles.controls}>
           <Button
+            size="sm"
+            variant="quiet"
             onClick={() => void toggleFullscreen()}
             aria-pressed={fullscreen}
           >
+            {fullscreen ? (
+              <Minimize2 size={15} aria-hidden="true" />
+            ) : (
+              <Maximize2 size={15} aria-hidden="true" />
+            )}
             {fullscreen ? "Leave fullscreen" : "Enter fullscreen"}
           </Button>
-          <Button id="presentation-exit" onClick={() => void leave(returnTo)}>
+          <Button
+            size="sm"
+            id="presentation-exit"
+            onClick={() => void leave(returnTo)}
+          >
+            <ArrowLeft size={15} aria-hidden="true" />
             Exit presentation
           </Button>
         </div>
@@ -353,9 +377,11 @@ export default function PresentationPage() {
               <div>
                 <span>Fog Index</span>
                 <strong data-testid="presentation-fog">
-                  {view.belief ? view.belief.fogIndex.toFixed(2) : "Withheld"}
+                  {view.belief
+                    ? formatPercent(view.belief.fogIndex, 1)
+                    : "Withheld"}
                 </strong>
-                <small>0 clear · 1 fully fogged</small>
+                <small>0% clear · 100% fully fogged</small>
               </div>
               <div>
                 <span>Primary reference belief</span>
@@ -363,6 +389,18 @@ export default function PresentationPage() {
                   {belief ? formatPercent(belief.p, 1) : "Withheld"}
                 </strong>
                 <small>{primary?.label ?? "No primary hypothesis"}</small>
+              </div>
+              <div className={styles.windowMetric}>
+                <span>Decision window</span>
+                <strong>
+                  {decisionWindowLabel(view) ?? "No active window"}
+                </strong>
+                <small>
+                  {point
+                    ? `${formatClock(point.openSec)} to ${formatClock(point.closeSec)} · close exclusive`
+                    : "No decision scheduled"}
+                  {view.phase === "PAUSED" ? " · clock paused" : ""}
+                </small>
               </div>
             </section>
             {view.beliefHidden && (
@@ -372,67 +410,13 @@ export default function PresentationPage() {
                 automatically.
               </p>
             )}
-            {demo && (
-              <section
-                className={styles.panel}
-                aria-label="Presentation demo controls"
+            {controlResult && (
+              <p
+                className={styles.controlResult}
+                role={controlResult.ok ? "status" : "alert"}
               >
-                <div className={styles.controls}>
-                  <Button onClick={() => runDemo("run")}>Run / resume</Button>
-                  <Button
-                    onClick={() => runDemo("pause")}
-                    disabled={view.phase !== "RUNNING"}
-                  >
-                    Pause
-                  </Button>
-                  <Button onClick={resetDemo}>Reset demo</Button>
-                  <Button
-                    onClick={() => runDemo("step")}
-                    disabled={!["RUNNING", "CONSEQUENCE"].includes(view.phase)}
-                  >
-                    Next event
-                  </Button>
-                  <Button
-                    onClick={() => runDemo("wow")}
-                    disabled={view.phase !== "RUNNING"}
-                  >
-                    Show WOW event
-                  </Button>
-                  <Button
-                    onClick={() => runDemo("decision")}
-                    disabled={view.phase !== "RUNNING"}
-                  >
-                    Jump to decision
-                  </Button>
-                  <Button
-                    onClick={() => runDemo("aar")}
-                    disabled={view.phase === "PAUSED"}
-                  >
-                    Complete to AAR summary
-                  </Button>
-                  <Button
-                    id="presentation-help"
-                    aria-expanded={helpOpen}
-                    onClick={() => setHelpOpen((open) => !open)}
-                  >
-                    Shortcuts
-                  </Button>
-                </div>
-                {controlResult && (
-                  <p role={controlResult.ok ? "status" : "alert"}>
-                    {controlResult.message}
-                  </p>
-                )}
-                {helpOpen && (
-                  <p>
-                    H home · D reset · N next event · J decision window · A
-                    complete real path and show AAR summary · I instructor
-                    controls in the console · ? shortcuts. Escape closes help,
-                    leaves fullscreen, then exits presentation. Typing fields
-                    are not intercepted.
-                  </p>
-                )}
-              </section>
+                {controlResult.message}
+              </p>
             )}
             {demo?.isWow(view) && (
               <p className={styles.wow} data-testid="presentation-wow">
@@ -440,6 +424,66 @@ export default function PresentationPage() {
                 with the earlier picture. The displayed belief and Fog Index
                 come from this run, not a scripted animation.
               </p>
+            )}
+            {view.belief && !view.beliefHidden && (
+              <section
+                className={`${styles.panel} ${styles.signature}`}
+                aria-label="Reference belief comparison"
+              >
+                <div className={styles.sectionHeading}>
+                  <div>
+                    <p className={styles.kicker}>Information available now</p>
+                    <h2>Belief under current evidence</h2>
+                  </div>
+                  <span>Reference model · not hidden truth</span>
+                </div>
+                <div className={styles.beliefComparison}>
+                  {view.hypotheses.map((hypothesis) => {
+                    const assessment =
+                      view.belief?.perHypothesis[hypothesis.id];
+                    if (!assessment) return null;
+                    return (
+                      <div
+                        className={styles.beliefRow}
+                        key={hypothesis.id}
+                        data-conflicted={assessment.contradicted}
+                      >
+                        <div className={styles.beliefHeading}>
+                          <h3>{hypothesis.label}</h3>
+                          <strong>{formatPercent(assessment.p, 1)}</strong>
+                        </div>
+                        <div
+                          className={styles.beliefTrack}
+                          role="img"
+                          aria-label={`${hypothesis.label}: current belief ${formatPercent(assessment.p, 1)}, authored prior ${formatPercent(hypothesis.prior)}.`}
+                        >
+                          <span style={{ width: `${assessment.p * 100}%` }} />
+                          <i
+                            style={{ left: `${hypothesis.prior * 100}%` }}
+                            aria-hidden="true"
+                          />
+                        </div>
+                        <div className={styles.beliefMeta}>
+                          <span>Prior {formatPercent(hypothesis.prior)}</span>
+                          <span>
+                            {assessment.contradicted && (
+                              <GitCompareArrows size={14} aria-hidden="true" />
+                            )}
+                            {assessment.contradicted
+                              ? "Evidence split"
+                              : "No contradiction"}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className={styles.modelNote}>
+                  Bars show the current reference belief; markers show the
+                  authored prior. New information can move the assessment
+                  without revealing the eventual outcome.
+                </p>
+              </section>
             )}
             <div className={styles.context}>
               <section
@@ -452,9 +496,10 @@ export default function PresentationPage() {
                 <p>{point?.prompt ?? "No decision is currently available."}</p>
                 {point && (
                   <p>
-                    <strong>{point.status}</strong> ·{" "}
+                    <strong>{decisionWindowLabel(view)}</strong> ·{" "}
                     {formatClock(point.openSec)} to{" "}
                     {formatClock(point.closeSec)} (close exclusive)
+                    {view.phase === "PAUSED" ? " · clock paused" : ""}
                   </p>
                 )}
                 {view.pendingConsequence && (
@@ -602,6 +647,74 @@ export default function PresentationPage() {
                       Open full AAR and replay
                     </Button>
                   </>
+                )}
+              </section>
+            )}
+            {demo && (
+              <section
+                className={styles.presenterControls}
+                aria-label="Presentation demo controls"
+              >
+                <p className={styles.kicker}>Presenter controls</p>
+                <div className={styles.controls}>
+                  <Button size="sm" onClick={() => runDemo("run")}>
+                    <Play size={14} aria-hidden="true" /> Run / resume
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => runDemo("pause")}
+                    disabled={view.phase !== "RUNNING"}
+                  >
+                    <Pause size={14} aria-hidden="true" /> Pause
+                  </Button>
+                  <Button size="sm" onClick={resetDemo}>
+                    Reset demo
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => runDemo("step")}
+                    disabled={!["RUNNING", "CONSEQUENCE"].includes(view.phase)}
+                  >
+                    Next event
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => runDemo("wow")}
+                    disabled={view.phase !== "RUNNING"}
+                  >
+                    Show WOW event
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => runDemo("decision")}
+                    disabled={view.phase !== "RUNNING"}
+                  >
+                    Jump to decision
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => runDemo("aar")}
+                    disabled={view.phase === "PAUSED"}
+                  >
+                    Complete to AAR summary
+                  </Button>
+                  <Button
+                    size="sm"
+                    id="presentation-help"
+                    aria-expanded={helpOpen}
+                    onClick={() => setHelpOpen((open) => !open)}
+                  >
+                    Shortcuts
+                  </Button>
+                </div>
+                {helpOpen && (
+                  <p className={styles.help}>
+                    H home · D reset · N next event · J decision window · A
+                    complete real path and show AAR summary · I instructor
+                    controls in the console · ? shortcuts. Escape closes help,
+                    leaves fullscreen, then exits presentation. Typing fields
+                    are not intercepted.
+                  </p>
                 )}
               </section>
             )}

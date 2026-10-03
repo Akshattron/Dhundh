@@ -241,6 +241,33 @@ describe("live presentation", () => {
     ).toBeTruthy();
   });
 
+  it("labels an open interval while paused without changing the decision guard or recorded history", () => {
+    const client = local();
+    client.advanceToSeconds(720);
+    client.dispatch({ type: "PAUSE" });
+    const log = JSON.stringify(client.getLog());
+    show(`/presentation/local/${flagship.meta.id}`);
+    expect(screen.getByTestId("presentation-fog").textContent).toMatch(
+      /^\d+\.\d%$/,
+    );
+    expect(
+      screen.getByRole("region", { name: "Current decision context" })
+        .textContent,
+    ).toContain("OPEN");
+    expect(
+      screen.getByRole("region", { name: "Current decision context" })
+        .textContent,
+    ).toContain("clock paused");
+    expect(
+      screen.queryByRole("button", { name: "Open decision console" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("region", { name: "Reference belief comparison" }),
+    ).toBeTruthy();
+    expect(client.getSnapshot().decisionPoint?.status).toBe("UPCOMING");
+    expect(JSON.stringify(client.getLog())).toBe(log);
+  });
+
   it("supports owned fullscreen, native state changes, Escape and cleanup without disposing the exercise", async () => {
     const client = local();
     const api = fullscreenSupport();
@@ -292,6 +319,9 @@ describe("live presentation", () => {
       "Withheld",
     );
     expect(screen.getByTestId("presentation-fog").textContent).toBe("Withheld");
+    expect(
+      screen.queryByRole("region", { name: "Reference belief comparison" }),
+    ).toBeNull();
     expect(screen.queryByTestId("presentation-aar")).toBeNull();
     expect(
       screen.queryByText(
@@ -309,6 +339,9 @@ describe("live presentation", () => {
     expect(screen.getByTestId("presentation-belief").textContent).not.toBe(
       "Withheld",
     );
+    expect(
+      screen.getByRole("region", { name: "Reference belief comparison" }),
+    ).toBeTruthy();
     expect(client.getLog().intents).toHaveLength(log.intents.length + 1);
     expect(screen.getByText(/Truth and outcome are withheld/)).toBeTruthy();
   });
@@ -343,7 +376,9 @@ describe("live presentation", () => {
     expect(screen.queryByTestId("presentation-aar")).toBeNull();
     expect(screen.getByTestId("presentation-clock").textContent).toBe("0:00");
     await act(async () => fireEvent.keyDown(window, { key: "i" }));
-    expect(screen.getByText("Control drawer")).toBeTruthy();
+    expect(
+      screen.getByRole("dialog", { name: "Local instructor controls" }),
+    ).toBeTruthy();
   });
 
   it("opens the actual decision console and avoids rebuilding completed AAR for presentation-only state", async () => {

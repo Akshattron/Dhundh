@@ -1,8 +1,9 @@
-import { ArrowRight, Check, Clock3, Shield } from "lucide-react";
+import { ArrowRight, Clock3, Shield } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { ScenarioBadge } from "@/components/ui/ScenarioBadge";
+import { ChannelIcon } from "@/features/trainee/ChannelHealthStrip";
 import { createLocalSession } from "@/session/LocalSessionClient";
 import { useSessionStore } from "@/state/useSessionStore";
 import { scenarios } from "@/scenarios";
@@ -79,20 +80,61 @@ export default function BriefingPage() {
       </section>
       <div className={styles.columns}>
         <section className={styles.panel}>
-          <h2>Briefing</h2>
+          <h2>Context and constraints</h2>
           <ol>
-            {scenario.meta.briefing.map((paragraph) => (
+            {scenario.meta.briefing.map((paragraph, index) => (
               <li key={paragraph}>
-                <span>
-                  <Check size={14} aria-hidden="true" />
-                </span>
+                <span>{String(index + 1).padStart(2, "0")}</span>
                 {paragraph}
               </li>
             ))}
           </ol>
+          <section className={styles.information}>
+            <h2>Information available</h2>
+            <div className={styles.channels}>
+              {scenario.channels.map((channel) => (
+                <div key={channel.id} data-channel={channel.id}>
+                  <ChannelIcon channel={channel.id} />
+                  <strong>{channel.id}</strong>
+                  <span>{channel.sourceLabel}</span>
+                </div>
+              ))}
+            </div>
+            <p>
+              Reports carry their source, issue time and receipt time. Inspect
+              them before deciding; delayed or conflicting information may
+              change the picture.
+            </p>
+          </section>
+          <section className={styles.scoring}>
+            <h2>How evaluation works</h2>
+            <dl>
+              <div>
+                <dt>Decision quality</dt>
+                <dd>
+                  Evaluated against the information available at commitment, not
+                  later truth.
+                </dd>
+              </div>
+              <div>
+                <dt>Outcome</dt>
+                <dd>
+                  Revealed separately after completion. A sound decision can
+                  have an unfavourable outcome.
+                </dd>
+              </div>
+              <div>
+                <dt>After-action review</dt>
+                <dd>
+                  Reconstruct your evidence, estimates, verification and
+                  rationale at the recorded time.
+                </dd>
+              </div>
+            </dl>
+          </section>
         </section>
         <section className={styles.panel}>
-          <h2>Decision context</h2>
+          <h2>Prepare the exercise</h2>
           <div className={styles.metric}>
             <Clock3 size={17} aria-hidden="true" />
             <span>Decision deadline</span>
@@ -106,6 +148,7 @@ export default function BriefingPage() {
             <strong>{scenario.assets.length}</strong>
           </div>
           <div className={styles.actionList}>
+            <h3>Available actions</h3>
             {scenario.decisionPoints[0]?.actions.map((action) => (
               <div key={action.id}>
                 <strong>{action.label}</strong>

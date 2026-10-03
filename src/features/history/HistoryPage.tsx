@@ -59,6 +59,7 @@ export default function HistoryPage() {
   const meanQuality = average(entries, (entry) => entry.decisionQuality);
   const meanOutcome = average(entries, (entry) => entry.outcome);
   const meanBrier = average(entries, (entry) => entry.brierUser);
+  const historyUnavailable = error !== null && entries.length === 0;
 
   return (
     <article className={styles.page}>
@@ -92,28 +93,47 @@ export default function HistoryPage() {
           </div>
           <ChartNoAxesColumnIncreasing size={19} aria-hidden="true" />
         </div>
-        <div className={styles.metrics}>
-          <div>
-            <span>Recorded runs</span>
-            <strong>{entries.length}</strong>
-          </div>
-          <div>
-            <span>Mean decision quality</span>
-            <strong>
-              {meanQuality === null ? "—" : formatPercent(meanQuality, 1)}
-            </strong>
-          </div>
-          <div>
-            <span>Mean outcome</span>
-            <strong>
-              {meanOutcome === null ? "—" : formatPercent(meanOutcome, 1)}
-            </strong>
-          </div>
-          <div>
-            <span>Mean estimate Brier</span>
-            <strong>{meanBrier === null ? "—" : meanBrier.toFixed(3)}</strong>
-          </div>
-        </div>
+        {historyUnavailable ? (
+          <p className={styles.empty}>
+            History is unavailable. No saved summaries have been cleared.
+          </p>
+        ) : (
+          <>
+            <div className={styles.metrics}>
+              <div>
+                <span>Recorded runs</span>
+                <strong>{entries.length}</strong>
+              </div>
+              <div>
+                <span>Mean decision quality</span>
+                <strong>
+                  {meanQuality === null ? "—" : formatPercent(meanQuality, 1)}
+                </strong>
+              </div>
+              <div>
+                <span>Mean outcome</span>
+                <strong>
+                  {meanOutcome === null ? "—" : formatPercent(meanOutcome, 1)}
+                </strong>
+              </div>
+              <div>
+                <span>Mean estimate Brier</span>
+                <strong>
+                  {meanBrier === null ? "—" : meanBrier.toFixed(3)}
+                </strong>
+                <small>
+                  {entries.filter((entry) => entry.brierUser !== null).length}{" "}
+                  {entries.filter((entry) => entry.brierUser !== null)
+                    .length === 1
+                    ? "run"
+                    : "runs"}{" "}
+                  with recorded estimates
+                </small>
+              </div>
+            </div>
+            {entries.length > 0 && <HistoryTrend entries={entries} />}
+          </>
+        )}
         <p className={styles.caption}>
           Decision quality evaluates choices against information available at
           commitment. Outcome is reported separately; realized luck does not
@@ -136,10 +156,18 @@ export default function HistoryPage() {
             <Trash2 size={14} /> Clear history
           </Button>
         </div>
-        {entries.length === 0 ? (
-          <p className={styles.empty}>
-            Completed AARs will appear here after they are opened.
+        {historyUnavailable ? (
+          <p className={styles.caption}>
+            Resolve the storage error or explicitly clear the unreadable
+            history.
           </p>
+        ) : entries.length === 0 ? (
+          <div className={styles.empty}>
+            <p>Completed AARs will appear here after they are opened.</p>
+            <Button onClick={() => navigate("/scenarios")}>
+              Choose an exercise
+            </Button>
+          </div>
         ) : (
           <div className={styles.list}>
             {entries.map((entry) => (
@@ -184,8 +212,107 @@ export default function HistoryPage() {
       <p className={styles.caption}>
         Only aggregate scores and scenario metadata are stored in this
         browser&apos;s local storage. Raw logs, estimates, rationale, and hidden
-        scenario truth are not saved to history.
+        scenario truth are not saved to history. Verification habits and
+        per-decision quadrant classifications are not retained in these
+        summaries; inspect them in the completed AAR.
       </p>
     </article>
+  );
+}
+
+function HistoryTrend({ entries }: { entries: SessionHistoryEntry[] }) {
+  const runs = [...entries].reverse();
+  const x = (index: number) =>
+    runs.length === 1 ? 300 : (index / (runs.length - 1)) * 600;
+  const scorePoints = runs
+    .map(
+      (entry, index) =>
+        `${x(index)},${160 - (entry.trainingScore / 100) * 160}`,
+    )
+    .join(" ");
+  const qualityPoints = runs
+    .map((entry, index) => `${x(index)},${160 - entry.decisionQuality * 160}`)
+    .join(" ");
+  return (
+    <figure className={styles.trend}>
+      <figcaption>
+        <h3>Score and decision quality</h3>
+        <span>
+          {" "}
+          Recorded run order · {runs.length}{" "}
+          {runs.length === 1 ? "observation" : "observations"}
+        </span>
+      </figcaption>
+      <div className={styles.trendLegend}>
+        <span>
+          <i className={styles.scoreLine} /> Training score / 100
+        </span>
+        <span>
+          <i className={styles.qualityLine} /> Decision quality %
+        </span>
+      </div>
+      <div className={styles.trendPlot}>
+        <div className={styles.trendAxis} aria-hidden="true">
+          <span>100</span>
+          <span>50</span>
+          <span>0</span>
+        </div>
+        <svg
+          viewBox="-6 -6 612 172"
+          preserveAspectRatio="none"
+          role="img"
+          aria-label={`Score and decision quality across ${runs.length} recorded runs. Full values are listed below.`}
+        >
+          {[0, 80, 160].map((y) => (
+            <line
+              key={y}
+              x1="0"
+              x2="600"
+              y1={y}
+              y2={y}
+              className={styles.trendGrid}
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+          <polyline
+            points={scorePoints}
+            className={styles.scoreSeries}
+            vectorEffect="non-scaling-stroke"
+          />
+          <polyline
+            points={qualityPoints}
+            className={styles.qualitySeries}
+            vectorEffect="non-scaling-stroke"
+          />
+          {runs.map((entry, index) => (
+            <g key={entry.id}>
+              <title>{`Run ${index + 1} · ${entry.scenarioTitle}: training score ${entry.trainingScore.toFixed(1)} / 100; decision quality ${formatPercent(entry.decisionQuality, 1)}`}</title>
+              <circle
+                cx={x(index)}
+                cy={160 - (entry.trainingScore / 100) * 160}
+                r="4"
+                className={styles.scorePoint}
+              />
+              <rect
+                x={x(index) - 3}
+                y={160 - entry.decisionQuality * 160 - 3}
+                width="6"
+                height="6"
+                className={styles.qualityPoint}
+              />
+            </g>
+          ))}
+        </svg>
+      </div>
+      <div className={styles.trendDates}>
+        <span>{new Date(runs[0]!.completedAt).toLocaleDateString()}</span>
+        <span>{new Date(runs.at(-1)!.completedAt).toLocaleDateString()}</span>
+      </div>
+      <p className={styles.caption}>
+        {runs.length === 1
+          ? "One recorded run; more completions are needed to compare change."
+          : "Connected points show stored runs, not predictions or validated improvement. Different scenarios and difficulty profiles are not controlled comparisons."}
+      </p>
+    </figure>
   );
 }

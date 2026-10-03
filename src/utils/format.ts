@@ -1,3 +1,5 @@
+import type { TraineeView } from "@/engine/view";
+
 export function formatClock(totalSeconds: number): string {
   const seconds = Math.max(0, Math.floor(totalSeconds));
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
@@ -12,4 +14,16 @@ export function formatAge(ageSec: number): string {
   const minutes = Math.floor(ageSec / 60);
   const seconds = Math.floor(ageSec % 60);
   return seconds === 0 ? `${minutes}m old` : `${minutes}m ${seconds}s old`;
+}
+
+export function decisionWindowLabel(
+  view: Pick<TraineeView, "decisionPoint" | "phase" | "nowSec">,
+) {
+  const point = view.decisionPoint;
+  return point?.status === "UPCOMING" &&
+    view.phase === "PAUSED" &&
+    view.nowSec >= point.openSec &&
+    view.nowSec < point.closeSec
+    ? "OPEN"
+    : point?.status;
 }

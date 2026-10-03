@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import {
+  CheckCircle2,
+  CircleDashed,
+  Eye,
+  FileCode2,
+  ShieldCheck,
+  TriangleAlert,
+  XCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ScenarioBadge } from "@/components/ui/ScenarioBadge";
 import {
@@ -15,7 +24,12 @@ import { useSessionView } from "@/session/useSessionView";
 import flagship from "@/scenarios/kestrel-relief-corridor.json";
 import harbour from "@/scenarios/harbour-flood-response.json";
 import { downloadFile } from "@/utils/download";
-import { formatClock, formatPercent } from "@/utils/format";
+import {
+  decisionWindowLabel,
+  formatClock,
+  formatPercent,
+} from "@/utils/format";
+import { ChannelHealthStrip } from "@/features/trainee/ChannelHealthStrip";
 import styles from "./ScenarioAuthoringPage.module.css";
 
 const templates = [flagship, harbour];
@@ -36,9 +50,10 @@ function ScenarioPreview({ client }: { client: LocalSessionClient }) {
       aria-label="Isolated scenario preview"
       data-testid="authoring-preview"
     >
+      <p className={styles.kicker}>03 / Preview</p>
       <h2>Isolated local preview</h2>
       <ScenarioBadge />
-      <p>
+      <p className={styles.previewState}>
         Real LocalSessionClient, seed 0, authored difficulty and timings, no
         mutation. This preview never replaces your active exercise or writes
         session history. Unanswered decisions time out normally.
@@ -99,17 +114,16 @@ function ScenarioPreview({ client }: { client: LocalSessionClient }) {
           <dt>Decision</dt>
           <dd>
             {view.decisionPoint
-              ? `${view.decisionPoint.id} · ${view.decisionPoint.status}`
+              ? `${view.decisionPoint.id} · ${decisionWindowLabel(view)}`
               : "None"}
           </dd>
         </div>
       </dl>
-      <p>
-        {view.channels
-          .filter((channel) => channel.visible)
-          .map((channel) => `${channel.id}: ${channel.health}`)
-          .join(" · ")}
-      </p>
+      <ChannelHealthStrip
+        channels={view.channels}
+        nowSec={view.nowSec}
+        compact
+      />
       <ul className={styles.reports}>
         {view.reports.slice(0, 6).map((report) => (
           <li key={report.id}>
@@ -147,8 +161,43 @@ export default function ScenarioAuthoringPage() {
   const [importing, setImporting] = useState(false);
   const importRequest = useRef(0);
   const draftRef = useRef<HTMLTextAreaElement>(null);
+  const validationRef = useRef<HTMLElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
   const report =
     validation?.revision === document.revision ? validation.result : null;
+  const failedCheck = report?.checks.find((check) => check.status === "FAIL");
+  const validationState = report?.previewReady
+    ? "valid"
+    : validationFailure
+      ? "error"
+      : !report
+        ? "pending"
+        : report.scenario
+          ? "blocked"
+          : "error";
+  const validationTitle = !report
+    ? validationFailure
+      ? "Validation error"
+      : "Checking draft"
+    : report.previewReady
+      ? "Valid"
+      : failedCheck?.name === "JSON syntax"
+        ? "Syntax error"
+        : failedCheck?.name === "Authoring schema"
+          ? "Schema error"
+          : failedCheck?.name === "Runtime invariants"
+            ? "Invariant error"
+            : failedCheck?.name === "Editor resource limits"
+              ? "Editor limit exceeded"
+              : "Readiness blocked";
+  const ValidationIcon =
+    validationState === "valid"
+      ? CheckCircle2
+      : validationState === "error"
+        ? XCircle
+        : validationState === "blocked"
+          ? TriangleAlert
+          : CircleDashed;
   const validate = useCallback(() => {
     try {
       setValidation({
@@ -169,6 +218,9 @@ export default function ScenarioAuthoringPage() {
     return () => window.clearTimeout(timeout);
   }, [validate]);
   useEffect(() => () => preview?.dispose(), [preview]);
+  useEffect(() => {
+    if (preview) previewRef.current?.focus();
+  }, [preview]);
   useEffect(
     () => () => {
       importRequest.current += 1;
@@ -285,15 +337,16 @@ export default function ScenarioAuthoringPage() {
         <ScenarioBadge />
       </div>
       <p className={styles.disclosure}>
+        <ShieldCheck size={16} aria-hidden="true" />
         Synthetic training scenario editor. Do not enter real-world operational
         or classified content.
       </p>
-      <p>
+      <p className={styles.intro}>
         Edit minute-based JSON. Schema and runtime validation run after a short
         typing pause; training-readiness checks reuse the deterministic mutation
         gate. No code is executed and no bundled files are overwritten.
       </p>
-      <div className={styles.controls}>
+      <div className={styles.toolbar}>
         <label>
           Template{" "}
           <select
@@ -341,8 +394,57 @@ export default function ScenarioAuthoringPage() {
           />
         </label>
       </div>
+      <div className={styles.workStatus}>
+        {error && (
+          <p className={styles.errors} role="alert">
+            {error}
+          </p>
+        )}
+        {validationFailure && (
+          <p className={styles.errors} role="alert">
+            {validationFailure}
+          </p>
+        )}
+        <p role="status">
+          {status}
+          {importing ? " Reading selected file..." : ""}
+        </p>
+        <nav aria-label="Authoring stages">
+          <a href="#authoring-editor">Editor</a>
+          <a href="#authoring-validation">Validation</a>
+          <a href="#authoring-preview-workspace">Preview</a>
+        </nav>
+      </div>
       <div className={styles.workspace}>
-        <section className={styles.panel} aria-label="Scenario JSON editor">
+        <section
+          className={`${styles.panel} ${styles.editor}`}
+          id="authoring-editor"
+          aria-label="Scenario JSON editor"
+        >
+          <div className={styles.sectionHeading}>
+            <div>
+              <p className={styles.kicker}>01 / Editor</p>
+              <h2>Scenario document</h2>
+            </div>
+            <FileCode2 size={18} aria-hidden="true" />
+          </div>
+          <div className={styles.controls}>
+            <Button
+              onClick={() => {
+                validate();
+                validationRef.current?.focus();
+              }}
+            >
+              Validate now
+            </Button>
+            <Button
+              variant="primary"
+              onClick={startPreview}
+              disabled={!report?.previewReady}
+            >
+              Preview scenario
+            </Button>
+          </div>
           <label htmlFor="scenario-draft">
             <strong>Scenario JSON draft</strong>
           </label>
@@ -352,6 +454,10 @@ export default function ScenarioAuthoringPage() {
             value={document.text}
             spellCheck={false}
             aria-describedby="draft-hint"
+            aria-invalid={Boolean(report && !report.scenario)}
+            aria-errormessage={
+              report && !report.scenario ? "draft-issues" : undefined
+            }
             onChange={(event) =>
               replaceDraft(
                 event.target.value,
@@ -366,7 +472,6 @@ export default function ScenarioAuthoringPage() {
             draft.
           </p>
           <div className={styles.controls}>
-            <Button onClick={validate}>Validate now</Button>
             <Button
               onClick={() =>
                 replaceDraft(
@@ -381,17 +486,24 @@ export default function ScenarioAuthoringPage() {
             <Button onClick={exportDraft} disabled={!report?.scenario}>
               Export JSON
             </Button>
-            <Button
-              variant="primary"
-              onClick={startPreview}
-              disabled={!report?.previewReady}
-            >
-              Preview scenario
-            </Button>
           </div>
         </section>
-        <section className={styles.panel} aria-label="Scenario validation">
+        <section
+          className={`${styles.panel} ${styles.validation}`}
+          ref={validationRef}
+          id="authoring-validation"
+          tabIndex={-1}
+          aria-label="Scenario validation"
+        >
+          <p className={styles.kicker}>02 / Validation</p>
           <h2>Validation and readiness</h2>
+          <div
+            className={styles.validationSummary}
+            data-state={validationState}
+          >
+            <ValidationIcon size={18} aria-hidden="true" />
+            <strong>{validationTitle}</strong>
+          </div>
           <p role="status" data-testid="authoring-validation-status">
             {validationFailure && !report
               ? "Validation failed; repair the draft or reset."
@@ -409,12 +521,21 @@ export default function ScenarioAuthoringPage() {
                 {report.checks.map((check) => (
                   <li key={check.name}>
                     <span>{check.name}</span>
-                    <strong data-status={check.status}>{check.status}</strong>
+                    <strong data-status={check.status}>
+                      {check.status === "PASS" ? (
+                        <CheckCircle2 size={14} aria-hidden="true" />
+                      ) : check.status === "FAIL" ? (
+                        <XCircle size={14} aria-hidden="true" />
+                      ) : (
+                        <CircleDashed size={14} aria-hidden="true" />
+                      )}
+                      {check.status}
+                    </strong>
                   </li>
                 ))}
               </ul>
               {report.issues.length > 0 && (
-                <div className={styles.errors}>
+                <div className={styles.errors} id="draft-issues">
                   <h3>Actionable issues</h3>
                   <ol>
                     {report.issues.slice(0, 20).map((issue, index) => (
@@ -432,8 +553,8 @@ export default function ScenarioAuthoringPage() {
                 </div>
               )}
               {report.scenario && (
-                <>
-                  <h3>Validated draft summary</h3>
+                <details className={styles.draftSummary}>
+                  <summary>Validated draft summary</summary>
                   <p>
                     <strong>{report.scenario.meta.title}</strong> · version{" "}
                     {report.scenario.meta.version} · {report.hash}
@@ -483,7 +604,7 @@ export default function ScenarioAuthoringPage() {
                       .
                     </p>
                   ))}
-                </>
+                </details>
               )}
             </>
           )}
@@ -505,22 +626,39 @@ export default function ScenarioAuthoringPage() {
             </p>
           </details>
         </section>
+        <div
+          ref={previewRef}
+          className={styles.preview}
+          id="authoring-preview-workspace"
+          tabIndex={-1}
+          role="region"
+          aria-label="Scenario preview workspace"
+        >
+          {preview ? (
+            <ScenarioPreview client={preview} />
+          ) : (
+            <section className={`${styles.panel} ${styles.previewEmpty}`}>
+              <p className={styles.kicker}>03 / Preview</p>
+              <h2>Isolated local preview</h2>
+              <Eye size={24} aria-hidden="true" />
+              <h3>
+                {report?.previewReady
+                  ? "Ready when you are"
+                  : "Waiting for a ready draft"}
+              </h3>
+              <p>
+                {report?.previewReady
+                  ? "Choose Preview scenario to run this exact document through the real local engine."
+                  : "Resolve validation and readiness issues before starting a preview."}
+              </p>
+              <p>
+                The preview never replaces an active exercise or writes session
+                history. Editing the draft stops it.
+              </p>
+            </section>
+          )}
+        </div>
       </div>
-      {error && (
-        <p className={styles.errors} role="alert">
-          {error}
-        </p>
-      )}
-      {validationFailure && (
-        <p className={styles.errors} role="alert">
-          {validationFailure}
-        </p>
-      )}
-      <p role="status">
-        {status}
-        {importing ? " Reading selected file..." : ""}
-      </p>
-      {preview && <ScenarioPreview client={preview} />}
     </article>
   );
 }

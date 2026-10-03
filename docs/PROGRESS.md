@@ -8,10 +8,198 @@ or deployment credentials are configured in this workspace. Public health,
 `wss://`, and deployed three-role rehearsal are therefore unverified. Gates 0-6
 remain **GREEN** on their recorded evidence.
 
-Branch: `akshattron-gate-7-production-freeze`.
+Gate 7 baseline branch: `akshattron-gate-7-production-freeze`.
 Baseline: `4ec39a2` (Gate 6 merge).
 
 Gate 6 implementation commit: `8b5a96ec780f1dccd6ff1df66c1631f6c1affbd5`.
+
+## Visual redesign - current pass complete
+
+The rendered audit is the visual baseline. This pass does not change simulation,
+scoring, golden values, scenarios, network authority/protocol/reconnect, role
+projections, replay semantics, AAR calculations, persistence, or export contracts.
+The user confirmed that domain atmosphere must use existing palette tokens only;
+no new domain hues or specification amendment are authorized.
+
+### Phase 1 - shared visual foundations
+
+- Added specification-backed motion durations, token-derived channel identities,
+  coherent native controls, and neutral synthetic disclosure styling. The
+  canonical palette values are unchanged.
+- Refined the existing Button, including distinct pressed styling and accessible
+  loading/full-width variants. Added shared keyboard-operable Tabs for the
+  subsequent console/replay integration.
+- Files: global styles/tokens, Button, ScenarioBadge styles, Tabs, and
+  `tests/ui/visual-foundations.test.tsx`.
+- `npm run typecheck`: passed. Relevant UI and golden run: **9 files, 64 tests
+  passed**. Phase-level production build follows the entry-surface batch.
+- Actual Chromium rendering checked at 1440 and 390px; hover and pressed colors
+  differed and no browser exception was recorded. Evidence is retained as
+  `phase01-foundations-*.png` in session artifacts.
+- Route-specific typography, metadata contrast and responsive layouts remain for
+  the following surface phases; this is not a whole-application AA claim.
+- The original 5173/8787 servers belong to another checkout and were left alone.
+  Worktree-only preview uses 5174/8788.
+- Final QA note: the prior audit's `WebSocket.close(1008)` InvalidAccessError in
+  `RemoteSessionClient.receive` is pre-existing and outside this visual scope.
+- Next: compact AppShell and evidence-led Home, then library/briefing.
+
+### Phase 2 - AppShell and Home
+
+- Replaced the oversized card hero with a restrained, explicitly conceptual
+  information/fog/belief/decision composition. Preserved the one-click real demo
+  and all other entry actions.
+- Compact shell, active-route semantics, mobile navigation, Escape focus
+  restoration, and a working skip-to-content link.
+- Files: AppShell and Home components/styles, shared-control regression tests.
+- Entry/control tests: **2 files, 10 tests passed**. Production build and
+  scenario validation passed; scenario hashes remain `cdcc6039` / `1f7af0fb`.
+- Chromium at 1440/1100/820/390: no horizontal overflow; shell height 56px;
+  Home display heading 30px; mobile primary action starts around y=298.
+  Mobile menu Escape and skip-link focus verified, with no browser exceptions.
+- Inspected screenshots revealed a stretched SVG alignment issue in the
+  conceptual illustration; its non-text paths now fill the available width.
+- Evidence: `phase02-home-*.png`, skip-link capture, and measurements in session
+  artifacts. Next: scenario library/briefing, then the live console.
+
+### Phase 3 - Library and Briefing
+
+- Replaced the scenario-card grid with curated exercise rows, channel identities,
+  training focus, and validated existing-history summaries. History read failures
+  are explicit and do not block exercise entry.
+- Reorganized briefing into context, available information, evaluation, and
+  preparation, with a persistent Start action. Configuration and engine entry
+  are unchanged.
+- Files: Library/Briefing components and styles, ChannelHealthStrip, Home icon
+  reuse, and the two entry/shared UI test files.
+- Typecheck passed; focused UI tests: **2 files, 13 tests passed**. The previous
+  entry-surface production build is green; the next build covers the console.
+- Actual Chromium at 1440/1100/820/390: no horizontal overflow, 24px H1s,
+  accessible configuration and Start. A real briefing-to-exercise run delivered
+  R01, accepted inspection, and paused without browser exceptions.
+- Evidence: `phase03-library-*`, `phase03-briefing-*`, and measurements in session
+  artifacts. Next: console working-region height, temporal wording, evidence
+  readability, and real report-arrival motion.
+
+### Phase 4 - Console, Demo, and evidence visualizations
+
+- Consolidated demo context into a single console heading, reduced presenter
+  chrome, retained every control/hotkey, and added a compact mobile controls
+  disclosure. Desktop columns now follow the 36/36/28 evidence/situation/decision
+  proportions; small screens use shared keyboard-operable tabs.
+- Reports expose source, issue/receipt/age/delay/group and inspection state.
+  Fog Veil now recedes surfaces without reducing text opacity. Real arrivals
+  have a measured 200ms emphasis; reference bars respond to the projected belief.
+- Rebuilt the handwritten waterfall at actual pixel width: measured **12px**
+  labels and **54px full-row targets**, with the original inspection/aid gates.
+  Center-row pointer inspection succeeded in the running demo; paused rows do
+  not dispatch. Fog is a percentage and deltas are percentage points.
+- Clarified the open decision interval while paused without changing the
+  projection or action guards. Estimates precede verification and decision;
+  requests and received results are labelled separately.
+- Reused shared dialog focus handling, restored standalone shortcut help, and
+  prevented new reports from stealing the viewport. J/K and focused-report
+  inspection now agree.
+- Files: Session/Demo, ChannelHealthStrip, Fog/Contradiction/Waterfall,
+  ReferenceModelDrawer, Button ref support, shared dialog focus, and related tests.
+- Typecheck, scenario validation, and production build passed. UI/presentation
+  regression run: **4 files, 32 tests passed**; final mobile refinement:
+  **10 journey tests passed**.
+- Real Chromium demo reached the minute-22 conflict through presenter controls.
+  Working regions start at **y=466 / 492 / 539 / 571** for
+  1440/1100/820/390, versus the audit's approximately 724/828/1319/1629.
+  One H1, no page-width overflow, text opacity 1, working arrow-key tabs,
+  reachable mobile controls, and no browser exceptions.
+- Evidence: `phase04-*` in session artifacts. Next: AAR lesson hierarchy,
+  temporally labelled reconstruction, progressive disclosure, and history/team
+  presentation. The existing network-close exception remains out of scope.
+
+### Phase 5 - AAR, replay, history, and team reconstruction
+
+- Put the result, information-conditioned decision quality, outcome, and
+  correctly oriented quadrant first. Retained all deeper analysis in labelled
+  disclosures; print temporarily expands them and restores the reading state.
+- Replay opens at the exact precommitment cut. Knew retains role, delivery,
+  inspection, and aid gates; Truth follows the selected cut. Request, arrival,
+  inspection, and commitment are distinguished without changing verification
+  scoring or causal ordering.
+- History plots only existing stored score/DQ summaries. Missing calibration,
+  verification-habit, and per-decision data are not invented. Team rows retain
+  definitions, units, source counts, timing, and limitations.
+- Files: AAR/Replay/History components and styles, print styles, and related UI
+  and E2E disclosure expectations. No engine, network, storage, or export data
+  contract changed.
+- Typecheck, scenario validation, and production build passed. UI regression
+  run: **8 files, 56 tests passed**.
+- Actual Chromium completion and AAR at 1440/1100/820/390: no page overflow;
+  default AAR approximately **2,193px desktop / 3,078px mobile**, versus the
+  audit's approximately 8,338px / 11,603px. Replay starts at the recorded cut;
+  collapsed coach/evidence content appears in print.
+- A separate real three-role rehearsal joined, relayed R04, inspected RLY1,
+  recorded estimates, committed, and opened team AAR. Values were 100% sharing,
+  100% agreement, and 2.0 seconds matching-action latency for that run.
+  At 390px the document remains 390px; wide tables scroll inside a 332px region.
+  No browser exceptions occurred in these rehearsals.
+- Evidence: `phase05-*` in session artifacts. The previously observed network
+  close exception remains a documented, out-of-scope QA note.
+- Next: remaining instructor/entry/authoring/presentation surfaces, including
+  the user-requested lightweight typography consistency pass in touched files.
+
+### Phase 6 - instructor, room entry, authoring, and presentation
+
+- Completed the current workstation pass: clearer room setup and role selection,
+  explicit roster waiting/connected/disconnected states, compact instructor
+  controls, and separately disclosed instructor-only diagnostics.
+- Authoring separates Editor, Validation, and Preview. Distinct validation
+  failures remain visible; preview uses the existing isolated local client.
+  Compact preview channels keep names and health states readable.
+- Presentation prioritizes clock, percentage Fog, reference belief, and the
+  decision window. Its comparison uses actual authorized beliefs and authored
+  priors, not invented analytics. Fullscreen and existing shortcuts remain.
+- Applied the lightweight typography pass to touched UI: IBM Plex Sans by
+  default, limited narrative/model Serif, the locked scale, 28px primary
+  metrics, and readable chart/print labels.
+- Files: network pages/styles and TeamRoster; authoring and presentation
+  components/styles; InstructorControls; SessionPage; ReferenceModelDrawer;
+  ChannelHealthStrip; shared dialog focus; display-only decision-window
+  formatting; and corresponding UI/E2E tests.
+- Real browser inspection found that the mobile Tools container hid open
+  drawers. Both drawers now render through portals and restore focus to a
+  visible trigger or Tools fallback. The final E2E run also caught an instructor
+  toggle shortcut blocked by modal focus; that regression is repaired and
+  covered by UI and browser tests.
+
+### Final verification and user-directed stopping point
+
+- Final typecheck passed. Full regression suite: **39 files, 352 tests passed**,
+  including golden, role-projection, replay, integration, and UI coverage.
+  Scenario validation and production build passed; canonical hashes remain
+  `cdcc6039` / `1f7af0fb`.
+- **3 final Chromium E2E journeys passed** against this worktree on 5174:
+  flagship decision/consequence/AAR/exports/reset; authoring validation,
+  recovery/export/isolated preview; and offline presentation/fullscreen/focus/
+  shortcuts. Startup measured 185ms; WOW arrived at 44 seconds and AAR at
+  72 seconds of controlled demo wall time.
+- Final rendered Home, console, and AAR captures at **1440/1100/820/390px**
+  have no page-width overflow. H1s measure 30px on Home and 24px on the console
+  and AAR. Painted SVG labels remain at least 12px. Arrow-key tabs, mobile
+  drawers, presentation return focus, and the exact precommitment replay cut
+  passed. No page exceptions or console errors occurred in that final journey.
+- Final AAR height is approximately 2,194px desktop / 3,084px mobile. The
+  console's final mobile capture intentionally has presenter controls expanded.
+  Evidence is retained under session artifacts as `final-*.png`,
+  `final-browser-measurements.json`, and `final-build.log`, alongside the
+  earlier per-surface and three-role evidence.
+- Engine, scenarios, session/network implementation, dependencies, specification,
+  scoring, privacy, replay data, persistence, and export contracts are unchanged.
+  Changes remain in the visual-redesign worktree and are not committed.
+- The user requested closure of this coherent pass at the credit limit.
+  No additional redesign phase, broad re-audit, or minor cosmetic pass started.
+  This focused verification is not a whole-application AA certification.
+  The historical network-close exception remains out of scope; deployment
+  Gate 7 remains NOT GREEN. No further implementation phase is started.
+- The worktree preview remains available on 5174/8788; the original checkout's
+  5173/8787 services are untouched. Temporary inspection tooling is closed.
 
 ## Gate 7 Deployment and Prototype Freeze — NOT GREEN
 

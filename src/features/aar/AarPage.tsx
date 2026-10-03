@@ -84,6 +84,34 @@ export default function AarPage() {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const historyAttempts = useRef(new Set<string>());
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const page = useRef<HTMLElement>(null);
+  useEffect(() => {
+    let collapsed: HTMLDetailsElement[] = [];
+    const expandForPrint = () => {
+      if (collapsed.length > 0) return;
+      collapsed = [
+        ...(page.current?.querySelectorAll<HTMLDetailsElement>(
+          "details:not([open])",
+        ) ?? []),
+      ];
+      collapsed.forEach((detail) => {
+        detail.open = true;
+      });
+    };
+    const restoreAfterPrint = () => {
+      collapsed.forEach((detail) => {
+        detail.open = false;
+      });
+      collapsed = [];
+    };
+    window.addEventListener("beforeprint", expandForPrint);
+    window.addEventListener("afterprint", restoreAfterPrint);
+    return () => {
+      window.removeEventListener("beforeprint", expandForPrint);
+      window.removeEventListener("afterprint", restoreAfterPrint);
+      restoreAfterPrint();
+    };
+  }, []);
   const historyId = useMemo(
     () =>
       !aar
@@ -181,14 +209,31 @@ export default function AarPage() {
     infoUtil: aar.scores.infoUtil,
     quadrant: aar.scores.quadrant,
   });
-  const decisionFrame = aar.frames.find(
+  const decisionFrameIndex = aar.frames.findIndex(
     (candidate) =>
       candidate.atSec === aar.decision.atSec && candidate.cut === "DECISION",
   );
+  const decisionFrame = aar.frames[decisionFrameIndex];
   const selectedAction = aar.decision.actionLabel;
+  const scoreCells = scoreLabels.map(([key, label]) => (
+    <div
+      className={key === "trainingScore" ? styles.scoreLead : styles.score}
+      key={key}
+    >
+      <span>{label}</span>
+      <strong title={scoreTooltips[key]}>
+        {key === "trainingScore"
+          ? Number(aar.scores[key]).toFixed(1)
+          : formatPercent(Number(aar.scores[key]), 1)}
+      </strong>
+      {key === "trainingScore" && <small>/ 100</small>}
+      {key === "dq" && <small>Given the information</small>}
+      {key === "outcome" && <small>Revealed after completion</small>}
+    </div>
+  ));
 
   return (
-    <article className={styles.page}>
+    <article className={styles.page} ref={page}>
       <header className={styles.header}>
         <div>
           <p className={styles.kicker}>
@@ -196,10 +241,6 @@ export default function AarPage() {
           </p>
           <h1>{aar.scenario.title}</h1>
           <ScenarioBadge />
-          <p>
-            What was known at commitment, what was decided, and what happened
-            afterward.
-          </p>
         </div>
         <div className={styles.headerActions}>
           {client && view && (
@@ -245,9 +286,6 @@ export default function AarPage() {
 
       <section className={styles.result}>
         <div className={styles.resultHeadline}>
-          <span className={styles.quadrant}>
-            {aar.scores.quadrant.replaceAll("_", " ")}
-          </span>
           <div>
             <p className={styles.kicker}>
               Was the decision good given the information available?
@@ -269,6 +307,9 @@ export default function AarPage() {
         </div>
         <p className={styles.narrative}>{aar.consequence.narrative}</p>
         <div className={styles.commitMeta}>
+          <span className={styles.quadrant}>
+            {aar.scores.quadrant.replaceAll("_", " ")}
+          </span>
           <span>
             <Clock3 size={14} /> Committed at {formatClock(aar.decision.atSec)}
           </span>
@@ -299,359 +340,324 @@ export default function AarPage() {
           </div>
           <span>Reference score · deterministic</span>
         </div>
-        <div className={styles.scoreGrid}>
-          {scoreLabels.map(([key, label]) => {
-            const score = aar.scores[key];
-            return (
-              <div
-                className={
-                  key === "trainingScore" ? styles.scoreLead : styles.score
-                }
-                key={key}
-              >
-                <span>{label}</span>
-                <strong title={scoreTooltips[key]}>
-                  {key === "trainingScore"
-                    ? Number(score).toFixed(1)
-                    : formatPercent(Number(score), 1)}
-                </strong>
-                {key === "trainingScore" && <small>/ 100</small>}
-              </div>
-            );
-          })}
-        </div>
-        <p className={styles.scoreNote}>
-          A good process can have an unlucky outcome; realized outcome does not
-          replace decision quality.
-        </p>
-        <p className={styles.scoreNote}>
-          Single-event Brier (noisy; meaningful only across sessions): your
-          estimate{" "}
-          {aar.scores.brierUser === null
-            ? "not recorded"
-            : aar.scores.brierUser.toFixed(3)}
-          {" · "}reference model {aar.scores.brierSystem.toFixed(3)}.
-        </p>
-        <div
-          className={styles.quadrantPlot}
-          role="img"
-          aria-label={`Decision quality ${formatPercent(aar.scores.dq)}; outcome ${formatPercent(aar.scores.outcome)}; ${aar.scores.quadrant.replaceAll("_", " ")}`}
-        >
-          <span className={styles.yAxis}>Outcome · good ↑</span>
-          <div className={styles.plot}>
-            <span className={styles.topLeft}>SOUND SUCCESS</span>
-            <span className={styles.topRight}>LUCKY</span>
-            <span className={styles.bottomLeft}>SOUND UNLUCKY</span>
-            <span className={styles.bottomRight}>POOR</span>
-            <span
-              className={styles.plotMarker}
-              style={{
-                left: `${Math.min(97, Math.max(3, (1 - aar.scores.dq) * 100))}%`,
-                bottom: `${Math.min(97, Math.max(3, aar.scores.outcome * 100))}%`,
-              }}
-            />
-          </div>
-          <span className={styles.xAxis}>Decision quality · sound ←</span>
-        </div>
-      </section>
-
-      <section className={styles.panel} data-testid="difficulty-recommendation">
-        <p className={styles.kicker}>Adaptive practice recommendation</p>
-        <h2>Next run: difficulty level {progression.level}</h2>
-        <p>{progression.reason}</p>
-        <p>
-          Profile changes:{" "}
-          {progression.changes.length
-            ? progression.changes.join(" · ")
-            : "No profile change"}
-        </p>
-        <p className={styles.scoreNote}>
-          Deterministic score-based recommendation only; no automatic difficulty
-          change is applied.
-        </p>
-      </section>
-
-      {aar.team && <TeamMetricsPanel report={aar.team} />}
-      {aar.team && (
-        <section className={`${styles.panel} ${styles.timelineSection}`}>
-          <div className={styles.sectionHeading}>
-            <div>
-              <p className={styles.kicker}>
-                Post-completion team reconstruction
+        <div className={styles.scoreOverview}>
+          <div>
+            <div className={styles.scoreGrid}>{scoreCells.slice(0, 3)}</div>
+            <p className={styles.scoreNote}>
+              A good process can have an unlucky outcome; realized outcome does
+              not replace decision quality.
+            </p>
+            <details className={styles.scoreBreakdown}>
+              <summary>Complete score profile and calibration</summary>
+              <div className={styles.scoreGrid}>{scoreCells.slice(3)}</div>
+              <p className={styles.scoreNote}>
+                Single-event Brier (noisy; meaningful only across sessions):
+                your estimate{" "}
+                {aar.scores.brierUser === null
+                  ? "not recorded"
+                  : aar.scores.brierUser.toFixed(3)}
+                {" · "}reference model {aar.scores.brierSystem.toFixed(3)}.
               </p>
-              <h2>Shared work, separate roles</h2>
+            </details>
+          </div>
+          <div
+            className={styles.quadrantPlot}
+            role="img"
+            aria-label={`Decision quality ${formatPercent(aar.scores.dq)}; outcome ${formatPercent(aar.scores.outcome)}; ${aar.scores.quadrant.replaceAll("_", " ")}`}
+          >
+            <span className={styles.yAxis}>Outcome · higher ↑</span>
+            <div className={styles.plot}>
+              <span className={styles.topLeft}>LUCKY</span>
+              <span className={styles.topRight}>SOUND SUCCESS</span>
+              <span className={styles.bottomLeft}>POOR</span>
+              <span className={styles.bottomRight}>SOUND UNLUCKY</span>
+              <span
+                className={styles.plotMarker}
+                style={{
+                  left: `${aar.scores.dq * 100}%`,
+                  bottom: `${aar.scores.outcome * 100}%`,
+                }}
+              />
             </div>
-            <span>
-              Private trainee activity is revealed only after completion
+            <span className={styles.xAxis}>Decision quality · higher →</span>
+            <span className={styles.plotThresholds}>
+              Sound ≥80% DQ · good outcome ≥60%
             </span>
           </div>
-          <div className={styles.scoreGrid}>
-            {aar.team.participants.map((participant) => (
-              <article className={styles.score} key={participant.role}>
-                <span>
-                  {participant.role} · {participant.name}
-                </span>
-                <strong>
-                  {participant.openedReportIds.length} reports opened ·{" "}
-                  {participant.verificationCount} verifications ·{" "}
-                  {participant.decisions.length} decisions
-                </strong>
-                {participant.estimates.map((estimate, index) => (
-                  <small key={`${estimate.hypothesisId}-${index}`}>
-                    {formatClock(estimate.atSec)} · {estimate.hypothesisId}:{" "}
-                    {formatPercent(estimate.p, 1)}
-                  </small>
-                ))}
-              </article>
-            ))}
-          </div>
-          <div className={styles.reportGroups}>
-            <h3>Analyst handoffs</h3>
-            {aar.team.relays.length === 0 && aar.team.advice.length === 0 ? (
-              <p className={styles.muted}>
-                No relays or structured advice were recorded.
-              </p>
-            ) : (
-              <>
-                {aar.team.relays.map((relay) => (
-                  <div key={relay.relayReportId}>
-                    <strong>
-                      {relay.reportId} → {relay.relayReportId}
-                    </strong>
-                    <span>
-                      Relayed {formatClock(relay.atSec)} ·{" "}
-                      {relay.deliveredAtSec === null
-                        ? "not delivered before completion"
-                        : `delivered ${formatClock(relay.deliveredAtSec)}`}
-                      {relay.note ? ` · ${relay.note}` : ""}
-                    </span>
-                  </div>
-                ))}
-                {aar.team.advice.map((item, index) => (
-                  <div key={`${item.atSec}-${index}`}>
-                    <strong>Action advice: {item.actionId}</strong>
-                    <span>
-                      Sent {formatClock(item.atSec)}
-                      {item.note ? ` · ${item.note}` : ""}
-                    </span>
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
-        </section>
-      )}
+        </div>
+      </section>
 
-      <div className={styles.columns}>
-        <section className={styles.panel}>
-          <p className={styles.kicker}>Decision-time cut</p>
-          <h2>Belief and alternatives</h2>
-          <p className={styles.panelIntro}>
-            Only the information available at {formatClock(aar.decision.atSec)}{" "}
-            is used for the decision-quality calculation.
-          </p>
-          <div className={styles.facts}>
-            <div>
-              <span>Reference best action</span>
-              <strong>{aar.decision.bestActionId}</strong>
-            </div>
-            <div>
-              <span>Chosen action</span>
-              <strong>{aar.decision.actionId}</strong>
-            </div>
-            <div>
-              <span>Decision regret</span>
-              <strong>{aar.decision.regret.toFixed(2)}</strong>
-            </div>
-            <div>
-              <span>Maximum regret range</span>
-              <strong>{aar.decision.maxRegret.toFixed(2)}</strong>
-            </div>
-            <div>
-              <span>Reference posture</span>
-              <strong>{aar.decision.posture.replaceAll("_", " ")}</strong>
-            </div>
-            <div>
-              <span>Leading-action tie</span>
-              <strong>
-                {aar.decision.isTie ? "Within tie threshold" : "No tie"}
-              </strong>
-            </div>
-            <div>
-              <span title="The most that perfect information would have been worth at that moment.">
-                EVPI ceiling
-              </span>
-              <strong title="The most that perfect information would have been worth at that moment.">
-                {aar.decision.evpi.toFixed(2)}
-              </strong>
-            </div>
-            {decisionFrame?.belief && (
-              <div>
-                <span title="Average uncertainty across hypotheses. 0% = certain, 100% = coin flip.">
-                  Fog index
-                </span>
-                <strong title="Average uncertainty across hypotheses. 0% = certain, 100% = coin flip.">
-                  {formatPercent(decisionFrame.belief.fogIndex, 1)}
-                </strong>
-              </div>
-            )}
-            {Object.entries(aar.decision.belief).map(([name, p]) => (
-              <div key={name}>
-                <span>Belief · {name.replaceAll("_", " ")}</span>
-                <strong>{formatPercent(p, 1)}</strong>
-              </div>
-            ))}
-            {Object.entries(aar.decision.expectedUtilities).map(
-              ([name, value]) => (
-                <div key={name}>
-                  <span>Expected utility · {name}</span>
-                  <strong>{value.toFixed(2)}</strong>
-                </div>
-              ),
-            )}
+      <details className={styles.disclosure} id="aar-decision-details">
+        <summary>
+          <h2>Decision summary</h2>
+          <span>
+            {selectedAction} · {formatClock(aar.decision.atSec)}
+          </span>
+        </summary>
+        {aar.decisions.length > 1 && (
+          <div
+            className={styles.teamTable}
+            role="region"
+            tabIndex={0}
+            aria-label="Recorded decisions"
+          >
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Decision</th>
+                  <th>Decision quality</th>
+                  <th>Outcome</th>
+                </tr>
+              </thead>
+              <tbody>
+                {aar.decisions.map((item) => (
+                  <tr key={item.decision.decisionPointId}>
+                    <td>{formatClock(item.decision.atSec)}</td>
+                    <td>{item.decision.actionLabel}</td>
+                    <td>{formatPercent(item.scores.dq, 1)}</td>
+                    <td>{formatPercent(item.scores.outcome, 1)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <div className={styles.truth}>
-            <h3>Truth at decision · revealed after completion</h3>
-            {Object.entries(aar.decision.truthAtDecision).map(
-              ([hypothesisId, truth]) => (
-                <div key={hypothesisId}>
-                  <span>{hypothesisId.replaceAll("_", " ")}</span>
-                  <strong>{truth ? "True" : "False"}</strong>
-                </div>
-              ),
-            )}
-          </div>
-          <div className={styles.estimates}>
-            <h3>Your estimates</h3>
-            <p>
-              {aar.decision.estimates.first === null
-                ? "No initial estimate"
-                : formatPercent(aar.decision.estimates.first, 1)}
-              {" → "}
-              {aar.decision.estimates.final === null
-                ? "no final estimate"
-                : formatPercent(aar.decision.estimates.final, 1)}
-              {" · "}Reference aid{" "}
-              {aar.decision.estimates.consultedAid
-                ? "available"
-                : "not consulted"}
+        )}
+        <div className={styles.columns}>
+          <section className={styles.panel}>
+            <p className={styles.kicker}>Decision-time cut</p>
+            <h2>Belief and alternatives</h2>
+            <p className={styles.panelIntro}>
+              Only the information available at{" "}
+              {formatClock(aar.decision.atSec)} is used for the decision-quality
+              calculation.
             </p>
-          </div>
-          <div className={styles.rationale}>
-            <h3>Your rationale</h3>
-            {aar.decision.rationale ? (
-              <>
-                <p>{aar.decision.rationale.text}</p>
-                <div className={styles.tags}>
-                  {aar.decision.rationale.tags.map((tag) => (
-                    <span key={tag}>{tag.replaceAll("_", " ")}</span>
-                  ))}
-                </div>
-                {aar.decision.rationale.citedReportIds.length > 0 && (
-                  <small>
-                    Cited: {aar.decision.rationale.citedReportIds.join(", ")}
-                  </small>
-                )}
-              </>
-            ) : (
-              <p>No written rationale was recorded.</p>
-            )}
-          </div>
-        </section>
-
-        <section className={styles.panel}>
-          <p className={styles.kicker}>Information inventory</p>
-          <h2>Seen, unseen, and late</h2>
-          <div className={styles.inventory}>
-            <div>
-              <strong>{aar.information.opened.length}</strong>
-              <span>Opened by trainee</span>
-            </div>
-            <div>
-              <strong>{aar.information.notOpened.length}</strong>
-              <span>Delivered, not opened</span>
-            </div>
-            <div>
-              <strong>{aar.information.dropped.length}</strong>
-              <span>Dropped</span>
-            </div>
-            <div>
-              <strong>{aar.information.lateOrAfterDecision.length}</strong>
-              <span>Late or after decision</span>
-            </div>
-          </div>
-          <div className={styles.reportGroups}>
-            <h3>Not opened before decision</h3>
-            {aar.information.notOpened.length === 0 ? (
-              <p className={styles.muted}>None.</p>
-            ) : (
-              aar.information.notOpened.map((report) => (
-                <div key={report.reportId}>
-                  <strong>{report.reportId}</strong>
-                  <span>Evidence weight {report.llr.toFixed(2)} nats</span>
-                </div>
-              ))
-            )}
-            <h3>Late or after decision</h3>
-            {aar.information.lateOrAfterDecision.length === 0 ? (
-              <p className={styles.muted}>None.</p>
-            ) : (
-              aar.information.lateOrAfterDecision.map((report) => (
-                <div key={report.reportId}>
-                  <strong>{report.reportId}</strong>
-                  <span>
-                    {report.claim} ·{" "}
-                    {report.deliveredAtSec === null
-                      ? "not delivered during this run"
-                      : `delivered ${formatClock(report.deliveredAtSec)}`}
+            <div className={styles.facts}>
+              <div>
+                <span>Reference best action</span>
+                <strong>{aar.decision.bestActionId}</strong>
+              </div>
+              <div>
+                <span>Chosen action</span>
+                <strong>{aar.decision.actionId}</strong>
+              </div>
+              <div>
+                <span>Decision regret</span>
+                <strong>{aar.decision.regret.toFixed(2)}</strong>
+              </div>
+              <div>
+                <span>Maximum regret range</span>
+                <strong>{aar.decision.maxRegret.toFixed(2)}</strong>
+              </div>
+              <div>
+                <span>Reference posture</span>
+                <strong>{aar.decision.posture.replaceAll("_", " ")}</strong>
+              </div>
+              <div>
+                <span>Leading-action tie</span>
+                <strong>
+                  {aar.decision.isTie ? "Within tie threshold" : "No tie"}
+                </strong>
+              </div>
+              <div>
+                <span title="The most that perfect information would have been worth at that moment.">
+                  EVPI ceiling
+                </span>
+                <strong title="The most that perfect information would have been worth at that moment.">
+                  {aar.decision.evpi.toFixed(2)}
+                </strong>
+              </div>
+              {decisionFrame?.belief && (
+                <div>
+                  <span title="Average uncertainty across hypotheses. 0% = certain, 100% = coin flip.">
+                    Fog index
                   </span>
+                  <strong title="Average uncertainty across hypotheses. 0% = certain, 100% = coin flip.">
+                    {formatPercent(decisionFrame.belief.fogIndex, 1)}
+                  </strong>
                 </div>
-              ))
-            )}
-            <h3>Dropped</h3>
-            {aar.information.dropped.length === 0 ? (
-              <p className={styles.muted}>None.</p>
-            ) : (
-              aar.information.dropped.map((report) => (
-                <div key={report.reportId}>
-                  <strong>{report.reportId}</strong>
-                  <span>{report.claim}</span>
+              )}
+              {Object.entries(aar.decision.belief).map(([name, p]) => (
+                <div key={name}>
+                  <span>Belief · {name.replaceAll("_", " ")}</span>
+                  <strong>{formatPercent(p, 1)}</strong>
                 </div>
-              ))
-            )}
-          </div>
-        </section>
-      </div>
+              ))}
+              {Object.entries(aar.decision.expectedUtilities).map(
+                ([name, value]) => (
+                  <div key={name}>
+                    <span>Expected utility · {name}</span>
+                    <strong>{value.toFixed(2)}</strong>
+                  </div>
+                ),
+              )}
+            </div>
+            <div className={styles.truth}>
+              <h3>Truth at decision · revealed after completion</h3>
+              {Object.entries(aar.decision.truthAtDecision).map(
+                ([hypothesisId, truth]) => (
+                  <div key={hypothesisId}>
+                    <span>{hypothesisId.replaceAll("_", " ")}</span>
+                    <strong>{truth ? "True" : "False"}</strong>
+                  </div>
+                ),
+              )}
+            </div>
+            <div className={styles.estimates}>
+              <h3>Your estimates</h3>
+              <p>
+                {aar.decision.estimates.first === null
+                  ? "No initial estimate"
+                  : formatPercent(aar.decision.estimates.first, 1)}
+                {" → "}
+                {aar.decision.estimates.final === null
+                  ? "no final estimate"
+                  : formatPercent(aar.decision.estimates.final, 1)}
+                {" · "}Reference aid{" "}
+                {aar.decision.estimates.consultedAid
+                  ? "available"
+                  : "not consulted"}
+              </p>
+            </div>
+            <div className={styles.rationale}>
+              <h3>Your rationale</h3>
+              {aar.decision.rationale ? (
+                <>
+                  <p>{aar.decision.rationale.text}</p>
+                  <div className={styles.tags}>
+                    {aar.decision.rationale.tags.map((tag) => (
+                      <span key={tag}>{tag.replaceAll("_", " ")}</span>
+                    ))}
+                  </div>
+                  {aar.decision.rationale.citedReportIds.length > 0 && (
+                    <small>
+                      Cited: {aar.decision.rationale.citedReportIds.join(", ")}
+                    </small>
+                  )}
+                </>
+              ) : (
+                <p>No written rationale was recorded.</p>
+              )}
+            </div>
+          </section>
+
+          <section className={styles.panel}>
+            <p className={styles.kicker}>Information inventory</p>
+            <h2>Seen, unseen, and late</h2>
+            <div className={styles.inventory}>
+              <div>
+                <strong>{aar.information.opened.length}</strong>
+                <span>Opened by trainee</span>
+              </div>
+              <div>
+                <strong>{aar.information.notOpened.length}</strong>
+                <span>Delivered, not opened</span>
+              </div>
+              <div>
+                <strong>{aar.information.dropped.length}</strong>
+                <span>Dropped</span>
+              </div>
+              <div>
+                <strong>{aar.information.lateOrAfterDecision.length}</strong>
+                <span>Late or after decision</span>
+              </div>
+            </div>
+            <div className={styles.reportGroups}>
+              <h3>Not opened before decision</h3>
+              {aar.information.notOpened.length === 0 ? (
+                <p className={styles.muted}>None.</p>
+              ) : (
+                aar.information.notOpened.map((report) => (
+                  <div key={report.reportId}>
+                    <strong>{report.reportId}</strong>
+                    <span>Evidence weight {report.llr.toFixed(2)} nats</span>
+                  </div>
+                ))
+              )}
+              <h3>Late or after decision</h3>
+              {aar.information.lateOrAfterDecision.length === 0 ? (
+                <p className={styles.muted}>None.</p>
+              ) : (
+                aar.information.lateOrAfterDecision.map((report) => (
+                  <div key={report.reportId}>
+                    <strong>{report.reportId}</strong>
+                    <span>
+                      {report.claim} ·{" "}
+                      {report.deliveredAtSec === null
+                        ? "not delivered during this run"
+                        : `delivered ${formatClock(report.deliveredAtSec)}`}
+                    </span>
+                  </div>
+                ))
+              )}
+              <h3>Dropped</h3>
+              {aar.information.dropped.length === 0 ? (
+                <p className={styles.muted}>None.</p>
+              ) : (
+                aar.information.dropped.map((report) => (
+                  <div key={report.reportId}>
+                    <strong>{report.reportId}</strong>
+                    <span>{report.claim}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        </div>
+      </details>
 
       <section className={`${styles.panel} ${styles.timelineSection}`}>
         <div className={styles.sectionHeading}>
           <div>
-            <p className={styles.kicker}>Deterministic reconstruction</p>
-            <h2>Replay timeline</h2>
+            <p className={styles.kicker}>Actual recorded history</p>
+            <h2>Reconstruct the information</h2>
           </div>
           <span>{aar.frames.length} recorded frames</span>
         </div>
-        <ReplayScrubber aar={aar} />
-        <ol className={styles.timeline}>
-          {aar.timeline.map((event, index) => (
-            <li key={`${event.atSec}-${event.kind}-${index}`}>
-              <time>{formatClock(event.atSec)}</time>
-              <span className={styles.timelineDot} />
-              <div>
-                <strong>{event.kind.replaceAll("_", " ")}</strong>
-                <p>{event.summary}</p>
-              </div>
-              {!event.revealedToTrainee && (
-                <span className={styles.postmortem}>Post-mortem</span>
-              )}
-            </li>
-          ))}
-        </ol>
+        <ReplayScrubber
+          aar={aar}
+          initialFrameIndex={Math.max(0, decisionFrameIndex)}
+        />
+        <details className={styles.fullTimeline}>
+          <summary>Full event timeline ({aar.timeline.length})</summary>
+          <ol className={styles.timeline}>
+            {aar.timeline.map((event, index) => (
+              <li key={`${event.atSec}-${event.kind}-${index}`}>
+                <time>{formatClock(event.atSec)}</time>
+                <span className={styles.timelineDot} />
+                <div>
+                  <strong>{event.kind.replaceAll("_", " ")}</strong>
+                  <p>{event.summary}</p>
+                </div>
+                {!event.revealedToTrainee && (
+                  <span className={styles.postmortem}>Post-mortem</span>
+                )}
+              </li>
+            ))}
+          </ol>
+        </details>
       </section>
 
-      <section className={styles.panel}>
-        <p className={styles.kicker}>Verification analysis</p>
-        <h2>Was additional information worth its cost?</h2>
+      <details className={styles.disclosure} id="aar-verification">
+        <summary>
+          <h2>Verification</h2>
+          <span>Tasking, value, and arrival time</span>
+        </summary>
+        <h3>Was additional information worth its cost?</h3>
+        {aar.verification?.used && (
+          <p className={styles.temporalNote}>
+            A tasking request was recorded.{" "}
+            {aar.verification.deliveredAtSec === undefined
+              ? "Its result was not received before completion."
+              : aar.verification.deliveredAtSec > aar.decision.atSec
+                ? `The result arrived at ${formatClock(aar.verification.deliveredAtSec)}, after commitment at ${formatClock(aar.decision.atSec)}. It was not available for that decision.`
+                : aar.verification.deliveredAtSec === aar.decision.atSec
+                  ? "Arrival and commitment share a timestamp. The retained replay cut preserves their causal order."
+                  : `The result arrived at ${formatClock(aar.verification.deliveredAtSec)}, before commitment. Receipt is separate from inspection.`}{" "}
+            The scoring verdict below is unchanged; “used” means tasking
+            requested, not necessarily received or inspected before commitment.
+          </p>
+        )}
         {aar.verification ? (
           <div className={styles.verificationFacts}>
             <div>
@@ -715,16 +721,21 @@ export default function AarPage() {
             No verification assets were available for this decision point.
           </p>
         )}
-      </section>
+      </details>
 
-      <section className={styles.panel}>
-        <p className={styles.kicker}>Information analysis</p>
-        <h2>Evidence waterfall at commitment</h2>
+      <details className={styles.disclosure} id="aar-evidence">
+        <summary>
+          <h2>Evidence waterfall at commitment</h2>
+          <span>Groups, contributions, and omissions</span>
+        </summary>
         <p className={styles.muted}>
           Contributions below use only reports delivered by the decision cut.
         </p>
         <EvidenceWaterfall hypotheses={aar.information.waterfall} />
         <div className={styles.reportGroups}>
+          <p className={styles.counterfactualDisclosure}>
+            {COUNTERFACTUAL_LABEL}
+          </p>
           <h3>Dropped report what-if</h3>
           {aar.information.dropped.length === 0 ? (
             <p className={styles.muted}>No reports were dropped.</p>
@@ -763,6 +774,13 @@ export default function AarPage() {
                 : "not available at the decision cut"}
             </p>
           ))}
+          <p className={styles.muted}>
+            What-if beliefs are independent simulations using reports at their
+            issue time; they do not alter the recorded session or establish what
+            would certainly have happened.
+          </p>
+        </div>
+        <div className={styles.reportGroups}>
           <h3>Contradictions at commitment</h3>
           {aar.information.contradictions.length === 0 ? (
             <p className={styles.muted}>
@@ -778,17 +796,17 @@ export default function AarPage() {
               </p>
             ))
           )}
-          <p className={styles.muted}>
-            What-if beliefs are independent simulations using reports at their
-            issue time; they do not alter the recorded session or establish what
-            would certainly have happened.
-          </p>
         </div>
-      </section>
+      </details>
 
-      <section className={`${styles.panel} ${styles.counterfactualSection}`}>
-        <p className={styles.kicker}>Simulated alternatives</p>
-        <h2>Counterfactuals</h2>
+      <details
+        className={`${styles.disclosure} ${styles.counterfactualSection}`}
+        id="aar-counterfactuals"
+      >
+        <summary>
+          <h2>Counterfactuals</h2>
+          <span>Simulated alternatives, not recorded history</span>
+        </summary>
         {aar.counterfactuals.map((counterfactual) => (
           <article className={styles.counterfactual} key={counterfactual.id}>
             <p className={styles.counterfactualDisclosure}>
@@ -882,14 +900,15 @@ export default function AarPage() {
           Team coordination diagnostics use completed authoritative network
           history when available. No composite team score is calculated.
         </p>
-      </section>
-      <p className={styles.limitations}>
-        SYNTHETIC SCENARIO — fictional entities. Reliabilities and payoffs are
-        authoring assumptions, not doctrine.
-      </p>
-      <section className={styles.coach}>
-        <p className={styles.kicker}>After-action observations</p>
-        <h2>Coach notes</h2>
+      </details>
+      <details
+        className={`${styles.disclosure} ${styles.coach}`}
+        id="aar-coach"
+      >
+        <summary>
+          <h2>Coach notes</h2>
+          <span>{aar.coachNotes.length} evidence-linked observations</span>
+        </summary>
         {aar.coachNotes.map((note) => (
           <article
             key={note.id}
@@ -900,10 +919,49 @@ export default function AarPage() {
             <small>Evidence: {note.evidence.join(", ")}</small>
           </article>
         ))}
-        <p className={styles.limitations}>
-          {aar.dataProvenance}. {aar.limitations.join(" ")}
+        <section
+          className={styles.practice}
+          data-testid="difficulty-recommendation"
+        >
+          <p className={styles.kicker}>Adaptive practice recommendation</p>
+          <h3>Next run: difficulty level {progression.level}</h3>
+          <p>{progression.reason}</p>
+          <p>
+            Profile changes:{" "}
+            {progression.changes.length
+              ? progression.changes.join(" · ")
+              : "No profile change"}
+          </p>
+          <p className={styles.scoreNote}>
+            Deterministic score-based recommendation only; no automatic
+            difficulty change is applied.
+          </p>
+        </section>
+      </details>
+      {aar.team && (
+        <details className={styles.disclosure} id="aar-team">
+          <summary>
+            <h2>Team coordination</h2>
+            <span>Sharing, convergence, and response timing</span>
+          </summary>
+          <TeamReconstruction team={aar.team} />
+        </details>
+      )}
+      <details className={styles.disclosure} id="aar-limitations">
+        <summary>
+          <h2>Model and data limitations</h2>
+          <span>Synthetic, descriptive, and explicitly bounded</span>
+        </summary>
+        <p>
+          {aar.dataProvenance}. Reliabilities and payoffs are authoring
+          assumptions, not doctrine.
         </p>
-      </section>
+        <ul>
+          {aar.limitations.map((limitation) => (
+            <li key={limitation}>{limitation}</li>
+          ))}
+        </ul>
+      </details>
       <section className={styles.exports} aria-label="AAR export controls">
         <strong>Export this completed review</strong>
         <Button
@@ -915,6 +973,7 @@ export default function AarPage() {
               "application/json",
             )
           }
+
           data-testid="export-aar-json"
         >
           <ArrowDownToLine size={14} /> JSON
@@ -955,5 +1014,76 @@ export default function AarPage() {
         </Button>
       </section>
     </article>
+  );
+}
+
+function TeamReconstruction({ team }: { team: NonNullable<Aar["team"]> }) {
+  return (
+    <>
+      <TeamMetricsPanel report={team} />
+      <section className={styles.teamReconstruction}>
+        <h3>Shared work, separate roles</h3>
+        <p className={styles.muted}>
+          Private trainee activity is revealed only after completion.
+        </p>
+        <div className={styles.teamParticipants}>
+          {team.participants.map((participant) => (
+            <article key={participant.role}>
+              <h3>
+                {participant.role} · {participant.name}
+              </h3>
+              <p>
+                {participant.openedReportIds.length} reports opened ·{" "}
+                {participant.verificationCount} verifications ·{" "}
+                {participant.decisions.length} decisions
+              </p>
+              {participant.estimates.map((estimate, index) => (
+                <p
+                  className={styles.muted}
+                  key={`${estimate.hypothesisId}-${index}`}
+                >
+                  {formatClock(estimate.atSec)} · {estimate.hypothesisId}:{" "}
+                  {formatPercent(estimate.p, 1)}
+                </p>
+              ))}
+            </article>
+          ))}
+        </div>
+        <div className={styles.reportGroups}>
+          <h3>Analyst handoffs</h3>
+          {team.relays.length === 0 && team.advice.length === 0 ? (
+            <p className={styles.muted}>
+              No relays or structured advice were recorded.
+            </p>
+          ) : (
+            <>
+              {team.relays.map((relay) => (
+                <div key={relay.relayReportId}>
+                  <strong>
+                    {relay.reportId} → {relay.relayReportId}
+                  </strong>
+                  <span>
+                    Relayed {formatClock(relay.atSec)} ·{" "}
+                    {relay.deliveredAtSec === null
+                      ? "not delivered before completion"
+                      : `delivered ${formatClock(relay.deliveredAtSec)}`}
+                    {relay.note ? ` · ${relay.note}` : ""}
+                  </span>
+                </div>
+              ))}
+              {team.advice.map((item, index) => (
+                <div key={`${item.atSec}-${index}`}>
+                  <strong>Action advice: {item.actionId}</strong>
+                  <span>
+                    Sent {formatClock(item.atSec)}
+                    {item.note ? ` · ${item.note}` : ""}
+                  </span>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      </section>
+    </>
   );
 }

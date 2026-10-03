@@ -1,26 +1,19 @@
-.trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 10px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-button);
-  color: var(--text-default);
-  background: var(--surface-1);
-  cursor: pointer;
-  font-size: var(--font-small);
+.backdrop {
+  position: fixed;
+  z-index: 29;
+  inset: 0;
+  background: color-mix(in srgb, var(--bg-0) 75%, transparent);
 }
-
 .drawer {
   position: fixed;
   z-index: 30;
   inset: 0 0 0 auto;
-  display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
   width: min(460px, 100%);
   overflow: auto;
-  padding: 20px;
+  padding: var(--space-24);
   border-left: 1px solid var(--border-strong);
   color: var(--text-default);
   background: var(--surface-0);
@@ -31,21 +24,29 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .drawer header p {
   margin: 0;
-  color: var(--accent-amber);
+  color: var(--text-muted);
   font-size: var(--font-label);
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.08em;
 }
 
 .drawer h2,
 .drawer h3,
 .drawer h4 {
-  margin: 4px 0 8px;
+  margin: var(--space-4) 0 var(--space-8);
+  font-weight: 600;
+}
+.drawer h2 {
+  font-size: var(--font-h2);
+}
+.drawer h3,
+.drawer h4 {
+  font-size: var(--font-h3);
 }
 
 .drawer > header > button {
@@ -53,17 +54,13 @@
   width: 36px;
   height: 36px;
   place-items: center;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-button);
-  color: var(--text-default);
-  background: var(--surface-1);
-  cursor: pointer;
+  flex: 0 0 auto;
 }
 
 .disclosure,
 .warning {
   margin: 0;
-  padding: 10px;
+  padding: var(--space-12);
   border-left: 2px solid var(--accent-amber);
   color: var(--text-default);
   background: var(--surface-1);
@@ -71,34 +68,18 @@
   line-height: 1.5;
 }
 
-.sessionActions,
 .presets {
   display: grid;
-  gap: 7px;
+  gap: var(--space-8);
 }
-
 .sessionActions {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
+  gap: var(--space-8);
 }
-
-.sessionActions button,
-.presets button,
-.diagnostics button {
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-button);
-  color: var(--text-default);
-  background: var(--surface-1);
-  cursor: pointer;
-}
-
-.sessionActions button {
-  min-height: 36px;
-}
-
-.presets button {
+.presetContent {
   display: grid;
-  gap: 4px;
-  padding: 9px;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
   text-align: left;
 }
 
@@ -106,36 +87,22 @@
   color: var(--text-strong);
 }
 
-.presets button span {
+.presetContent > span {
   color: var(--text-muted);
-  font-size: var(--font-label);
-}
-
-.sessionActions button:hover,
-.presets button:hover:not(:disabled),
-.diagnostics button:hover {
-  border-color: var(--accent-cyan);
-}
-
-.presets button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+  font-size: var(--font-small);
+  font-weight: 400;
 }
 
 .diagnostics {
-  padding: 11px;
-  border: 1px solid var(--border-subtle);
+  padding: var(--space-16);
+  border: 1px solid var(--border-default);
+  border-left: 2px solid var(--accent-amber);
   border-radius: var(--radius-card);
   background: var(--surface-1);
 }
 
 .diagnostics > header {
   align-items: center;
-}
-
-.diagnostics button {
-  padding: 6px 9px;
-  font-size: var(--font-label);
 }
 
 .diagnostics ul,
@@ -152,15 +119,15 @@
 }
 
 .warning {
-  border-color: var(--accent-red, #e77b7b);
-  color: var(--accent-red, #e77b7b);
-  font-weight: 700;
+  border-color: var(--accent-amber);
+  color: var(--text-default);
+  font-weight: 600;
 }
 
 .truthToggle {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--space-8);
   color: var(--text-default);
   font-size: var(--font-small);
 }
@@ -171,14 +138,25 @@
 }
 
 .clock {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
   margin: 0;
   color: var(--text-muted);
   font-size: var(--font-small);
 }
+.clock > span {
+  margin-left: auto;
+  color: var(--text-default);
+  font-weight: 600;
+}
 
 @media (max-width: 520px) {
-  .sessionActions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .drawer {
+    padding: var(--space-16);
+  }
+  .diagnostics {
+    padding: var(--space-12);
   }
 }
 

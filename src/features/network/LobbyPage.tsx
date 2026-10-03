@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import type { NetworkSessionView } from "@/session/protocol";
 import { RemoteSessionClient } from "@/session/RemoteSessionClient";
 import { useSessionStore } from "@/state/useSessionStore";
+import { TeamRoster } from "./TeamRoster";
 import styles from "./NetworkPages.module.css";
 
 export default function LobbyPage() {
@@ -78,20 +79,25 @@ export default function LobbyPage() {
     <section className={styles.page}>
       <header className={styles.heading}>
         <div>
-          <p className={styles.kicker}>Team session lobby</p>
-          <h1>Session {code}</h1>
+          <p className={styles.kicker}>
+            Team session lobby · synthetic training
+          </p>
+          <h1>Form the room</h1>
           <p>
             Role, scenario, and connection state are synchronized by the server.
           </p>
         </div>
-        <span className={styles.code}>{code}</span>
+        <div>
+          <span className={styles.role}>Session code</span>
+          <strong className={styles.code}>{code}</strong>
+        </div>
       </header>
       <div className={styles.status} data-state={status} role="status">
         {message}
       </div>
       {view && (
         <>
-          <section className={styles.panel}>
+          <section className={`${styles.panel} ${styles.lobbyContext}`}>
             <div className={styles.row}>
               <div>
                 <h2>{view.scenario.title}</h2>
@@ -100,33 +106,22 @@ export default function LobbyPage() {
                   {view.scenario.synthetic ? "synthetic scenario" : "scenario"}
                 </p>
               </div>
-              <span className={styles.status}>{view.phase}</span>
+              <span className={styles.phase}>{view.phase}</span>
             </div>
           </section>
           <section className={styles.panel}>
-            <h2>Participants</h2>
-            <ul className={styles.roster}>
-              {view.roster.map((participant) => (
-                <li className={styles.participant} key={participant.role}>
-                  <div>
-                    <span className={styles.role}>{participant.role}</span>
-                    <strong>{participant.name}</strong>
-                  </div>
-                  <span
-                    className={
-                      participant.connected
-                        ? styles.connected
-                        : styles.disconnected
-                    }
-                  >
-                    {participant.connected ? "Connected" : "Disconnected"}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <div className={styles.row}>
+              <h2>Participants</h2>
+              <span className={styles.caption}>Your role: {view.role}</span>
+            </div>
+            <TeamRoster roster={view.roster} currentRole={view.role} />
+            <p className={styles.caption}>
+              Roles have different evidence and permissions. A waiting slot is
+              not a connection failure.
+            </p>
           </section>
           {view.role !== "INSTRUCTOR" && view.phase === "IDLE" && (
-            <p className={styles.status}>
+            <p className={styles.waiting}>
               Waiting for the instructor to start…
             </p>
           )}

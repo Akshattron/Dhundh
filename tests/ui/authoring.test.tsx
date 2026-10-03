@@ -64,12 +64,41 @@ describe("scenario authoring editor", () => {
     ).toBe(true);
     validate();
     expect(screen.getByText("Actionable issues")).toBeTruthy();
+    expect(screen.getByText("Syntax error")).toBeTruthy();
+    expect(
+      screen.getByLabelText("Scenario JSON draft").getAttribute("aria-invalid"),
+    ).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Reset draft" }));
     validate();
     expect(
       screen.getByTestId("authoring-validation-status").textContent,
     ).toContain("Ready");
-    expect(vi.getTimerCount()).toBe(2); // Active idle client and current validation debounce only.
+    act(() => vi.advanceTimersByTime(0));
+    expect(vi.getTimerCount()).toBe(2); // Active client and debounce only, after native details-toggle tasks.
+  });
+
+  it("gives schema and runtime invariant failures distinct, actionable states", () => {
+    show();
+    const schema = structuredClone(flagshipJson);
+    schema.meta.synthetic = false;
+    fireEvent.change(screen.getByLabelText("Scenario JSON draft"), {
+      target: { value: JSON.stringify(schema) },
+    });
+    validate();
+    expect(screen.getByText("Schema error")).toBeTruthy();
+    expect(screen.getByText("meta.synthetic")).toBeTruthy();
+    const reference = structuredClone(flagshipJson);
+    reference.reports[0]!.hypothesisId = "unknown";
+    fireEvent.change(screen.getByLabelText("Scenario JSON draft"), {
+      target: { value: JSON.stringify(reference) },
+    });
+    validate();
+    expect(screen.getByText("Invariant error")).toBeTruthy();
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: "Preview scenario",
+      }).disabled,
+    ).toBe(true);
   });
 
   it("keeps loader-valid but unready scenarios editable and exportable, not previewable", () => {

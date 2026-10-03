@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { Pause, Play } from "lucide-react";
+import { Check, EyeOff, Pause, Play } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Tabs } from "@/components/ui/Tabs";
 import type { Aar } from "@/engine/aar";
 import { formatClock, formatPercent } from "@/utils/format";
 import styles from "./AarPage.module.css";
@@ -15,15 +16,16 @@ type ReplayTab = (typeof tabs)[number][0];
 
 export function ReplayScrubber({
   aar,
+  initialFrameIndex = 0,
 }: {
   aar: Pick<Aar, "frames" | "information">;
+  initialFrameIndex?: number;
 }) {
-  const [frameIndex, setFrameIndex] = useState(0);
+  const [frameIndex, setFrameIndex] = useState(initialFrameIndex);
   const [speed, setSpeed] = useState<number>(4);
   const [playing, setPlaying] = useState(false);
   const [tab, setTab] = useState<ReplayTab>("KNEW");
   const range = useRef<HTMLInputElement>(null);
-  const tabButtons = useRef<(HTMLButtonElement | null)[]>([]);
   const id = useId();
   const last = aar.frames.length - 1;
   const frame = aar.frames[Math.min(frameIndex, last)];
@@ -68,10 +70,10 @@ export function ReplayScrubber({
   }, [aar.information]);
 
   useEffect(() => {
-    setFrameIndex(0);
+    setFrameIndex(initialFrameIndex);
     setPlaying(false);
     setTab("KNEW");
-  }, [aar]);
+  }, [aar, initialFrameIndex]);
   useEffect(() => {
     if (!playing || last < 1) return;
     const timer = window.setInterval(() => {
@@ -164,6 +166,16 @@ export function ReplayScrubber({
         <Button size="sm" variant="quiet" onClick={() => jump(last)}>
           End
         </Button>
+        {aar.frames.some((item) => item.cut === "DECISION") && (
+          <Button
+            size="sm"
+            onClick={() =>
+              jump(aar.frames.findIndex((item) => item.cut === "DECISION"))
+            }
+          >
+            Decision cut
+          </Button>
+        )}
         <label className={styles.replaySpeed}>
           Replay speed
           <select
@@ -186,7 +198,7 @@ export function ReplayScrubber({
           </select>
         </label>
       </div>
-      <p className={styles.muted}>
+      <p className={styles.replayHelp}>
         Playback only: 1x is one retained frame per second, not one simulated
         second. Simulation times, accepted actions, scores, and counterfactuals
         never change.
@@ -212,52 +224,62 @@ export function ReplayScrubber({
           {position}
         </strong>
       </div>
-      <div
+      {last > 0 && (
+        <svg
+          className={styles.eventRail}
+          viewBox="0 0 1000 28"
+          preserveAspectRatio="none"
+          role="img"
+          aria-label="Recorded event locations, positioned by retained frame"
+        >
+          <line
+            x1="0"
+            x2="1000"
+            y1="14"
+            y2="14"
+            className={styles.eventTrack}
+          />
+          {annotations.map((annotation) => (
+            <line
+              key={annotation.id}
+              x1={(annotation.frameIndex / last) * 1000}
+              x2={(annotation.frameIndex / last) * 1000}
+              y1="6"
+              y2="22"
+              className={styles.eventMarker}
+              data-category={annotation.category}
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+          <line
+            x1={(frameIndex / last) * 1000}
+            x2={(frameIndex / last) * 1000}
+            y1="0"
+            y2="28"
+            className={styles.eventSelected}
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+      )}
+      <Tabs
         className={styles.replayTabs}
-        role="tablist"
-        aria-label="Replay information view"
-      >
-        {tabs.map(([value, label], index) => (
-          <button
-            key={value}
-            ref={(element) => {
-              tabButtons.current[index] = element;
-            }}
-            type="button"
-            role="tab"
-            id={`${id}-${value}`}
-            aria-controls={`${id}-panel`}
-            aria-selected={tab === value}
-            tabIndex={tab === value ? 0 : -1}
-            onClick={() => setTab(value)}
-            onKeyDown={(event) => {
-              const next =
-                event.key === "ArrowRight"
-                  ? (index + 1) % tabs.length
-                  : event.key === "ArrowLeft"
-                    ? (index + tabs.length - 1) % tabs.length
-                    : event.key === "Home"
-                      ? 0
-                      : event.key === "End"
-                        ? tabs.length - 1
-                        : null;
-              if (next !== null) {
-                event.preventDefault();
-                setTab(tabs[next]![0]);
-                tabButtons.current[next]?.focus();
-              }
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+        id={id}
+        label="Replay information view"
+        tabs={tabs.map(([value, label]) => ({
+          value,
+          label,
+          controls: `${id}-panel`,
+        }))}
+        value={tab}
+        onChange={setTab}
+      />
       <div
         id={`${id}-panel`}
         className={styles.replayView}
         role="tabpanel"
         tabIndex={0}
         aria-labelledby={`${id}-${tab}`}
+        data-replay-tab={tab}
       >
         {tab === "KNEW" && (
           <>
@@ -282,7 +304,31 @@ export function ReplayScrubber({
               <p>Reference aid not available at this frame.</p>
             )}
             {frame.deliveredIds.length > 0 && (
-              <p>Delivered: {frame.deliveredIds.join(", ")}</p>
+              <ol className={styles.reconstructedReports}>
+                {frame.deliveredIds.map((reportId) => (
+                  <li key={reportId}>
+                    <strong>{reportId}</strong>
+                    <span>
+                      {reports.find((report) => report.id === reportId)
+                        ?.claim ??
+                        "Report text is not retained in this review."}
+                    </span>
+                    <small>
+                      {frame.openedIds.includes(reportId) ? (
+                        <>
+                          <Check size={12} aria-hidden="true" /> Opened at this
+                          cut
+                        </>
+                      ) : (
+                        <>
+                          <EyeOff size={12} aria-hidden="true" /> Delivered, not
+                          opened
+                        </>
+                      )}
+                    </small>
+                  </li>
+                ))}
+              </ol>
             )}
           </>
         )}
@@ -314,14 +360,20 @@ export function ReplayScrubber({
             {neverSaw.length === 0 ? (
               <p>No unseen information identified at this frame.</p>
             ) : (
-              <ul>
+              <ul className={styles.reconstructedReports}>
                 {neverSaw.map((report) => (
                   <li key={report.id}>
-                    <strong>{report.id}</strong> - {report.claim} - issued{" "}
-                    {formatClock(report.issuedAtSec)}
-                    {report.deliveredAtSec === null
-                      ? " - not delivered"
-                      : ` - arrived ${formatClock(report.deliveredAtSec)}`}
+                    <strong>{report.id}</strong>
+                    <span>{report.claim}</span>
+                    <small>
+                      {frame.deliveredIds.includes(report.id)
+                        ? "Delivered, not opened"
+                        : "Unavailable to this role at this cut"}{" "}
+                      · issued {formatClock(report.issuedAtSec)}
+                      {report.deliveredAtSec === null
+                        ? " · not delivered"
+                        : ` · arrived ${formatClock(report.deliveredAtSec)}`}
+                    </small>
                   </li>
                 ))}
               </ul>
@@ -342,7 +394,7 @@ export function ReplayScrubber({
             : "No verification pending"}
         </span>
       </div>
-      <details open className={styles.replayAnnotations}>
+      <details className={styles.replayAnnotations}>
         <summary>Recorded event annotations ({annotations.length})</summary>
         <p className={styles.muted}>
           Authorized post-mortem events and actions, in causal order. Each jump
@@ -371,9 +423,11 @@ export function ReplayScrubber({
                     range.current?.focus();
                   }}
                 >
-                  <time>{formatClock(annotation.atSec)}</time>
-                  <span>{annotation.category}</span>
-                  {annotation.summary}
+                  <span className={styles.annotation}>
+                    <time>{formatClock(annotation.atSec)}</time>
+                    <span>{annotation.category}</span>
+                    <span>{annotation.summary}</span>
+                  </span>
                 </Button>
               </li>
             ))}

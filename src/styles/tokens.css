@@ -45,6 +45,15 @@
   --font-label: 11px;
   --font-metric: 28px;
 
+  --motion-micro: 120ms;
+  --motion-standard: 200ms;
+  --motion-state: 320ms;
+  --motion-reveal: 400ms;
+  --motion-arrival: 160ms;
+  --motion-belief: 250ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
   --space-4: 4px;
   --space-8: 8px;
   --space-12: 12px;
@@ -63,4 +72,28 @@
   --content-width: 48rem;
   --print-background: #fff;
   --print-text: #000;
+}
+
+[data-channel="LAND"] {
+  --channel-accent: var(--accent-amber);
+  --channel-secondary: var(--text-muted);
+  --channel-pattern: solid;
+}
+
+[data-channel="AIR"] {
+  --channel-accent: var(--accent-blue);
+  --channel-secondary: var(--accent-cyan);
+  --channel-pattern: double;
+}
+
+[data-channel="CYBER"] {
+  --channel-accent: var(--accent-violet);
+  --channel-secondary: var(--accent-blue);
+  --channel-pattern: dashed;
+}
+
+[data-channel="EW"] {
+  --channel-accent: var(--accent-amber);
+  --channel-secondary: var(--accent-violet);
+  --channel-pattern: dotted;
 }
