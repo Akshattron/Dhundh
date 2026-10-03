@@ -2,17 +2,95 @@
 
 ## Current Gate
 
-Gate 6 selected P3: **GREEN**. Team metrics, scenario authoring, live
-presentation, and replay speed/annotations are implemented and verified.
-**FR-P3-03 optional LLM-written AAR narration is deliberately omitted.**
-Gates 0-5, including the required Gate 2-5 regressions, remain **GREEN**.
-Gate 7 deployment and Gate 8 submission readiness are **NOT VERIFIED**.
+Gate 7 deployment/prototype verification: **NOT GREEN**. Local production-like
+HTTP/WebSocket checks and browser rehearsals pass, but no live deployment URL
+or deployment credentials are configured in this workspace. Public health,
+`wss://`, and deployed three-role rehearsal are therefore unverified. Gates 0-6
+remain **GREEN** on their recorded evidence.
 
-Branch: `akshattron-gate-6-advanced-features`.
-Baseline: current `main` at worktree creation,
-`5fff5c38ef0027abc1c2721d5527af57c326b6eb` (Gate 5 merge).
+Branch: `akshattron-gate-7-production-freeze`.
+Baseline: `4ec39a2` (Gate 6 merge).
 
-Implementation commit: `8b5a96ec780f1dccd6ff1df66c1631f6c1affbd5`.
+Gate 6 implementation commit: `8b5a96ec780f1dccd6ff1df66c1631f6c1affbd5`.
+
+## Gate 7 Deployment and Prototype Freeze — NOT GREEN
+
+### Audit and implementation
+
+- Kept the existing Render Web Service, Express/ws server, same-origin API,
+  `/ws` path, and HTTPS-to-WSS URL construction. No deployment URL or secret
+  was added.
+- Wired `SESSION_TTL_MINUTES` and `MAX_SESSIONS` from Render's existing
+  environment configuration into `SessionManager`. Invalid values fail during
+  startup; defaults remain 360 minutes and 50 sessions.
+- Made `VITE_FORCE_LOCAL=1` effective: the static fallback hides network
+  controls and redirects network-only entry points to the local home page.
+  Scenario browsing and the flagship local demo remain available.
+- Added regression coverage for server environment parsing, forced-local
+  routes, and completed AAR JSON/CSV/browser-print exports.
+
+### Local production-like verification
+
+- Render is the intended platform; the service is **not deployed** and there
+  is no public production URL to record. `render.yaml` still points at `/health`.
+- Started `npm start` with `NODE_ENV=production`, `PORT=18879`,
+  `SESSION_TTL_MINUTES=60`, and `MAX_SESSIONS=1`. The process logged a bind to
+  `0.0.0.0:18879`.
+- `http://127.0.0.1:18879/health` returned 200 with `status: ok`; observed
+  response time was **25.7 ms**. Root, built JavaScript, and 11 tested SPA
+  routes returned 200; an unknown `/api` route returned JSON 404.
+- Local production WebSocket handshake at
+  `ws://127.0.0.1:18879/ws` returned authorized WELCOME views for Instructor
+  and Commander. The Instructor view contained its permitted truth projection;
+  the Commander view contained neither truth nor instructor diagnostics.
+  `MAX_SESSIONS=1` was enforced with 429 on the next create request. This is
+  local `ws://` evidence, **not public `wss://` evidence**.
+- The Chromium network E2E used real browser contexts against the local
+  Express/ws service for Instructor creation/monitoring, Commander and Analyst
+  joins, relay, role-private reports, reconnect by reload, time advancement,
+  decision, consequence, and completed team AAR. This does not substitute for
+  the required deployed rehearsal.
+- Built the static variant with `VITE_FORCE_LOCAL=1` and served it from
+  `http://127.0.0.1:4173`. The root and six direct network-route requests
+  returned the SPA shell (200); network UI stayed hidden, network entry points
+  redirected home, and the flagship local demo started without browser errors.
+  Local offline presentation continued to pass in Chromium.
+- Completed AAR browser downloads produced JSON, timeline CSV, and decisions
+  CSV; the JSON contained AAR data without credentials or diagnostics. The
+  print action invoked browser print, and Chromium produced a `%PDF-` artifact.
+
+### Gate 7 validation
+
+| Command / check                    | Actual result                                                                                                   |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `npm test`                         | Exit 0; **38 files, 334 tests passed**                                                                          |
+| `npm run test:golden`              | Exit 0; **18/18** deterministic golden tests passed                                                             |
+| UI tests                           | Exit 0; **7 files, 43 tests passed**                                                                            |
+| `npm run typecheck`                | Exit 0                                                                                                          |
+| `npm run validate:scenarios`       | Exit 0; harbour `cdcc6039`, flagship `1f7af0fb`                                                                 |
+| `npm run e2e`                      | Exit 0; **4/4 Chromium flows passed**; the flag-dependent local-fallback case is skipped without its build flag |
+| Forced-local E2E                   | Exit 0; **1/1** Chromium flow passed with `VITE_FORCE_LOCAL=1`                                                  |
+| `npm run build`                    | Exit 0; standard production build passed                                                                        |
+| `VITE_FORCE_LOCAL=1 npm run build` | Exit 0; static local-only production build passed                                                               |
+| Production-like HTTP/WS smoke      | Health, static routes, session limits, `/ws` handshake, and role redaction passed locally                       |
+
+The standard build emitted **37 JavaScript chunks**, **229,304 bytes gzip**
+total; the largest initial entry chunk was **69,631 bytes gzip**. The complete
+demo E2E observed home-to-demo startup at **512.6 ms**, WOW at **44 seconds**,
+AAR at **72 seconds**, reset at **153.0 ms**, and repeated reset at **126.4 ms**.
+These are local observations, not production or cross-device guarantees.
+
+### Known limitations and next gate
+
+- No public service URL, deployment credentials, live `/health` result,
+  production `wss://` connection, or deployed three-role rehearsal is
+  available. Gate 7 is not green and prototype freeze criteria are unmet.
+- The local rehearsal does not verify internet interruption, platform
+  WebSocket lifetime, cross-device timing, or Render restart behavior.
+- **Next:** deploy through the configured Render service, record its actual
+  public URL, repeat health/deep-route/three-role/relay/reconnect/decision/AAR
+  and export checks against public `wss://`, then decide whether freeze
+  criteria pass. PPT, video, and final submission QA remain afterward.
 
 ## Gate 6 Completed - Selected P3 Advanced Features
 

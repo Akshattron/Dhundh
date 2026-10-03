@@ -17,6 +17,7 @@ import {
   DEMO_SCENARIO_ID,
 } from "@/features/demo/DemoController";
 import { useSessionStore } from "@/state/useSessionStore";
+import { LOCAL_ONLY_BUILD } from "@/utils/deployment";
 import styles from "./HomePage.module.css";
 
 export default function HomePage() {
@@ -79,22 +80,26 @@ export default function HomePage() {
             >
               Browse scenarios
             </Button>
-            <Button
-              variant="quiet"
-              size="sm"
-              icon={<Plus size={15} />}
-              onClick={() => navigate("/sessions/new")}
-            >
-              Create network session
-            </Button>
-            <Button
-              variant="quiet"
-              size="sm"
-              icon={<Users size={15} />}
-              onClick={() => navigate("/join")}
-            >
-              Join with code
-            </Button>
+            {!LOCAL_ONLY_BUILD && (
+              <>
+                <Button
+                  variant="quiet"
+                  size="sm"
+                  icon={<Plus size={15} />}
+                  onClick={() => navigate("/sessions/new")}
+                >
+                  Create network session
+                </Button>
+                <Button
+                  variant="quiet"
+                  size="sm"
+                  icon={<Users size={15} />}
+                  onClick={() => navigate("/join")}
+                >
+                  Join with code
+                </Button>
+              </>
+            )}
           </div>
           {launchError && (
             <p className={styles.launchError} role="alert">

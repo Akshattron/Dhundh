@@ -26,7 +26,10 @@ const createBodySchema = z.strictObject({
   difficultyLevel: z.number().int().min(1).max(5).optional(),
   aidMode: z.enum(["ALWAYS", "AFTER_ESTIMATE"]).optional(),
 });
-const manager = new SessionManager(scenarios);
+const manager = new SessionManager(scenarios, {
+  maxSessions: config.maxSessions,
+  ttlMs: config.sessionTtlMs,
+});
 const createRates = new Map<string, number[]>();
 
 const app = express();
