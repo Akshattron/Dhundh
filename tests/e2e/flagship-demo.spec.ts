@@ -1,4 +1,19 @@
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
+
+async function downloadText(page: Page, testId: string) {
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByTestId(testId).click();
+  const download = await downloadPromise;
+  const stream = await download.createReadStream();
+  if (!stream) throw new Error("The browser download stream was unavailable.");
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  return {
+    filename: download.suggestedFilename(),
+    content: Buffer.concat(chunks).toString("utf8"),
+  };
+}
 
 test("flagship demo reaches the real consequence, AAR, and reset", async ({
   page,
@@ -134,6 +149,36 @@ test("flagship demo reaches the real consequence, AAR, and reset", async ({
   ).toBeVisible();
   await expect(page.getByTestId("aar-scrubber")).toBeVisible();
   await expect(page.getByText("88.5", { exact: true })).toBeVisible();
+  const jsonDownload = await downloadText(page, "export-aar-json");
+  expect(jsonDownload.filename).toBe("kestrel-relief-corridor-aar.json");
+  const exportedAar = JSON.parse(jsonDownload.content) as unknown;
+  expect(exportedAar).toHaveProperty("decision");
+  expect(JSON.stringify(exportedAar)).not.toMatch(
+    /reconnect.?token|credential|diagnostic/i,
+  );
+  const timelineDownload = await downloadText(page, "export-aar-timeline");
+  expect(timelineDownload.filename).toBe(
+    "kestrel-relief-corridor-timeline.csv",
+  );
+  expect(timelineDownload.content).toContain('"dataProvenance"');
+  const decisionsDownload = await downloadText(page, "export-aar-decisions");
+  expect(decisionsDownload.filename).toBe(
+    "kestrel-relief-corridor-decisions.csv",
+  );
+  expect(decisionsDownload.content).toContain('"rationaleText"');
+  await page.evaluate(() => {
+    window.print = () => {
+      document.body.dataset.printRequested = "true";
+    };
+  });
+  await page.getByTestId("print-aar").click();
+  await expect(page.locator("body")).toHaveAttribute(
+    "data-print-requested",
+    "true",
+  );
+  await page.emulateMedia({ media: "print" });
+  const pdf = await page.pdf();
+  expect(pdf.subarray(0, 5).toString("ascii")).toBe("%PDF-");
   expect(elapsedDemoMs).toBeLessThanOrEqual(180_000);
   console.info(
     `Gate 4 measured AAR arrival: ${elapsedDemoMs} ms simulated wall time`,

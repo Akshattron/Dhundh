@@ -1,7 +1,13 @@
 import { lazy, Suspense } from "react";
 import type { ReactNode } from "react";
-import { createBrowserRouter, Link } from "react-router-dom";
+import {
+  createBrowserRouter,
+  Link,
+  Navigate,
+  redirect,
+} from "react-router-dom";
 import AppShell from "@/components/AppShell";
+import { LOCAL_ONLY_BUILD } from "@/utils/deployment";
 
 const AarPage = lazy(() => import("@/features/aar/AarPage"));
 const BriefingPage = lazy(() => import("@/features/briefing/BriefingPage"));
@@ -33,6 +39,10 @@ function load(element: ReactNode) {
   return <Suspense fallback={<RouteLoading />}>{element}</Suspense>;
 }
 
+function networkOnly(element: ReactNode) {
+  return LOCAL_ONLY_BUILD ? <Navigate to="/" replace /> : load(element);
+}
+
 function RouteError() {
   return (
     <section>
@@ -52,15 +62,30 @@ export const router = createBrowserRouter([
       { index: true, element: load(<HomePage />) },
       { path: "scenarios", element: load(<ScenarioLibraryPage />) },
       { path: "authoring", element: load(<ScenarioAuthoringPage />) },
-      { path: "presentation/:mode/:id", element: load(<PresentationPage />) },
+      {
+        path: "presentation/:mode/:id",
+        loader: ({ params }) =>
+          LOCAL_ONLY_BUILD && params.mode === "network" ? redirect("/") : null,
+        element: load(<PresentationPage />),
+      },
       { path: "scenario/:id/briefing", element: load(<BriefingPage />) },
-      { path: "session/local/:id", element: load(<SessionPage />) },
-      { path: "session/network/:id", element: load(<SessionPage />) },
+      {
+        path: "session/:mode/:id",
+        loader: ({ params }) =>
+          LOCAL_ONLY_BUILD && params.mode === "network" ? redirect("/") : null,
+        element: load(<SessionPage />),
+      },
       { path: "demo", element: load(<DemoPage />) },
-      { path: "sessions/new", element: load(<CreateSessionPage />) },
-      { path: "join", element: load(<JoinPage />) },
-      { path: "lobby/:code", element: load(<LobbyPage />) },
-      { path: "instructor/:code", element: load(<InstructorPage />) },
+      {
+        path: "sessions/new",
+        element: networkOnly(<CreateSessionPage />),
+      },
+      { path: "join", element: networkOnly(<JoinPage />) },
+      { path: "lobby/:code", element: networkOnly(<LobbyPage />) },
+      {
+        path: "instructor/:code",
+        element: networkOnly(<InstructorPage />),
+      },
       { path: "history", element: load(<HistoryPage />) },
       { path: "aar/:id", element: load(<AarPage />) },
       { path: "*", element: <RouteError /> },
