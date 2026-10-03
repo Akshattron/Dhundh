@@ -12,6 +12,11 @@ import {
   scenarioHash,
 } from "../engine";
 import { readEvent } from "../engine/events";
+import {
+  ScenarioValidationError,
+  validateRuntimeScenario,
+} from "../engine/scenarioLoader";
+import { assessScenarioReadiness } from "../engine/scenarioReadiness";
 import type {
   EngineErrorCode,
   Intent,
@@ -32,6 +37,7 @@ export interface LocalSessionOptions {
   difficultyLevel: number;
   aidMode: "ALWAYS" | "AFTER_ESTIMATE";
   speedSecPerMin: number;
+  authoredPreview?: true;
 }
 
 function makeIntent(command: SessionCommand, t: number): Intent {
@@ -82,11 +88,23 @@ export class LocalSessionClient implements SessionClient {
     if (!difficultyProfile) {
       throw new TypeError("Session difficulty must be an integer from 1 to 5.");
     }
-    const scenario = mutateScenario(
-      baseScenario,
-      options.seed,
-      difficultyProfile.level,
-    );
+    if (
+      options.authoredPreview &&
+      (options.seed !== 0 ||
+        options.difficultyLevel !== baseScenario.meta.difficulty)
+    ) {
+      throw new TypeError(
+        "An authored preview requires seed 0 and the authored difficulty.",
+      );
+    }
+    const scenario = options.authoredPreview
+      ? validateRuntimeScenario(baseScenario)
+      : mutateScenario(baseScenario, options.seed, difficultyProfile.level);
+    if (options.authoredPreview) {
+      const readiness = assessScenarioReadiness(scenario);
+      if (readiness.issues.length)
+        throw new ScenarioValidationError(readiness.issues);
+    }
     this.scenario = scenario;
     this.state = createSession(scenario, {
       seed: options.seed,

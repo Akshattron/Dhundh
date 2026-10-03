@@ -4,7 +4,7 @@ import express from "express";
 import { z } from "zod";
 import { WebSocket, WebSocketServer } from "ws";
 import { buildAar } from "../src/engine/aar";
-import type { Aar } from "../src/engine/aar";
+import { buildTeamAar } from "./teamAar";
 import { scenarios } from "../src/scenarios";
 import {
   clientMessageSchema,
@@ -429,62 +429,6 @@ server.listen(config.port, "0.0.0.0", () => {
     `DHUNDH ${config.version} listening on 0.0.0.0:${config.port}; health: /health; WebSocket: /ws`,
   );
 });
-
-function buildTeamAar(aar: Aar, session: ManagedSession): Aar {
-  aar.team = {
-    participants: [...session.clients.values()]
-      .filter(
-        (participant) =>
-          participant.role === "COMMANDER" || participant.role === "ANALYST",
-      )
-      .map((participant) => ({
-        role: participant.role,
-        name: participant.name,
-        openedReportIds: session.state.inspections
-          .filter((record) => record.role === participant.role)
-          .map((record) => record.reportId),
-        estimates: session.state.estimates
-          .filter((record) => record.role === participant.role)
-          .map(({ hypothesisId, p, atSec }) => ({ hypothesisId, p, atSec })),
-        decisions: session.state.decisions
-          .filter((record) => record.role === participant.role)
-          .map(({ decisionPointId, actionId, atSec, timedOut }) => ({
-            decisionPointId,
-            actionId,
-            atSec,
-            timedOut,
-          })),
-        verificationCount: session.state.verifications.filter(
-          (record) => record.role === participant.role,
-        ).length,
-        aidRevealedAtSec:
-          session.aidMode === "ALWAYS"
-            ? 0
-            : (session.state.aidRevealedAtSecByRole[participant.role] ?? null),
-      })),
-    relays: session.state.relays.map((relay) => {
-      const report = session.state.reports[relay.relayReportId];
-      if (!report || report.deliveredAtSec === null) {
-        throw new Error("Completed session has an invalid relay record.");
-      }
-      return {
-        fromRole: "ANALYST" as const,
-        reportId: relay.reportId,
-        relayReportId: relay.relayReportId,
-        atSec: relay.atSec,
-        deliveredAtSec: report.deliveredAtSec,
-        ...(relay.note === undefined ? {} : { note: relay.note }),
-      };
-    }),
-    advice: session.state.advice.map((item) => ({
-      role: "ANALYST" as const,
-      atSec: item.atSec,
-      actionId: item.actionId,
-      ...(item.note === undefined ? {} : { note: item.note }),
-    })),
-  };
-  return aar;
-}
 
 function shutdown(): void {
   clearInterval(clock);

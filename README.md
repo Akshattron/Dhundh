@@ -114,3 +114,110 @@ Completed AARs add score-only summaries to a bounded local history in the
 current browser. Raw logs, rationale, estimates, and hidden truth are not
 persisted in that history. Both local and network exercise setup expose
 deterministic seed, difficulty, and reference-aid choices.
+
+## Selected P3 features
+
+### Replay controls and annotations
+
+Completed AAR replay supports **0.5x, 1x, 2x, and 4x**, measured in retained
+frames per wall-clock second, not simulated seconds. Speed changes only the
+playback interval; they do not change timestamps, decisions, scores, or history.
+The slider supports keyboard stepping and Home/End. Annotation jumps pause
+playback and focus the exact retained frame.
+
+Annotations identify actual scheduled events and accepted actions, including
+reports, channels, verification, estimates, decisions, injects, relays, and
+completion. Source IDs and causal order are preserved. Precommitment decision
+cuts remain distinct from later work at the same second. The 80-frame bound
+retains the initial, decision, and actual terminal cuts; annotations between
+sampled frames are explicitly omitted, never reassigned to nearby times.
+Conflict markers label the first retained cut with an available conflict flag.
+Historical **Knew** respects that role's inspection and reference-aid gates.
+**Truth** is explicitly post-mortem; counterfactuals remain labelled simulated,
+not what happened.
+
+### Completed-session team diagnostics
+
+The authorized network AAR includes `team.metrics` and cumulative per-decision
+details. These are descriptive diagnostics of a synthetic exercise, **not
+scientifically validated learning-transfer measures or a composite team score**.
+Live trainee snapshots do not include team analytics or another role's private
+estimates.
+
+| Metric                      | Exact definition                                                                                                                                                                                                                           | Missing-data behavior                                                                                                                         |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Information sharing rate    | Distinct Analyst-visible, non-relay reports sent before commitment whose absolute LLR at that decision cut is at least 0.3, divided by all such reports delivered by the cut. Uses the existing effective-accuracy/LLR model.              | Null when there are no meaningful opportunities; zero when opportunities exist but none were shared. Duplicate sends do not inflate the rate. |
+| Estimate convergence        | One minus the absolute difference between the last Commander and Analyst primary-hypothesis estimates before commitment. Every paired update, first paired agreement, and final-minus-initial change are retained.                         | Null unless both actually estimated; no prior is substituted. Agreement is not correctness.                                                   |
+| Median relay delay          | Median actual relay receipt minus original receipt, in simulated minutes, for predecision sends received by completion.                                                                                                                    | Null if none arrived. Includes labelled post-decision delivery; not evidence of decision use.                                                 |
+| Median coordination latency | Median simulated seconds from a meaningful relay receipt to the first matching Commander action by commitment. Matching means opening that relay, estimating or verifying its hypothesis, or explicitly citing it in a voluntary decision. | Null if no response was observed. Late, missing, immaterial, or unanswered receipts never become zero latency.                                |
+
+Each Commander action matches at most one receipt, oldest first. Meaningful
+latency opportunities use absolute LLR at receipt, while sharing uses strength
+at commitment. This explicit association does not prove causation. Counts,
+individual opportunities, matched/unmatched receipts, and timeline context are
+shown alongside the definitions.
+
+Every decision uses its accepted-intent causal prefix, excluding later
+same-second actions. Due scheduled receipts precede a voluntary decision.
+Timeout-second trainee actions are excluded; a timeout is not a manufactured
+Commander response. Metrics are cumulative from session start for each decision;
+`team.metrics` summarizes the final cut. The panel shows the latest 24 paired
+estimate cuts, while AAR JSON retains the full trajectory.
+
+### Synthetic scenario workbench
+
+Open **Author a synthetic scenario** from the library, or visit `/authoring`.
+The monospaced editor runs debounced JSON syntax, Zod authoring-schema, loader,
+runtime-invariant, utility/consequence coverage, and training-readiness checks.
+Errors name the affected path. Readiness reuses the exact whole-minute
+contradiction and feasible nonnegative-net verification gate used by mutation.
+Loader-valid JSON can still fail that stricter training gate.
+
+Reload a bundled template as a copy, import JSON, reset the draft, copy it, or
+export its exact minute-based authoring form. No canonical scenario file is
+written and no JavaScript is evaluated. Drafts are in-memory: export before
+leaving. Preview requires all gates to pass and uses an **isolated
+LocalSessionClient**, seed 0, the authored difficulty and timings, with no
+mutation. It does not replace the active exercise or write session history.
+Editing, replacing, or leaving the draft disposes the preview. Its projection
+shows no hidden truth or instructor diagnostics; unanswered decisions time out
+through the real engine.
+
+The editor bounds drafts to 200,000 characters and imports to 800,000 bytes.
+Limits are 6 hypotheses, 4 channels, 64 reports, 128 authored events, 12 assets,
+16 inject presets, 4 decisions, 8 actions per decision, and 64 rules per
+utility/consequence table. Decision close is at most 120 minutes; the authored
+horizon, report/event times, and asset/consequence delays are at most 180
+minutes. These are workbench resource limits, not changes to bundled scenarios.
+
+### Live presentation
+
+Use **Presentation mode** from a local/network console, the flagship demo, or a
+completed AAR. Routes are `/presentation/local/:scenarioId`,
+`/presentation/demo/:scenarioId`, and `/presentation/network/:sessionCode`.
+They require the matching active client in this browser; they do not invent
+state or reconnect under a guessed identity.
+
+The simplified screen subscribes directly to the real client and shows large
+clock, Fog Index and primary-belief metrics, current decision context, recent
+role-visible events, pending consequence, and a clean authorized AAR summary
+after completion. Estimate-first aid and report inspection gates remain intact.
+An unavailable network connection is labelled as a last authoritative snapshot,
+not advanced locally. Live instructor diagnostics are deliberately not projected
+onto the judge screen; instructor presentation is available after completion.
+
+Fullscreen requires the browser's permission and a user gesture; unsupported or
+denied requests leave a usable windowed view with an explicit error. Exit
+restores the contextual entry's focus and never disposes the real exercise.
+Escape closes shortcut help, exits fullscreen, then leaves presentation.
+Typing fields are not intercepted.
+
+Demo presentation uses the original `DemoController`: H home, D reset, N next
+event, J decision window, A complete the real path and show the AAR summary,
+I return to instructor controls, and ? shortcut help. Use **Open decision
+console** to make a real decision and **Open full AAR and replay** for the full
+review. The ordinary demo's existing controls and shortcuts are unchanged.
+
+**FR-P3-03 optional LLM-written AAR narration is deliberately omitted.** No LLM,
+external API, or network is required by the local deterministic demo. Deployment
+and submission readiness are separate gates; see `docs/PROGRESS.md`.

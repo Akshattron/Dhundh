@@ -36,6 +36,18 @@ test("authoritative session partitions reports, relays analyst evidence, reconne
     await expect(
       analyst.getByText("Connected to the authoritative session."),
     ).toBeVisible({ timeout: 10_000 });
+    await expect(
+      instructor.getByRole("heading", { name: "Live participant monitor" }),
+    ).toBeVisible();
+    await expect(
+      instructor.getByText("Commander One", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      instructor.getByText("Analyst One", { exact: true }),
+    ).toBeVisible();
+    expect(
+      (await commander.request.get(`/api/sessions/${code}/aar`)).status(),
+    ).toBe(401);
 
     await expect(
       instructor.getByRole("button", { name: "Start exercise" }),
@@ -65,10 +77,25 @@ test("authoritative session partitions reports, relays analyst evidence, reconne
       timeout: 15_000,
     });
     await expect(commander.locator('[data-report-id="R04"]')).toHaveCount(0);
+    await expect(commander.getByTestId("sharing-rate-DP1")).toHaveCount(0);
+    await commander.getByTestId("enter-presentation").click();
+    await expect(commander).toHaveURL(
+      new RegExp(`/presentation/network/${code}$`),
+    );
+    await expect(commander.getByTestId("presentation-clock")).toBeVisible();
+    await expect(
+      commander.getByRole("region", { name: "Visible event timeline" }),
+    ).not.toContainText("report R04");
+    await commander.getByRole("button", { name: "Exit presentation" }).click();
+    await expect(commander.getByTestId("enter-presentation")).toBeFocused();
 
     await expect(commander.getByTestId("open-decision")).toBeVisible({
       timeout: 25_000,
     });
+    await analyst
+      .getByLabel("Veer Pass (north route) is passable estimate percentage")
+      .fill("65");
+    await analyst.getByRole("button", { name: "Record" }).click();
     await commander
       .getByLabel("Veer Pass (north route) is passable estimate percentage")
       .fill("65");
@@ -88,6 +115,19 @@ test("authoritative session partitions reports, relays analyst evidence, reconne
     await expect(commander.getByText(/ANALYST · Analyst One/)).toBeVisible();
     await expect(commander.getByText("Analyst handoffs")).toBeVisible();
     await expect(commander.getByText(/R04 → RLY1/)).toBeVisible();
+    await expect(commander.getByTestId("sharing-rate-DP1")).toHaveText(
+      "100.0%",
+    );
+    await expect(commander.getByTestId("convergence-DP1")).toHaveText("100.0%");
+    await expect(commander.getByTestId("coordination-latency-DP1")).toHaveText(
+      /^\d+\.\d sec$/,
+    );
+    await commander.getByText("Exact definitions and limitations").click();
+    await expect(
+      commander.getByText(
+        /not scientifically validated learning-transfer measures/,
+      ),
+    ).toBeVisible();
     await commander.getByRole("link", { name: "History" }).click();
     await expect(
       commander.getByRole("heading", { name: "Session history" }),

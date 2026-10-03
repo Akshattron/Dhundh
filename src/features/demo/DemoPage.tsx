@@ -21,12 +21,14 @@ import { scenarios } from "@/scenarios";
 import type { SessionClient } from "@/session/SessionClient";
 import type { TraineeView } from "@/engine/view";
 import { useSessionStore } from "@/state/useSessionStore";
+import { useSessionView } from "@/session/useSessionView";
+import { PresentationEntry } from "@/features/presentation/PresentationEntry";
 import styles from "./DemoPage.module.css";
 
 export default function DemoPage() {
   const navigate = useNavigate();
   const client = useSessionStore((store) => store.client);
-  const view = useSessionStore((store) => store.view);
+  const view = useSessionView(client);
   const experience = useSessionStore((store) => store.experience);
   const setClient = useSessionStore((store) => store.setClient);
   const scenario = scenarios.find(
@@ -329,7 +331,10 @@ export default function DemoPage() {
           </p>
           <h1>Flagship demo</h1>
         </div>
-        <ScenarioBadge />
+        <div className={styles.controlActions}>
+          <ScenarioBadge />
+          <PresentationEntry client={client} view={view} demo />
+        </div>
       </header>
 
       <section

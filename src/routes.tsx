@@ -18,6 +18,12 @@ const ScenarioLibraryPage = lazy(
   () => import("@/features/library/ScenarioLibraryPage"),
 );
 const SessionPage = lazy(() => import("@/features/session/SessionPage"));
+const ScenarioAuthoringPage = lazy(
+  () => import("@/features/authoring/ScenarioAuthoringPage"),
+);
+const PresentationPage = lazy(
+  () => import("@/features/presentation/PresentationPage"),
+);
 
 function RouteLoading() {
   return <p role="status">Loading training interface…</p>;
@@ -45,6 +51,8 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: load(<HomePage />) },
       { path: "scenarios", element: load(<ScenarioLibraryPage />) },
+      { path: "authoring", element: load(<ScenarioAuthoringPage />) },
+      { path: "presentation/:mode/:id", element: load(<PresentationPage />) },
       { path: "scenario/:id/briefing", element: load(<BriefingPage />) },
       { path: "session/local/:id", element: load(<SessionPage />) },
       { path: "session/network/:id", element: load(<SessionPage />) },

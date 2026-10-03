@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Aar } from "../engine/aar";
+import { REPLAY_CATEGORIES } from "../engine/replay";
 import type { EngineErrorCode, Intent, Phase, RoleId } from "../engine/types";
 import type { TraineeView } from "../engine/view";
 
@@ -181,7 +182,115 @@ const teamParticipantSchema = z.strictObject({
   verificationCount: z.number().int().nonnegative(),
   aidRevealedAtSec: z.number().int().nonnegative().nullable(),
 });
+const count = z.number().int().nonnegative().max(10_000);
+const simulatedTime = z.number().int().nonnegative();
+const teamMetricsSchema = z.strictObject({
+  informationSharingRate: estimate.nullable(),
+  estimateConvergence: estimate.nullable(),
+  medianRelayDelayMin: z.number().finite().nonnegative().nullable(),
+  medianCoordinationLatencySec: z.number().finite().nonnegative().nullable(),
+});
+const teamDecisionMetricsSchema = z
+  .strictObject({
+    decisionPointId: identifier,
+    atSec: simulatedTime,
+    timedOut: z.boolean(),
+    primaryHypothesisId: identifier,
+    primaryHypothesisLabel: z.string().min(1),
+    metrics: teamMetricsSchema,
+    counts: z.strictObject({
+      analystReportsDelivered: count,
+      meaningfulReports: count,
+      meaningfulReportsRelayed: count,
+      relayIntents: count,
+      relayReceipts: count,
+      meaningfulReceiptsBeforeDecision: count,
+      matchedResponses: count,
+      unansweredReceipts: count,
+      primaryEstimateIntents: count,
+      pairedEstimates: count,
+    }),
+    opportunities: z
+      .array(
+        z.strictObject({
+          reportId: identifier,
+          deliveredAtSec: simulatedTime,
+          llrAtDecision: z.number().finite(),
+          relayedBeforeDecision: z.boolean(),
+        }),
+      )
+      .max(10_000),
+    convergence: z
+      .array(
+        z.strictObject({
+          intentIndex: count,
+          atSec: simulatedTime,
+          role: z.enum(["COMMANDER", "ANALYST"]),
+          commander: estimate,
+          analyst: estimate,
+          convergence: estimate,
+        }),
+      )
+      .max(10_000),
+    initialConvergence: estimate.nullable(),
+    convergenceChange: z.number().finite().min(-1).max(1).nullable(),
+    relays: z
+      .array(
+        z.strictObject({
+          reportId: identifier,
+          relayReportId: identifier,
+          hypothesisId: identifier.nullable(),
+          requestedAtSec: simulatedTime,
+          originalDeliveredAtSec: simulatedTime,
+          scheduledDeliveryAtSec: simulatedTime,
+          deliveredAtSec: simulatedTime.nullable(),
+          meaningfulAtReceipt: z.boolean(),
+          response: z
+            .strictObject({
+              intentIndex: count,
+              type: z.enum(["OPEN_REPORT", "SET_ESTIMATE", "VERIFY", "DECIDE"]),
+              atSec: simulatedTime,
+            })
+            .nullable(),
+          latencySec: simulatedTime.nullable(),
+          status: z.enum([
+            "MATCHED",
+            "NO_RESPONSE",
+            "AFTER_DECISION",
+            "NOT_DELIVERED",
+            "NOT_MEANINGFUL",
+          ]),
+        }),
+      )
+      .max(3),
+  })
+  .superRefine((decision, context) => {
+    for (const [index, relay] of decision.relays.entries()) {
+      if (
+        relay.response &&
+        (relay.deliveredAtSec === null ||
+          relay.response.atSec > decision.atSec ||
+          relay.response.atSec < relay.deliveredAtSec ||
+          relay.latencySec !== relay.response.atSec - relay.deliveredAtSec)
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["relays", index],
+          message: "Relay response must lie between receipt and commitment",
+        });
+      }
+    }
+  });
 const teamAarSchema = z.strictObject({
+  metrics: teamMetricsSchema,
+  decisionMetrics: z.array(teamDecisionMetricsSchema).min(1).max(80),
+  metricDefinitions: z.strictObject({
+    informationSharingRate: z.string().min(1),
+    estimateConvergence: z.string().min(1),
+    medianRelayDelayMin: z.string().min(1),
+    medianCoordinationLatencySec: z.string().min(1),
+  }),
+  metricLimitations: z.array(z.string().min(1)).min(1),
   participants: z.array(teamParticipantSchema),
   relays: z.array(
     z.strictObject({
@@ -189,7 +298,7 @@ const teamAarSchema = z.strictObject({
       reportId: z.string(),
       relayReportId: z.string(),
       atSec: z.number().int().nonnegative(),
-      deliveredAtSec: z.number().int().nonnegative(),
+      deliveredAtSec: z.number().int().nonnegative().nullable(),
       note: z.string().max(80).optional(),
     }),
   ),
@@ -202,6 +311,53 @@ const teamAarSchema = z.strictObject({
     }),
   ),
 });
+
+const replayFramesSchema = z
+  .array(
+    z
+      .object({
+        atSec: z.number().int().nonnegative(),
+        cut: z.enum(["DECISION", "STATE"]),
+        markers: z
+          .array(
+            z.strictObject({
+              id: z.string().min(1).max(300),
+              order: z.number().int().nonnegative(),
+              atSec: z.number().int().nonnegative(),
+              frameIndex: z.number().int().min(0).max(79),
+              category: z.enum(REPLAY_CATEGORIES),
+              summary: z.string().min(1).max(1000),
+            }),
+          )
+          .max(20_080),
+        omittedAnnotationsBefore: z.number().int().nonnegative(),
+      })
+      .passthrough(),
+  )
+  .min(1)
+  .max(80)
+  .superRefine((frames, context) => {
+    const ids = new Set<string>();
+    let previousOrder = -1;
+    frames.forEach((frame, index) => {
+      for (const marker of frame.markers) {
+        if (
+          marker.frameIndex !== index ||
+          marker.atSec !== frame.atSec ||
+          ids.has(marker.id) ||
+          marker.order <= previousOrder
+        ) {
+          context.addIssue({
+            code: "custom",
+            path: [index, "markers"],
+            message: "Invalid causal replay annotation position or order",
+          });
+        }
+        ids.add(marker.id);
+        previousOrder = marker.order;
+      }
+    });
+  });
 const aarBoundarySchema = z
   .object({
     schemaVersion: z.literal(1),
@@ -233,7 +389,7 @@ const aarBoundarySchema = z
       .object({ headline: z.string(), narrative: z.string() })
       .passthrough(),
     timeline: z.array(z.record(z.string(), z.unknown())),
-    frames: z.array(z.record(z.string(), z.unknown())),
+    frames: replayFramesSchema,
     information: z.record(z.string(), z.unknown()),
     team: teamAarSchema,
   })

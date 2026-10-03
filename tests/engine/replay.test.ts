@@ -5,6 +5,8 @@ import { buildFrames } from "../../src/engine/replay";
 import type { Intent } from "../../src/engine";
 import { pathIntents } from "../golden/flagship.expected";
 import { config, flagship, freeze, logFor, started } from "./fixtures";
+import harbour from "../../src/scenarios/harbour-flood-response.json";
+import { loadScenario } from "../../src/engine/scenarioLoader";
 
 describe("causal replay", () => {
   it("builds an ordered capped replay with a separate decision-time cut", () => {
@@ -240,5 +242,174 @@ describe("causal replay", () => {
       timedOut: true,
       actionId: "STAND_DOWN",
     });
+  });
+
+  it("maps every annotation to an exact retained time and cut in causal order", () => {
+    const log = freeze(logFor(pathIntents.A));
+    const before = JSON.stringify(log);
+    const frames = buildFrames(flagship, log);
+    const markers = frames.flatMap((frame) => frame.markers);
+    expect(new Set(markers.map((item) => item.id)).size).toBe(markers.length);
+    expect(markers.map((item) => item.order)).toEqual(
+      markers.map((item) => item.order).sort((a, b) => a - b),
+    );
+    for (const marker of markers) {
+      expect(frames[marker.frameIndex]?.atSec).toBe(marker.atSec);
+      expect(marker.summary.length).toBeGreaterThan(0);
+    }
+    const atVerification = markers.filter((item) => item.atSec === 1320);
+    expect(
+      atVerification.findIndex((item) =>
+        item.summary.startsWith("R06 arrived"),
+      ),
+    ).toBeLessThan(atVerification.findIndex((item) => item.id === "intent:7"));
+    expect(
+      atVerification.findIndex((item) => item.id === "intent:7"),
+    ).toBeLessThan(atVerification.findIndex((item) => item.id === "intent:8"));
+    const cut = markers.find((item) => item.id === "intent:12:cut")!;
+    const committed = markers.find((item) => item.id === "intent:12")!;
+    expect(frames[cut.frameIndex]?.trainee.decided).toBe(false);
+    expect(frames[committed.frameIndex]?.trainee.decided).toBe(true);
+    expect(cut.order).toBeLessThan(committed.order);
+    expect(markers.some((item) => item.category === "CONTRADICTION")).toBe(
+      true,
+    );
+    expect(markers.at(-1)?.category).toBe("COMPLETION");
+    expect(JSON.stringify(log)).toBe(before);
+    expect(buildFrames(flagship, log)).toEqual(frames);
+  });
+
+  it("orders an instructor action before the same-second events it creates", () => {
+    const frames = buildFrames(
+      flagship,
+      logFor([
+        { type: "START", t: 0, role: "SOLO" },
+        {
+          type: "INJECT",
+          t: 600,
+          role: "INSTRUCTOR",
+          presetId: "FALSE_NORTH_CLEAR",
+        },
+      ]),
+    );
+    const markers = frames
+      .flatMap((frame) => frame.markers)
+      .filter((item) => item.atSec === 600);
+    expect(markers[0]).toMatchObject({ id: "intent:1", category: "INJECT" });
+    expect(
+      markers.some(
+        (item) =>
+          item.category === "REPORT" && item.summary.includes("arrived"),
+      ),
+    ).toBe(true);
+  });
+
+  it("discloses omitted annotations instead of jumping to approximate event times", () => {
+    const frames = buildFrames(
+      flagship,
+      logFor([
+        { type: "START", t: 0, role: "SOLO" },
+        ...Array.from({ length: 100 }, (_, index): Intent => ({
+          type: "INJECT",
+          t: index + 1,
+          role: "INSTRUCTOR",
+          presetId: "RESTORE_ALL",
+        })),
+        ...pathIntents.A.slice(1),
+      ]),
+    );
+    expect(frames).toHaveLength(80);
+    expect(
+      frames.reduce((sum, frame) => sum + frame.omittedAnnotationsBefore, 0),
+    ).toBeGreaterThan(0);
+    for (const [index, frame] of frames.entries()) {
+      expect(
+        frame.markers.every(
+          (item) => item.atSec === frame.atSec && item.frameIndex === index,
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it("retains every explicit decision cut and excludes later same-second estimates", () => {
+    const scenario = loadScenario(harbour);
+    const frames = buildFrames(
+      scenario,
+      logFor(
+        [
+          { type: "START", t: 0, role: "SOLO" },
+          {
+            type: "SET_ESTIMATE",
+            t: 1200,
+            role: "SOLO",
+            hypothesisId: "quay_dry",
+            p: 0.2,
+          },
+          {
+            type: "DECIDE",
+            t: 1200,
+            role: "SOLO",
+            actionId: "HOLD_POSITION",
+            rationale: null,
+          },
+          {
+            type: "SET_ESTIMATE",
+            t: 1200,
+            role: "SOLO",
+            hypothesisId: "quay_dry",
+            p: 0.9,
+          },
+          {
+            type: "DECIDE",
+            t: 2100,
+            role: "SOLO",
+            actionId: "HOLD_ROUTE",
+            rationale: null,
+          },
+        ],
+        scenario,
+      ),
+    );
+    const cuts = frames.filter((frame) => frame.cut === "DECISION");
+    expect(cuts.map((frame) => frame.atSec)).toEqual([1200, 2100]);
+    expect(cuts[0]?.trainee.estimate).toBe(0.2);
+    expect(
+      frames.find((frame) => frame.atSec === 1200 && frame.cut === "STATE")
+        ?.trainee.estimate,
+    ).toBe(0.9);
+  });
+
+  it("reconstructs accepted DP2 actions following a scheduled DP1 timeout", () => {
+    const scenario = loadScenario(harbour);
+    const frames = buildFrames(
+      scenario,
+      logFor(
+        [
+          { type: "START", t: 0, role: "SOLO" },
+          { type: "VERIFY", t: 1680, role: "SOLO", assetId: "DRONE_SWEEP" },
+          {
+            type: "SET_ESTIMATE",
+            t: 2100,
+            role: "SOLO",
+            hypothesisId: "quay_dry",
+            p: 0.2,
+          },
+          {
+            type: "DECIDE",
+            t: 2100,
+            role: "SOLO",
+            actionId: "ROUTE_VIA_RIDGE",
+            rationale: null,
+          },
+        ],
+        scenario,
+      ),
+    );
+    expect(frames.at(-1)).toMatchObject({ atSec: 2520, phase: "COMPLETE" });
+    expect(
+      frames
+        .flatMap((frame) => frame.markers)
+        .some((item) => item.summary.includes("DP1 timed out")),
+    ).toBe(true);
   });
 });

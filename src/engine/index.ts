@@ -24,6 +24,12 @@ export { mutateScenario } from "./mutation";
 export { nextDifficulty, PROFILES } from "./difficulty";
 export type { DifficultyLevel, DifficultyProfile } from "./difficulty";
 export { buildFrames } from "./replay";
+export { buildTeamMetrics } from "./team";
+export type {
+  TeamMetrics,
+  TeamDecisionMetrics,
+  TeamMetricReport,
+} from "./team";
 export { buildCounterfactuals, COUNTERFACTUAL_LABEL } from "./counterfactual";
 export type {
   Counterfactual,

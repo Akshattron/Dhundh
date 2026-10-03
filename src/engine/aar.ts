@@ -2,6 +2,7 @@ import { computeBelief } from "./belief";
 import { buildCounterfactuals, type Counterfactual } from "./counterfactual";
 import { buildCoachNotes } from "./coach";
 import type { AarCoachNote } from "./coach";
+import type { TeamMetricReport } from "./team";
 import { evaluateDecision } from "./decision";
 import { PROFILES, type DifficultyProfile } from "./difficulty";
 import { readEvent } from "./events";
@@ -159,7 +160,7 @@ export interface Aar {
   counterfactuals: Counterfactual[];
   coachNotes: AarCoachNote[];
   limitations: string[];
-  team?: {
+  team?: TeamMetricReport & {
     participants: Array<{
       role: Exclude<RoleId, "SOLO">;
       name: string;
@@ -183,7 +184,7 @@ export interface Aar {
       reportId: ReportId;
       relayReportId: ReportId;
       atSec: number;
-      deliveredAtSec: number;
+      deliveredAtSec: number | null;
       note?: string;
     }>;
     advice: Array<{

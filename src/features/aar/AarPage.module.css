@@ -618,6 +618,110 @@
   color: var(--text-strong);
 }
 
+.replaySpeed {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin-left: auto;
+}
+
+.teamDecision {
+  margin-block: var(--space-24);
+}
+
+.teamMetricGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: var(--space-16);
+}
+
+.teamMetricGrid > div {
+  padding: var(--space-16);
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-card);
+}
+
+.teamMetricGrid dd {
+  margin: var(--space-8) 0;
+  font-size: var(--font-h1);
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.teamMetricGrid p,
+.teamDecision details {
+  color: var(--text-muted);
+  font-size: var(--font-small);
+}
+
+.teamDecision details {
+  margin-block: var(--space-12);
+}
+
+.teamDecision summary {
+  cursor: pointer;
+  color: var(--text-strong);
+}
+
+.teamTable {
+  overflow-x: auto;
+  margin-block: var(--space-12);
+}
+
+.teamTable table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.teamTable td,
+.teamTable th {
+  padding: var(--space-8);
+  border-bottom: 1px solid var(--border-default);
+  font-variant-numeric: tabular-nums;
+}
+
+.replaySpeed select {
+  padding: var(--space-8);
+  color: var(--text-strong);
+  background: var(--surface-1);
+  border: 1px solid var(--text-faint);
+  border-radius: var(--radius-button);
+}
+
+.replayAnnotations {
+  margin-block: var(--space-16);
+}
+
+.replayAnnotations summary {
+  cursor: pointer;
+  color: var(--text-strong);
+}
+
+.replayAnnotations ol {
+  max-height: 28rem;
+  overflow-y: auto;
+  list-style: none;
+  padding: var(--space-4);
+}
+
+.replayAnnotations button {
+  justify-content: flex-start;
+  width: 100%;
+  text-align: left;
+  white-space: normal;
+}
+
+.replayAnnotations time {
+  font-variant-numeric: tabular-nums;
+}
+
+.replayAnnotations button span {
+  color: var(--accent-cyan);
+  font-size: var(--font-label);
+}
+
 .replayView {
   padding: 13px;
   border: 1px solid var(--border-subtle);
