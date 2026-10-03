@@ -87,6 +87,7 @@ export const router = createBrowserRouter([
         element: networkOnly(<InstructorPage />),
       },
       { path: "history", element: load(<HistoryPage />) },
+      { path: "analytics", element: load(<HistoryPage />) },
       { path: "aar/:id", element: load(<AarPage />) },
       { path: "*", element: <RouteError /> },
     ],
