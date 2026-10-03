@@ -12,6 +12,8 @@ Branch: `akshattron-gate-6-advanced-features`.
 Baseline: current `main` at worktree creation,
 `5fff5c38ef0027abc1c2721d5527af57c326b6eb` (Gate 5 merge).
 
+Implementation commit: `8b5a96ec780f1dccd6ff1df66c1631f6c1affbd5`.
+
 ## Gate 6 Completed - Selected P3 Advanced Features
 
 | Requirement            | Status and implementation                                                                                                                                                            |
