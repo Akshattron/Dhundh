@@ -28,7 +28,7 @@
 }
 
 .tabs button[aria-selected="true"] {
-  border-bottom-color: var(--accent-cyan);
+  border-bottom-color: var(--brand-oxide);
   color: var(--text-strong);
 }
 

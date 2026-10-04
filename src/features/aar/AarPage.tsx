@@ -231,6 +231,19 @@ export default function AarPage() {
       {key === "outcome" && <small>Revealed after completion</small>}
     </div>
   ));
+  const deliveredAtByReport = new Map(
+    aar.information.delivered.map((report) => [
+      report.id,
+      report.deliveredAtSec,
+    ]),
+  );
+  const waterfallAtCommitment = aar.information.waterfall.map((hypothesis) => ({
+    ...hypothesis,
+    contributions: hypothesis.contributions.map((contribution) => ({
+      ...contribution,
+      deliveredAtSec: deliveredAtByReport.get(contribution.reportId),
+    })),
+  }));
 
   return (
     <article className={styles.page} ref={page}>
@@ -731,7 +744,7 @@ export default function AarPage() {
         <p className={styles.muted}>
           Contributions below use only reports delivered by the decision cut.
         </p>
-        <EvidenceWaterfall hypotheses={aar.information.waterfall} />
+        <EvidenceWaterfall hypotheses={waterfallAtCommitment} />
         <div className={styles.reportGroups}>
           <p className={styles.counterfactualDisclosure}>
             {COUNTERFACTUAL_LABEL}

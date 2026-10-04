@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { projectReferenceModel } from "../../src/engine/view";
 import { ContradictionMeter } from "../../src/features/trainee/ContradictionMeter";
@@ -38,7 +39,7 @@ describe("P1 signature visualizations", () => {
     expect(document.activeElement).toBe(trigger);
   });
 
-  it("renders signed evidence groups with a text summary and keyboard open action", () => {
+  it("renders a signed evidence ledger and supports keyboard report inspection", async () => {
     const onOpen = vi.fn();
     const hypotheses: WaterfallHypothesis[] = [
       {
@@ -76,7 +77,8 @@ describe("P1 signature visualizations", () => {
     const unopened = screen.getByRole("button", {
       name: /R01, A fictional route report/,
     });
-    fireEvent.keyDown(unopened, { key: "Enter" });
+    unopened.focus();
+    await userEvent.setup().keyboard("{Enter}");
     expect(onOpen).toHaveBeenCalledWith("R01");
     expect(
       screen.getByText(/prior log-odds 0.000, posterior log-odds 0.400/i),

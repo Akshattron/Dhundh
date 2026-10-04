@@ -1,14 +1,15 @@
 :root {
   font-family: var(--font-sans);
-  font-size: var(--font-body);
-  line-height: 1.5;
+  font-size: 16px;
+  line-height: 1.55;
   font-weight: 400;
   color: var(--text-default);
-  background: var(--bg-0);
+  background: var(--bg-1);
   color-scheme: dark;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   font-variant-numeric: tabular-nums;
+  font-optical-sizing: auto;
 }
 
 *,
@@ -17,18 +18,23 @@
   box-sizing: border-box;
 }
 
-body {
-  margin: 0;
+html {
   min-width: 320px;
+  scroll-behavior: smooth;
+  background: var(--bg-1);
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background: var(--bg-1);
 }
 
 main {
-  width: min(
-    calc(100% - var(--space-16) - var(--space-16)),
-    var(--content-width)
-  );
+  width: min(calc(100% - var(--space-32)), var(--content-width));
   margin-inline: auto;
-  padding-block: var(--space-24);
+  padding-block: var(--space-32);
 }
 
 h1,
@@ -37,6 +43,7 @@ h3 {
   margin: 0 0 var(--space-8);
   color: var(--text-strong);
   font-weight: 600;
+  text-wrap: pretty;
 }
 
 p {
@@ -45,7 +52,8 @@ p {
 
 h1 {
   font-size: var(--font-h1);
-  line-height: 1.2;
+  line-height: 1.12;
+  letter-spacing: -0.025em;
 }
 
 h2 {
@@ -58,14 +66,20 @@ h3 {
   line-height: 1.3;
 }
 
+time,
+[data-mono="true"] {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
 a {
-  color: var(--accent-cyan);
-  text-underline-offset: var(--space-4);
+  color: var(--brand-oxide);
+  text-underline-offset: 3px;
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent-cyan);
-  outline-offset: var(--space-4);
+  outline: 2px solid var(--brand-brass);
+  outline-offset: 3px;
 }
 
 button,
@@ -80,13 +94,13 @@ textarea,
 select {
   max-width: 100%;
   color: var(--text-default);
-  accent-color: var(--accent-cyan);
+  accent-color: var(--brand-oxide);
 }
 
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
 textarea,
 select {
-  min-height: 40px;
+  min-height: 44px;
   padding: var(--space-8) var(--space-12);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-button);
@@ -95,13 +109,14 @@ select {
 
 input[type="checkbox"],
 input[type="radio"] {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
   vertical-align: middle;
 }
 
 input::file-selector-button {
+  min-height: 36px;
   margin-right: var(--space-12);
   padding: var(--space-8) var(--space-12);
   border: 1px solid var(--border-strong);
@@ -123,7 +138,12 @@ summary {
 }
 
 summary::marker {
-  color: var(--text-muted);
+  color: var(--brand-brass);
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--border-default);
 }
 
 .sr-only {

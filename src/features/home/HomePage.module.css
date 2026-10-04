@@ -1,251 +1,343 @@
 .home {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding-block: var(--space-24);
+  width: 100%;
+  max-width: 1380px;
+  margin-inline: auto;
 }
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
-  gap: var(--space-64);
-  align-items: center;
-  padding-block: var(--space-24) var(--space-40);
-  border-bottom: 1px solid var(--border-default);
+  grid-template-columns: minmax(0, 0.92fr) minmax(390px, 1.08fr);
+  align-items: stretch;
+  gap: clamp(36px, 6vw, 88px);
+  min-height: 620px;
+  padding-block: clamp(42px, 7vh, 84px) 64px;
 }
 
 .heroCopy {
-  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 640px;
+  padding-block: 20px;
+}
+
+.eyebrow,
+.stepLabel,
+.signalHead,
+.stepIndex {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
 }
 
 .eyebrow {
-  margin: 0 0 var(--space-16);
-  color: var(--text-muted);
+  margin: 0 0 24px;
+  color: var(--brand-brass);
   font-size: var(--font-label);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0.11em;
 }
 
 .hero h1 {
   margin: 0;
-  font-size: var(--font-display);
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+  font-family: var(--font-serif);
+  font-size: clamp(2.8rem, 4.2vw, 4rem);
+  font-weight: 450;
+  line-height: 0.99;
+  letter-spacing: -0.045em;
 }
 
 .summary {
-  max-width: 520px;
-  margin: var(--space-20) 0 0;
+  max-width: 54ch;
+  margin: 28px 0 0;
   color: var(--text-default);
-  font-size: var(--font-body);
-  line-height: 1.5;
+  font-size: clamp(1rem, 1.4vw, 1.125rem);
+  line-height: 1.65;
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-8);
-  margin-top: var(--space-24);
+  align-items: center;
+  gap: 10px 12px;
+  margin-top: 30px;
 }
 
 .thesis {
-  margin: var(--space-24) 0 var(--space-16);
+  max-width: 56ch;
+  margin: 32px 0 18px;
+  padding-left: 16px;
+  border-left: 1px solid var(--brand-oxide);
   color: var(--text-muted);
   font-family: var(--font-serif);
-  font-size: var(--font-body);
+  font-size: 1.2rem;
+  font-style: italic;
+  line-height: 1.45;
 }
 
 .heroSignal {
+  position: relative;
+  align-self: center;
   min-width: 0;
   margin: 0;
-  padding: var(--space-24);
+  padding: 12px 0 12px clamp(24px, 4vw, 56px);
   border-left: 1px solid var(--border-default);
 }
 
 .signalHead {
-  display: grid;
-  gap: var(--space-8);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border-default);
   color: var(--text-muted);
-  font-size: var(--font-small);
+  font-size: 11px;
+  letter-spacing: 0.04em;
 }
 
 .signalHead > :first-child {
   color: var(--text-strong);
-  font-size: var(--font-label);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.channels {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-8);
-  margin-top: var(--space-24);
-}
-
-.channels span {
-  display: grid;
-  justify-items: center;
-  gap: var(--space-8);
-  padding-bottom: var(--space-12);
-  border-bottom: 3px var(--channel-pattern) var(--channel-accent);
-  color: var(--text-default);
-  font-size: var(--font-label);
-  letter-spacing: 0.06em;
-}
-
-.channels svg {
-  color: var(--channel-accent);
-}
-
-.signalRoutes {
-  width: 100%;
-  height: 80px;
-  overflow: visible;
-}
-
-.signalRoutes path {
-  fill: none;
-  stroke: var(--channel-accent);
-  stroke-width: 1.5px;
-  stroke-opacity: 0.55;
-  vector-effect: non-scaling-stroke;
-}
-
-.signalRoutes [data-channel="CYBER"] {
-  stroke-dasharray: 5 4;
-}
-
-.signalRoutes [data-channel="EW"] {
-  stroke-dasharray: 2 4;
+  font-weight: 500;
 }
 
 .signalSequence {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-16);
+  gap: 0;
   margin: 0;
   padding: 0;
   list-style: none;
+  counter-reset: evidence-step;
+}
+
+.signalSequence::before {
+  position: absolute;
+  top: 32px;
+  bottom: 35px;
+  left: 15px;
+  width: 1px;
+  background: var(--border-strong);
+  content: "";
 }
 
 .signalSequence li {
-  border-top: 1px solid var(--border-strong);
-  padding-top: var(--space-12);
+  position: relative;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  column-gap: 16px;
+  min-height: 104px;
+  padding-block: 21px 18px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .stepIndex {
-  color: var(--text-muted);
-  font-size: var(--font-label);
+  z-index: 1;
+  display: grid;
+  width: 31px;
+  height: 31px;
+  place-items: center;
+  grid-row: span 3;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-1);
+  color: var(--brand-oxide);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.stepLabel {
+  grid-column: 2;
+  margin: -2px 0 3px;
+  color: var(--brand-brass);
+  font-size: 10px;
+  letter-spacing: 0.1em;
 }
 
 .signalSequence h2 {
-  margin: var(--space-4) 0 var(--space-8);
-  font-size: var(--font-h3);
+  grid-column: 2;
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(1.2rem, 2vw, 1.5rem);
+  font-weight: 450;
+  line-height: 1.2;
 }
 
 .signalSequence p,
 .signalFoot {
+  grid-column: 2;
+  margin: 6px 0 0;
   color: var(--text-muted);
   font-size: var(--font-small);
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 .signalFoot {
-  margin-top: var(--space-16);
+  margin-top: 16px;
+  font-family: var(--font-mono);
+  font-size: 10px;
 }
 
 .principles {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-32);
-  margin-top: var(--space-24);
+  border-block: 1px solid var(--border-default);
 }
 
 .principles article {
-  display: grid;
-  grid-template-columns: 20px 1fr;
-  align-content: start;
-  gap: var(--space-8) var(--space-12);
-  padding-block: var(--space-16);
+  position: relative;
+  min-width: 0;
+  padding: 28px clamp(18px, 3vw, 40px) 30px;
+}
+
+.principles article:first-child {
+  padding-left: 0;
+}
+
+.principles article + article {
+  border-left: 1px solid var(--border-default);
 }
 
 .principles svg {
-  color: var(--text-muted);
+  color: var(--brand-oxide);
 }
 
 .principles h2 {
-  margin: 0;
-  font-size: var(--font-h3);
+  margin: 12px 0 8px;
+  font-family: var(--font-serif);
+  font-size: 1.4rem;
+  font-weight: 450;
 }
 
 .principles p {
-  grid-column: 2;
+  max-width: 38ch;
   margin: 0;
   color: var(--text-muted);
   font-size: var(--font-small);
+  line-height: 1.55;
 }
 
 .disclosure {
-  max-width: 800px;
-  margin: var(--space-24) 0 0;
+  max-width: 100ch;
+  margin: 20px 0 0;
   color: var(--text-muted);
   font-size: var(--font-small);
+  line-height: 1.55;
 }
 
 .launchError {
-  margin-top: var(--space-12);
+  max-width: 60ch;
+  margin: 16px 0 0;
   color: var(--accent-red);
 }
 
 @media (max-width: 1100px) {
   .hero {
-    gap: var(--space-24);
+    grid-template-columns: minmax(0, 0.9fr) minmax(330px, 1.1fr);
+    gap: 34px;
+    min-height: 570px;
   }
 
   .heroSignal {
-    padding: var(--space-16);
+    padding-left: 24px;
   }
 }
 
 @media (max-width: 820px) {
-  .home {
-    padding-block: var(--space-8);
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 36px;
+    min-height: auto;
+    padding-block: 40px 44px;
   }
 
-  .hero {
-    grid-template-columns: 1fr;
-    padding-block: var(--space-12) var(--space-24);
+  .heroCopy {
+    max-width: 680px;
+    padding: 0;
+  }
+
+  .hero h1 {
+    font-size: clamp(3.1rem, 11vw, 5rem);
   }
 
   .heroSignal {
-    border-left: 0;
-    border-top: 1px solid var(--border-default);
-    padding: var(--space-24) 0 0;
+    max-width: 760px;
+    width: 100%;
+    justify-self: end;
+    padding: 0 0 0 24px;
   }
 
-  .signalRoutes {
-    height: 48px;
-  }
-
-  .principles {
-    gap: var(--space-16);
+  .principles article {
+    padding-inline: 18px;
   }
 }
 
 @media (max-width: 520px) {
-  .actions > button {
+  .hero {
+    gap: 28px;
+    padding-block: 28px 32px;
+  }
+
+  .eyebrow {
+    margin-bottom: 18px;
+    font-size: 10px;
+  }
+
+  .hero h1 {
+    font-size: clamp(2.75rem, 13vw, 3.5rem);
+    line-height: 1.02;
+  }
+
+  .summary {
+    margin-top: 20px;
+    font-size: 1rem;
+  }
+
+  .actions {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+    margin-top: 22px;
+  }
+
+  .actions > button,
+  .actions > a {
     width: 100%;
   }
 
+  .thesis {
+    margin-top: 22px;
+  }
+
+  .heroSignal {
+    padding-left: 16px;
+  }
+
+  .signalSequence li {
+    grid-template-columns: 28px minmax(0, 1fr);
+    column-gap: 12px;
+    min-height: auto;
+    padding-block: 16px;
+  }
+
+  .signalSequence::before {
+    left: 13px;
+  }
+
+  .stepIndex {
+    width: 27px;
+    height: 27px;
+  }
+
   .principles {
-    grid-template-columns: 1fr;
-    gap: 0;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .principles article,
+  .principles article:first-child {
+    padding: 20px 0;
   }
 
   .principles article + article {
-    border-top: 1px solid var(--border-subtle);
+    border-top: 1px solid var(--border-default);
+    border-left: 0;
   }
 }

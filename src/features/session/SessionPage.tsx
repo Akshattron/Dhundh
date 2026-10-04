@@ -627,6 +627,7 @@ export default function SessionPage({
                   group: contribution.group,
                   channel: contribution.channel,
                   claim: report.claim,
+                  deliveredAtSec: report.deliveredAtSec,
                   gradeLabel: report.gradeLabel,
                   ageSec: contribution.ageSec,
                   effectiveAccuracy: contribution.effectiveAccuracy,

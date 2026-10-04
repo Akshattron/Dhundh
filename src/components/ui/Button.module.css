@@ -39,17 +39,17 @@
 }
 
 .primary {
-  border-color: var(--accent-cyan);
+  border-color: var(--brand-oxide);
   color: var(--bg-0);
-  background: var(--accent-cyan);
+  background: var(--brand-oxide);
 }
 
 .primary:not(:disabled):hover {
-  background: color-mix(in srgb, var(--accent-cyan) 84%, var(--text-strong));
+  background: color-mix(in srgb, var(--brand-oxide) 84%, var(--text-strong));
 }
 
 .primary:not(:disabled):active {
-  background: color-mix(in srgb, var(--accent-cyan) 80%, var(--bg-0));
+  background: color-mix(in srgb, var(--brand-oxide) 80%, var(--bg-0));
 }
 
 .secondary {

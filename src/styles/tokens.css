@@ -1,29 +1,36 @@
 :root {
-  --bg-0: #081015;
-  --bg-1: #0d161c;
-  --bg-2: #121e25;
-  --bg-3: #18262f;
+  --bg-0: #100d0b;
+  --bg-1: #17120f;
+  --bg-2: #211a16;
+  --bg-3: #29211b;
 
-  --surface-0: #0d161c;
-  --surface-1: #111c23;
-  --surface-2: #16232c;
-  --surface-elevated: #1a2a34;
+  --surface-0: #211a16;
+  --surface-1: #29211b;
+  --surface-2: #332820;
+  --surface-elevated: #332820;
 
-  --border-subtle: rgba(224, 239, 244, 0.08);
-  --border-default: rgba(224, 239, 244, 0.14);
-  --border-strong: rgba(224, 239, 244, 0.22);
+  --border-subtle: rgba(241, 232, 218, 0.08);
+  --border-default: rgba(241, 232, 218, 0.15);
+  --border-strong: rgba(241, 232, 218, 0.25);
 
-  --text-strong: #eef6f8;
-  --text-default: #d3dfe3;
-  --text-muted: #92a5ad;
-  --text-faint: #667a83;
+  --text-strong: #f1e8da;
+  --text-default: #e3d7c5;
+  --text-muted: #c7b9a5;
+  --text-faint: #a99a86;
 
-  --accent-cyan: #4fd1c5;
-  --accent-blue: #64a5ff;
-  --accent-amber: #f2b45d;
-  --accent-red: #ef7474;
-  --accent-green: #70d6a4;
-  --accent-violet: #a78bfa;
+  --brand-oxide: #c77c52;
+  --brand-brass: #c6a66b;
+  --accent-blue: #82a9c7;
+  --accent-amber: #d7a154;
+  --accent-red: #d5766c;
+  --accent-green: #75a985;
+  --accent-violet: #a693c9;
+
+  --channel-land: #9bae7f;
+  --channel-air: #82a9c7;
+  --channel-cyber: #a693c9;
+  --channel-ew: #c99b61;
+  --channel-water: #78aba8;
 
   --state-healthy: var(--accent-green);
   --state-degraded: var(--accent-amber);
@@ -32,18 +39,19 @@
   --state-unknown: var(--text-muted);
   --state-contradiction: var(--accent-violet);
 
-  --shadow-elevated: 0 12px 32px rgba(0, 0, 0, 0.2);
+  --shadow-elevated: 0 14px 40px rgba(0, 0, 0, 0.22);
 
-  --font-sans: "IBM Plex Sans", sans-serif;
-  --font-serif: "IBM Plex Serif", serif;
-  --font-display: 30px;
-  --font-h1: 24px;
-  --font-h2: 18px;
-  --font-h3: 15px;
-  --font-body: 14px;
-  --font-small: 12px;
-  --font-label: 11px;
-  --font-metric: 28px;
+  --font-sans: "IBM Plex Sans", "Segoe UI", sans-serif;
+  --font-serif: "Newsreader", Georgia, serif;
+  --font-mono: "IBM Plex Mono", "Cascadia Mono", Consolas, monospace;
+  --font-display: clamp(3rem, 6vw, 5.75rem);
+  --font-h1: clamp(1.875rem, 3vw, 2.5rem);
+  --font-h2: 1.25rem;
+  --font-h3: 1rem;
+  --font-body: 0.9375rem;
+  --font-small: 0.8125rem;
+  --font-label: 0.75rem;
+  --font-metric: 2rem;
 
   --motion-micro: 120ms;
   --motion-standard: 200ms;
@@ -65,35 +73,35 @@
   --space-48: 48px;
   --space-64: 64px;
 
-  --radius-panel: 10px;
-  --radius-card: 8px;
-  --radius-button: 7px;
-  --radius-badge: 999px;
+  --radius-panel: 4px;
+  --radius-card: 3px;
+  --radius-button: 3px;
+  --radius-badge: 2px;
   --content-width: 48rem;
   --print-background: #fff;
   --print-text: #000;
 }
 
 [data-channel="LAND"] {
-  --channel-accent: var(--accent-amber);
+  --channel-accent: var(--channel-land);
   --channel-secondary: var(--text-muted);
   --channel-pattern: solid;
 }
 
 [data-channel="AIR"] {
-  --channel-accent: var(--accent-blue);
-  --channel-secondary: var(--accent-cyan);
+  --channel-accent: var(--channel-air);
+  --channel-secondary: var(--brand-brass);
   --channel-pattern: double;
 }
 
 [data-channel="CYBER"] {
-  --channel-accent: var(--accent-violet);
-  --channel-secondary: var(--accent-blue);
+  --channel-accent: var(--channel-cyber);
+  --channel-secondary: var(--channel-air);
   --channel-pattern: dashed;
 }
 
 [data-channel="EW"] {
-  --channel-accent: var(--accent-amber);
-  --channel-secondary: var(--accent-violet);
+  --channel-accent: var(--channel-ew);
+  --channel-secondary: var(--channel-cyber);
   --channel-pattern: dotted;
 }

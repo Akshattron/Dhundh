@@ -10,7 +10,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { ScenarioBadge } from "@/components/ui/ScenarioBadge";
-import { ChannelIcon } from "@/features/trainee/ChannelHealthStrip";
 import { scenarios } from "@/scenarios";
 import {
   DemoController,
@@ -19,8 +18,6 @@ import {
 import { useSessionStore } from "@/state/useSessionStore";
 import { LOCAL_ONLY_BUILD } from "@/utils/deployment";
 import styles from "./HomePage.module.css";
-
-const channels = ["LAND", "AIR", "CYBER", "EW"] as const;
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -52,16 +49,18 @@ export default function HomePage() {
       <section className={styles.hero}>
         <div className={styles.heroCopy}>
           <p className={styles.eyebrow}>
-            Decision Training Under Degraded Information
+            A decision-training simulator · synthetic scenarios
           </p>
           <h1>
-            Decide on what you know.
+            What did you know
             <br />
-            Then see what happened.
+            when you decided?
           </h1>
           <p className={styles.summary}>
-            A deterministic training simulator for decisions made while
-            information is delayed, incomplete, and sometimes in conflict.
+            DHUNDH trains decisions made with information that is delayed,
+            incomplete, and sometimes in conflict. It evaluates the choice
+            against the belief available at commitment, then reconstructs what
+            happened.
           </p>
           <div className={styles.actions}>
             <Button
@@ -109,57 +108,48 @@ export default function HomePage() {
             </p>
           )}
           <p className={styles.thesis}>
-            A good decision can still have a bad outcome. Learn to separate the
-            two.
+            A sound decision can end badly. A lucky outcome does not make a weak
+            decision sound.
           </p>
           <ScenarioBadge />
         </div>
-        <figure className={styles.heroSignal} aria-label="Training sequence">
+        <figure
+          className={styles.heroSignal}
+          aria-labelledby="sequence-title"
+          aria-describedby="sequence-caption"
+        >
           <div className={styles.signalHead}>
-            <span>01 / Information</span>
-            <span>Four sources. One evolving picture.</span>
+            <span id="sequence-title">The decision, reconstructed</span>
+            <span>Evidence changes what can be known.</span>
           </div>
-          <div className={styles.channels}>
-            {channels.map((channel) => (
-              <span key={channel} data-channel={channel}>
-                <ChannelIcon channel={channel} size={20} />
-                {channel}
-              </span>
-            ))}
-          </div>
-          <svg
-            className={styles.signalRoutes}
-            viewBox="0 0 400 96"
-            preserveAspectRatio="none"
-            aria-hidden="true"
-          >
-            {channels.map((channel, index) => (
-              <path
-                key={channel}
-                data-channel={channel}
-                d={`M ${50 + index * 100} 0 V 16 Q ${50 + index * 100} 48 200 48 V 96`}
-              />
-            ))}
-          </svg>
           <ol className={styles.signalSequence}>
             <li>
+              <span className={styles.stepIndex}>01</span>
+              <span className={styles.stepLabel}>Evidence arrives</span>
+              <h2>What reached the trainee?</h2>
+              <p>Reports can be delayed, dropped, or in conflict.</p>
+            </li>
+            <li>
               <span className={styles.stepIndex}>02</span>
-              <h2>Fog</h2>
-              <p>Delay, gaps and conflicting evidence.</p>
+              <span className={styles.stepLabel}>Belief changes</span>
+              <h2>What does it support?</h2>
+              <p>Track probability, uncertainty, and disagreement.</p>
             </li>
             <li>
               <span className={styles.stepIndex}>03</span>
-              <h2>Belief</h2>
-              <p>What the available information supports.</p>
+              <span className={styles.stepLabel}>A choice is committed</span>
+              <h2>What was knowable then?</h2>
+              <p>Decision quality is evaluated at the decision-time cut.</p>
             </li>
             <li>
               <span className={styles.stepIndex}>04</span>
-              <h2>Decision</h2>
-              <p>Commit. Reveal the outcome. Reconstruct.</p>
+              <span className={styles.stepLabel}>The record is rebuilt</span>
+              <h2>What happened afterward?</h2>
+              <p>Replay separates the decision from the outcome.</p>
             </li>
           </ol>
-          <figcaption className={styles.signalFoot}>
-            Conceptual training sequence, not a live session.
+          <figcaption className={styles.signalFoot} id="sequence-caption">
+            Conceptual sequence · all scenario content is synthetic.
           </figcaption>
         </figure>
       </section>

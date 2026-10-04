@@ -7,18 +7,21 @@
 
 .badge {
   display: inline-flex;
-  padding: 4px 8px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-badge);
-  color: var(--text-default);
-  background: var(--surface-1);
-  font-size: var(--font-label);
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  padding: 4px 0;
+  border: 0;
+  border-bottom: 1px solid var(--brand-brass);
+  border-radius: 0;
+  color: var(--text-strong);
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .provenance {
   color: var(--text-muted);
   font-size: var(--font-small);
+  line-height: 1.5;
 }

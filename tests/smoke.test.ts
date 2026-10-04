@@ -13,15 +13,15 @@ test("the root route renders the Gate 2 training home", async () => {
       "heading",
       {
         level: 1,
-        name: /Decide on what you know.*Then see what happened/,
+        name: /What did you know.*when you decided/,
       },
       { timeout: 5000 },
     ),
   ).toBeTruthy();
   expect(
-    screen.getByText("Decision Training Under Degraded Information")
+    screen.getByText("A decision-training simulator · synthetic scenarios")
       .textContent,
-  ).toBe("Decision Training Under Degraded Information");
+  ).toBe("A decision-training simulator · synthetic scenarios");
   expect(screen.getByText("Synthetic training environment").textContent).toBe(
     "Synthetic training environment",
   );

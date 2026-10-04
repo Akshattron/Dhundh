@@ -430,3 +430,64 @@
     grid-template-columns: 1fr;
   }
 }
+
+.page {
+  max-width: 1320px;
+}
+
+.heading {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.heading h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(2.1rem, 3.6vw, 3.25rem);
+  font-weight: 450;
+}
+
+.kicker,
+.phase,
+.code,
+.liveState strong,
+.monitorValue {
+  font-family: var(--font-mono);
+}
+
+.panel,
+.entryGuide {
+  padding: 18px 0;
+  border: 0;
+  border-top: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--border-default);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.layout > .panel,
+.entryLayout > .panel {
+  padding-inline: 0;
+}
+
+.participant,
+.events li,
+.monitorCard {
+  border-radius: 0;
+  background: transparent;
+}
+
+.participant {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.monitorCard {
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.injects,
+.privateDiagnostics {
+  border-radius: 0;
+  box-shadow: none;
+}

@@ -13,7 +13,7 @@
 
 .trigger:hover,
 .close:hover {
-  border-color: var(--accent-cyan);
+  border-color: var(--brand-oxide);
   color: var(--text-strong);
 }
 
@@ -50,7 +50,7 @@
 
 .kicker {
   margin: 0;
-  color: var(--accent-cyan);
+  color: var(--brand-oxide);
   font-size: var(--font-label);
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -72,7 +72,7 @@
 .disclosure {
   margin: 15px 0;
   padding: 12px;
-  border-left: 2px solid var(--accent-cyan);
+  border-left: 2px solid var(--brand-oxide);
   color: var(--text-default);
   background: var(--surface-1);
   font-size: var(--font-small);
@@ -103,7 +103,7 @@
 }
 
 .sections code {
-  color: var(--accent-cyan);
+  color: var(--brand-oxide);
   font-family: var(--font-mono, monospace);
 }
 

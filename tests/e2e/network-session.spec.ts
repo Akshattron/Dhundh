@@ -135,7 +135,9 @@ test("authoritative session partitions reports, relays analyst evidence, reconne
     ).toBeVisible();
     await expect(commander.getByText("Recorded runs")).toBeVisible();
     await expect(commander.getByText("Harbour Flood Response")).toHaveCount(0);
-    await expect(commander.getByText("Relief Corridor KESTREL")).toBeVisible();
+    await expect(
+      commander.getByRole("heading", { name: "Relief Corridor KESTREL" }),
+    ).toBeVisible();
   } finally {
     await commanderContext.close();
     await analystContext.close();

@@ -1,7 +1,7 @@
 .strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-8);
+  gap: 0;
   margin-bottom: var(--space-12);
 }
 
@@ -13,7 +13,11 @@
   min-width: 0;
   padding: var(--space-8) var(--space-12);
   border-bottom: 3px var(--channel-pattern) var(--channel-accent);
-  background: var(--surface-0);
+  background: transparent;
+}
+
+.channel + .channel {
+  border-left: 1px solid var(--border-default);
 }
 
 .identity,
@@ -85,5 +89,9 @@
 @media (max-width: 600px) {
   .strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .channel:nth-child(3) {
+    border-left: 0;
   }
 }

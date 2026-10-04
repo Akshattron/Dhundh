@@ -322,3 +322,81 @@
     grid-column: auto;
   }
 }
+
+.page {
+  max-width: 1240px;
+  gap: 20px;
+}
+
+.top {
+  align-items: flex-end;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.top h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(2.25rem, 4vw, 3.5rem);
+  font-weight: 450;
+}
+
+.kicker,
+.metric strong,
+.scoring dd {
+  font-family: var(--font-mono);
+}
+
+.summary,
+.panel {
+  padding: 18px 0;
+  border: 0;
+  border-top: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--border-default);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.summary h2,
+.panel h2 {
+  font-family: var(--font-serif);
+  font-size: 1.6rem;
+  font-weight: 450;
+}
+
+.columns > .panel:first-child,
+.columns > .panel:last-child {
+  padding-inline: 0;
+}
+
+.metric {
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
+}
+
+.metric strong {
+  font-size: 1.6rem;
+  font-weight: 400;
+}
+
+.actionList li,
+.channels > div {
+  padding-block: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.payoff,
+.information,
+.scoring {
+  border-radius: 0;
+  background: transparent;
+}
+
+@media (max-width: 820px) {
+  .top {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

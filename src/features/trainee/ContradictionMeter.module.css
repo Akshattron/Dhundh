@@ -64,11 +64,12 @@
 }
 
 .positive {
-  fill: var(--accent-green);
+  fill: var(--brand-brass);
 }
 
 .negative {
   stroke: var(--accent-violet);
+  stroke-dasharray: 2 2;
 }
 
 .positive,

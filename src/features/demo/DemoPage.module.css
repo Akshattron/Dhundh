@@ -60,7 +60,7 @@
 .controlActions button:active:not(:disabled),
 .shortcutsButton:active {
   background: var(--bg-0);
-  border-color: var(--accent-cyan);
+  border-color: var(--brand-oxide);
 }
 
 .controlActions button:disabled {

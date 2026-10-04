@@ -21,8 +21,8 @@
 }
 
 .value {
-  stroke: var(--accent-amber);
-  stroke-linecap: round;
+  stroke: var(--brand-brass);
+  stroke-linecap: butt;
   transition: stroke-dasharray var(--motion-belief) var(--ease-out);
 }
 
@@ -33,6 +33,7 @@
 
 .root strong {
   color: var(--text-strong);
+  font-family: var(--font-mono);
   font-size: var(--font-h3);
 }
 
