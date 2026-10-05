@@ -1281,3 +1281,55 @@
     flex: 1;
   }
 }
+
+@media print {
+  .page {
+    display: block;
+  }
+
+  .page > * {
+    margin-block: 0 12px;
+  }
+
+  .columns {
+    display: block;
+    break-inside: auto;
+  }
+
+  .columns > .panel + .panel {
+    margin-top: 24px;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .sectionHeading,
+  .disclosure > summary,
+  .verificationBelief h3 {
+    break-after: avoid-page;
+  }
+
+  #aar-verification > h3 {
+    break-after: avoid-page;
+  }
+
+  .temporalNote {
+    break-inside: avoid-page;
+  }
+
+  .verificationFacts {
+    display: block;
+  }
+
+  .verificationFacts > div {
+    break-inside: avoid-page;
+    margin-top: 10px;
+  }
+
+  .timeline {
+    display: block;
+  }
+
+  .timeline li {
+    break-inside: avoid-page;
+  }
+}

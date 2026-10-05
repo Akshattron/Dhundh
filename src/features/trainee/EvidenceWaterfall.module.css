@@ -283,3 +283,46 @@
     text-align: left;
   }
 }
+
+@media print {
+  .root,
+  .ledger {
+    display: block;
+  }
+
+  .hypothesis + .hypothesis {
+    margin-top: 24px;
+  }
+
+  .heading,
+  .axis {
+    break-after: avoid-page;
+  }
+
+  .row,
+  .record {
+    break-inside: avoid-page;
+  }
+
+  .recordBody {
+    display: block;
+  }
+
+  .recordMeta {
+    margin-bottom: 4px;
+  }
+
+  .claim {
+    margin-bottom: 6px;
+  }
+
+  .barTrack {
+    max-width: 320px;
+    margin-bottom: 4px;
+  }
+
+  .contribution {
+    justify-content: flex-start;
+    text-align: left;
+  }
+}
